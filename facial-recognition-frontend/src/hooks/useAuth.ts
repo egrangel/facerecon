@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, LoginCredentials, RegisterData } from '../types/api';
 import apiClient from '../services/api';
 
@@ -55,9 +55,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       const response = await apiClient.login(credentials);
       setUser(response.user);
-    } finally {
+    } catch (error) {
       setIsLoading(false);
+      throw error;
     }
+    setIsLoading(false);
   };
 
   const register = async (data: RegisterData) => {
@@ -65,9 +67,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       const response = await apiClient.register(data);
       setUser(response.user);
-    } finally {
+    } catch (error) {
       setIsLoading(false);
+      throw error;
     }
+    setIsLoading(false);
   };
 
   const logout = () => {
@@ -84,7 +88,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  const value = {
+  const value: AuthContextType = {
     user,
     isLoading,
     isAuthenticated,
@@ -94,5 +98,5 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     refreshUser,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return React.createElement(AuthContext.Provider, { value }, children);
 };

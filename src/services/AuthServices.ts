@@ -1,6 +1,7 @@
 import jwt, { SignOptions } from 'jsonwebtoken';
 import { User } from '@/entities/User';
-import { UserRepository } from '@/repositories';
+import { Organization } from '@/entities/Organization';
+import { UserRepository, OrganizationRepository } from '@/repositories';
 import { createError } from '@/middlewares/errorHandler';
 
 export interface LoginCredentials {
@@ -16,15 +17,21 @@ export interface TokenPair {
 export interface RegisterData {
   email: string;
   password: string;
-  nome: string;
+  name: string;
   role?: 'admin' | 'user' | 'operator';
+  organization: {
+    name: string;
+    description?: string;
+  };
 }
 
 export class AuthService {
   private userRepository: UserRepository;
+  private organizationRepository: OrganizationRepository;
 
   constructor() {
     this.userRepository = new UserRepository();
+    this.organizationRepository = new OrganizationRepository();
   }
 
   async login(credentials: LoginCredentials): Promise<{ user: User; tokens: TokenPair }> {
@@ -33,18 +40,18 @@ export class AuthService {
     // Buscar usuário por email
     const user = await this.userRepository.findByEmail(email);
     if (!user) {
-      throw createError('Credenciais inválidas', 401);
+      throw createError('Usuário não encontrado. Verifique o email informado.', 401);
     }
 
     // Verificar se o usuário está ativo
-    if (user.status !== 'ativo') {
-      throw createError('Usuário inativo', 401);
+    if (user.status !== 'active') {
+      throw createError('Usuário inativo. Entre em contato com o administrador.', 401);
     }
 
     // Validar senha
     const isPasswordValid = await user.validatePassword(password);
     if (!isPasswordValid) {
-      throw createError('Credenciais inválidas', 401);
+      throw createError('Senha incorreta. Verifique suas credenciais.', 401);
     }
 
     // Gerar tokens
@@ -75,6 +82,7 @@ export class AuthService {
       id: user.id,
       email: user.email,
       role: user.role,
+      organizationId: user.organizationId,
     };
 
     const accessToken = jwt.sign(payload, jwtSecret as string, {
@@ -102,21 +110,31 @@ export class AuthService {
   }
 
   async register(registerData: RegisterData): Promise<{ user: User; tokens: TokenPair }> {
-    const { email, password, nome, role = 'user' } = registerData;
+    const { email, password, name, role = 'user', organization } = registerData;
 
     // Verificar se o usuário já existe
     const existingUser = await this.userRepository.findByEmail(email);
     if (existingUser) {
-      throw createError('Usuário já existe com este email', 409);
+      throw createError('User already exists with this email', 409);
     }
 
-    // Criar novo usuário
+    // Criar organização primeiro
+    const organizationData = {
+      name: organization.name,
+      description: organization.description || `Organization for ${organization.name}`,
+      status: 'active'
+    };
+
+    const createdOrganization = await this.organizationRepository.create(organizationData);
+
+    // Criar novo usuário vinculado à organização
     const userData = {
       email,
       password,
-      nome,
+      name,
       role,
-      status: 'ativo',
+      status: 'active',
+      organizationId: createdOrganization.id
     };
 
     const user = await this.userRepository.create(userData);
@@ -149,7 +167,7 @@ export class AuthService {
       }
 
       // Verificar se o usuário está ativo
-      if (user.status !== 'ativo') {
+      if (user.status !== 'active') {
         throw createError('Usuário inativo', 401);
       }
 

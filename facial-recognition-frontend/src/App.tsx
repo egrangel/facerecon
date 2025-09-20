@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
 import DashboardLayout from './components/layout/DashboardLayout';
 import DashboardHome from './pages/DashboardHome';
 import PessoasPage from './pages/PessoasPage';
@@ -10,6 +11,7 @@ import CamerasPage from './pages/CamerasPage';
 import EventosPage from './pages/EventosPage';
 import DeteccoesPage from './pages/DeteccoesPage';
 import CadastrosPage from './pages/CadastrosPage';
+import SettingsPage from './pages/SettingsPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,6 +63,11 @@ function App() {
                   <LoginPage />
                 </PublicRoute>
               } />
+              <Route path="/register" element={
+                <PublicRoute>
+                  <RegisterPage />
+                </PublicRoute>
+              } />
 
               {/* Protected routes */}
               <Route path="/dashboard/*" element={
@@ -74,6 +81,7 @@ function App() {
                 <Route path="eventos" element={<EventosPage />} />
                 <Route path="deteccoes" element={<DeteccoesPage />} />
                 <Route path="cadastros" element={<CadastrosPage />} />
+                <Route path="settings" element={<SettingsPage />} />
               </Route>
 
               {/* Default redirect */}

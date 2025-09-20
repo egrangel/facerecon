@@ -1,12 +1,12 @@
 import { Entity, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { IsString, IsOptional, Length, IsDateString, IsNumber } from 'class-validator';
 import { BaseEntity } from './BaseEntity';
-import { Cadastro } from './Cadastro';
-import { PessoaFace } from './index';
+import { Organization } from './Organization';
+import { PersonFace } from './index';
 
-// Evento Entity
-@Entity('eventos')
-class Evento extends BaseEntity {
+// Event Entity
+@Entity('events')
+class Event extends BaseEntity {
   @Column({
     type: 'varchar',
     length: 255,
@@ -14,7 +14,7 @@ class Evento extends BaseEntity {
   })
   @IsString()
   @Length(1, 255)
-  nome!: string;
+  name!: string;
 
   @Column({
     type: 'text',
@@ -22,7 +22,7 @@ class Evento extends BaseEntity {
   })
   @IsOptional()
   @IsString()
-  descricao?: string;
+  description?: string;
 
   @Column({
     type: 'varchar',
@@ -31,20 +31,20 @@ class Evento extends BaseEntity {
   })
   @IsString()
   @Length(1, 100)
-  tipo!: string; // entrada, saida, deteccao, etc.
+  type!: string; // entry, exit, detection, etc.
 
   @Column({
     type: 'datetime',
     nullable: false
   })
   @IsDateString()
-  dataHoraOcorrencia!: Date;
+  occurredAt!: Date;
 
   @Column({
     type: 'varchar',
     length: 50,
     nullable: false,
-    default: 'ativo'
+    default: 'active'
   })
   @IsString()
   status!: string;
@@ -56,14 +56,14 @@ class Evento extends BaseEntity {
   })
   @IsOptional()
   @IsString()
-  local?: string;
+  location?: string;
 
   @Column({
     type: 'text',
     nullable: true
   })
   @IsOptional()
-  coordenadas?: string; // JSON string: x, y, width, height da face detectada
+  coordinates?: string; // JSON string: x, y, width, height of detected face
 
   @Column({
     type: 'text',
@@ -71,32 +71,32 @@ class Evento extends BaseEntity {
   })
   @IsOptional()
   @IsString()
-  observacoes?: string;
+  notes?: string;
 
   // Foreign Keys
-  @Column({ name: 'cadastro_id', nullable: false })
-  cadastroId!: number;
+  @Column({ name: 'organization_id', nullable: false })
+  organizationId!: number;
 
   // Relationships
-  @ManyToOne(() => Cadastro, (cadastro) => cadastro.eventos, {
+  @ManyToOne(() => Organization, (organization) => organization.events, {
     nullable: false,
     onDelete: 'CASCADE'
   })
-  @JoinColumn({ name: 'cadastro_id' })
-  cadastro!: Cadastro;
+  @JoinColumn({ name: 'organization_id' })
+  organization!: Organization;
 
-  @OneToMany(() => Deteccao, (deteccao) => deteccao.evento, {
+  @OneToMany(() => Detection, (detection) => detection.event, {
     cascade: true,
     onDelete: 'CASCADE'
   })
-  deteccoes!: Deteccao[];
+  detections!: Detection[];
 
   @Column({
     type: 'text',
     nullable: true
   })
   @IsOptional()
-  metadados?: string; // JSON string
+  metadata?: string; // JSON string
 }
 
 // Camera Entity
@@ -109,7 +109,7 @@ class Camera extends BaseEntity {
   })
   @IsString()
   @Length(1, 255)
-  nome!: string;
+  name!: string;
 
   @Column({
     type: 'varchar',
@@ -118,7 +118,7 @@ class Camera extends BaseEntity {
   })
   @IsOptional()
   @IsString()
-  descricao?: string;
+  description?: string;
 
   @Column({
     type: 'varchar',
@@ -135,7 +135,7 @@ class Camera extends BaseEntity {
     default: 80
   })
   @IsNumber()
-  porta!: number;
+  port!: number;
 
   @Column({
     type: 'varchar',
@@ -144,7 +144,7 @@ class Camera extends BaseEntity {
   })
   @IsOptional()
   @IsString()
-  usuario?: string;
+  username?: string;
 
   @Column({
     type: 'varchar',
@@ -153,7 +153,7 @@ class Camera extends BaseEntity {
   })
   @IsOptional()
   @IsString()
-  senha?: string;
+  password?: string;
 
   @Column({
     type: 'varchar',
@@ -162,7 +162,7 @@ class Camera extends BaseEntity {
   })
   @IsOptional()
   @IsString()
-  urlStream?: string;
+  streamUrl?: string;
 
   @Column({
     type: 'varchar',
@@ -171,7 +171,7 @@ class Camera extends BaseEntity {
     default: 'RTSP'
   })
   @IsString()
-  protocolo!: string;
+  protocol!: string;
 
   @Column({
     type: 'varchar',
@@ -180,13 +180,13 @@ class Camera extends BaseEntity {
   })
   @IsOptional()
   @IsString()
-  localizacao?: string;
+  location?: string;
 
   @Column({
     type: 'varchar',
     length: 50,
     nullable: false,
-    default: 'ativo'
+    default: 'active'
   })
   @IsString()
   status!: string;
@@ -196,47 +196,47 @@ class Camera extends BaseEntity {
     nullable: true
   })
   @IsOptional()
-  configuracoes?: string; // JSON string
+  settings?: string; // JSON string
 
-  @Column({ name: 'cadastro_id', nullable: false })
-  cadastroId!: number;
+  @Column({ name: 'organization_id', nullable: false })
+  organizationId!: number;
 
-  @ManyToOne(() => Cadastro, (cadastro) => cadastro.cameras, {
+  @ManyToOne(() => Organization, (organization) => organization.cameras, {
     nullable: false,
     onDelete: 'CASCADE'
   })
-  @JoinColumn({ name: 'cadastro_id' })
-  cadastro!: Cadastro;
+  @JoinColumn({ name: 'organization_id' })
+  organization!: Organization;
 
-  @OneToMany(() => Deteccao, (deteccao) => deteccao.camera, {
+  @OneToMany(() => Detection, (detection) => detection.camera, {
     cascade: true,
     onDelete: 'CASCADE'
   })
-  deteccoes!: Deteccao[];
+  detections!: Detection[];
 }
 
-// Deteccao Entity
-@Entity('deteccoes')
-class Deteccao extends BaseEntity {
+// Detection Entity
+@Entity('detections')
+class Detection extends BaseEntity {
   @Column({
     type: 'datetime',
     nullable: false
   })
   @IsDateString()
-  dataHoraDeteccao!: Date;
+  detectedAt!: Date;
 
   @Column({
     type: 'float',
     nullable: false
   })
   @IsNumber()
-  confiabilidade!: number;
+  confidence!: number;
 
   @Column({
     type: 'varchar',
     length: 50,
     nullable: false,
-    default: 'detectado'
+    default: 'detected'
   })
   @IsString()
   status!: string;
@@ -248,41 +248,41 @@ class Deteccao extends BaseEntity {
   })
   @IsOptional()
   @IsString()
-  imagemUrl?: string;
+  imageUrl?: string;
 
   @Column({
     type: 'text',
     nullable: true
   })
   @IsOptional()
-  metadados?: string; // JSON string
+  metadata?: string; // JSON string
 
   // Foreign Keys
-  @Column({ name: 'evento_id', nullable: false })
-  eventoId!: number;
+  @Column({ name: 'event_id', nullable: false })
+  eventId!: number;
 
-  @Column({ name: 'pessoa_face_id', nullable: false })
-  pessoaFaceId!: number;
+  @Column({ name: 'person_face_id', nullable: false })
+  personFaceId!: number;
 
   @Column({ name: 'camera_id', nullable: true })
   cameraId?: number;
 
   // Relationships
-  @ManyToOne(() => Evento, (evento) => evento.deteccoes, {
+  @ManyToOne(() => Event, (event) => event.detections, {
     nullable: false,
     onDelete: 'CASCADE'
   })
-  @JoinColumn({ name: 'evento_id' })
-  evento!: Evento;
+  @JoinColumn({ name: 'event_id' })
+  event!: Event;
 
-  @ManyToOne(() => PessoaFace, {
+  @ManyToOne(() => PersonFace, {
     nullable: false,
     onDelete: 'CASCADE'
   })
-  @JoinColumn({ name: 'pessoa_face_id' })
-  pessoaFace!: PessoaFace;
+  @JoinColumn({ name: 'person_face_id' })
+  personFace!: PersonFace;
 
-  @ManyToOne(() => Camera, (camera) => camera.deteccoes, {
+  @ManyToOne(() => Camera, (camera) => camera.detections, {
     nullable: true,
     onDelete: 'SET NULL'
   })
@@ -290,4 +290,4 @@ class Deteccao extends BaseEntity {
   camera?: Camera;
 }
 
-export { Evento, Camera, Deteccao };
+export { Event, Camera, Detection };

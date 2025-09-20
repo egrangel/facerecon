@@ -1,64 +1,122 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { apiClient } from '../services/api';
+import { Event } from '../types/api';
 
-interface Evento {
-  id: number;
-  tipo: 'deteccao' | 'acesso_negado' | 'sistema' | 'erro' | 'alerta';
-  descricao: string;
-  timestamp: string;
-  pessoa?: {
-    id: number;
-    nome: string;
-  };
-  camera?: {
-    id: number;
-    nome: string;
-    localizacao: string;
-  };
-  deteccao?: {
-    id: number;
-    confianca: number;
-  };
-  metadata?: any;
-  severidade: 'baixa' | 'media' | 'alta' | 'critica';
-  status: 'novo' | 'visto' | 'resolvido';
+interface EventFormData {
+  name: string;
+  description?: string;
+  type: string;
+  occurredAt: string;
+  status: string;
+  location?: string;
+  coordinates?: string;
+  notes?: string;
+}
+
+interface EventCreateData extends EventFormData {
+  organizationId?: number; // Will be set by backend middleware
 }
 
 const EventosPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [tipoFilter, setTipoFilter] = useState<string>('');
-  const [severidadeFilter, setSeveridadeFilter] = useState<string>('');
+  const [typeFilter, setTypeFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [dateFilter, setDateFilter] = useState<string>('');
-  const [selectedEvento, setSelectedEvento] = useState<Evento | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
 
-  const { data: eventos = [], isLoading } = useQuery({
-    queryKey: ['eventos'],
+  const queryClient = useQueryClient();
+
+  const { data: eventsResponse, isLoading } = useQuery({
+    queryKey: ['events'],
     queryFn: async () => {
-      const response = await apiClient.get('/eventos');
-      return response.data;
+      return await apiClient.getEvents();
     },
   });
 
-  const filteredEventos = eventos.filter((evento: Evento) => {
-    const matchesSearch = evento.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         evento.pessoa?.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         evento.camera?.nome.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesTipo = !tipoFilter || evento.tipo === tipoFilter;
-    const matchesSeveridade = !severidadeFilter || evento.severidade === severidadeFilter;
-    const matchesStatus = !statusFilter || evento.status === statusFilter;
-    const matchesDate = !dateFilter || new Date(evento.timestamp).toDateString() === new Date(dateFilter).toDateString();
-
-    return matchesSearch && matchesTipo && matchesSeveridade && matchesStatus && matchesDate;
+  // Mutations for CRUD operations
+  const createEventMutation = useMutation({
+    mutationFn: (data: EventFormData) => {
+      // The organizationId will be automatically set by the backend middleware
+      // since we're using the organizationAccess middleware on the routes
+      const createData: EventCreateData = { ...data };
+      return apiClient.createEvent(createData as any);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      setShowEventModal(false);
+      alert('Evento criado com sucesso!');
+    },
+    onError: (error: any) => {
+      alert(error.response?.data?.message || 'Erro ao criar evento');
+    },
   });
 
-  const getTipoIcon = (tipo: string) => {
-    switch (tipo) {
+  const updateEventMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Partial<Event> }) =>
+      apiClient.updateEvent(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      setShowEventModal(false);
+      setEditingEvent(null);
+      alert('Evento atualizado com sucesso!');
+    },
+    onError: (error: any) => {
+      alert(error.response?.data?.message || 'Erro ao atualizar evento');
+    },
+  });
+
+  const deleteEventMutation = useMutation({
+    mutationFn: (id: number) => apiClient.deleteEvent(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      alert('Evento excluído com sucesso!');
+    },
+    onError: (error: any) => {
+      alert(error.response?.data?.message || 'Erro ao excluir evento');
+    },
+  });
+
+  const events = eventsResponse?.data || [];
+
+  // Helper functions
+  const handleEditEvent = (event: Event) => {
+    setEditingEvent(event);
+    setShowEventModal(true);
+  };
+
+  const handleDeleteEvent = (event: Event) => {
+    if (window.confirm(`Tem certeza que deseja excluir o evento "${event.name}"?`)) {
+      deleteEventMutation.mutate(event.id);
+    }
+  };
+
+  const closeEventModal = () => {
+    setShowEventModal(false);
+    setEditingEvent(null);
+  };
+
+  const filteredEvents = events.filter((event: Event) => {
+    const matchesSearch = event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         event.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         event.location?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesType = !typeFilter || event.type === typeFilter;
+    const matchesStatus = !statusFilter || event.status === statusFilter;
+
+    const matchesDate = !dateFilter || new Date(event.occurredAt).toDateString() === new Date(dateFilter).toDateString();
+
+    return matchesSearch && matchesType && matchesStatus && matchesDate;
+  });
+
+  const getTypeIcon = (type: string) => {
+    switch (type) {
       case 'deteccao':
         return (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -100,20 +158,6 @@ const EventosPage: React.FC = () => {
     }
   };
 
-  const getSeveridadeColor = (severidade: string) => {
-    switch (severidade) {
-      case 'critica':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'alta':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'media':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'baixa':
-        return 'bg-green-100 text-green-800 border-green-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -141,6 +185,12 @@ const EventosPage: React.FC = () => {
             Histórico de eventos e notificações do sistema
           </p>
         </div>
+        <Button
+          onClick={() => setShowEventModal(true)}
+          className="bg-primary-600 text-white hover:bg-primary-700"
+        >
+          Adicionar Evento
+        </Button>
       </div>
 
       {/* Filters */}
@@ -154,29 +204,18 @@ const EventosPage: React.FC = () => {
             />
 
             <select
-              value={tipoFilter}
-              onChange={(e) => setTipoFilter(e.target.value)}
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             >
               <option value="">Todos os tipos</option>
-              <option value="deteccao">Detecção</option>
+              <option value="deteccao">Detec��o</option>
               <option value="acesso_negado">Acesso Negado</option>
               <option value="sistema">Sistema</option>
               <option value="erro">Erro</option>
               <option value="alerta">Alerta</option>
             </select>
 
-            <select
-              value={severidadeFilter}
-              onChange={(e) => setSeveridadeFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-            >
-              <option value="">Todas severidades</option>
-              <option value="baixa">Baixa</option>
-              <option value="media">Média</option>
-              <option value="alta">Alta</option>
-              <option value="critica">Crítica</option>
-            </select>
 
             <select
               value={statusFilter}
@@ -199,8 +238,7 @@ const EventosPage: React.FC = () => {
               variant="outline"
               onClick={() => {
                 setSearchTerm('');
-                setTipoFilter('');
-                setSeveridadeFilter('');
+                setTypeFilter('');
                 setStatusFilter('');
                 setDateFilter('');
               }}
@@ -219,21 +257,21 @@ const EventosPage: React.FC = () => {
               <div className="p-12 text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
               </div>
-            ) : filteredEventos.length === 0 ? (
+            ) : filteredEvents.length === 0 ? (
               <div className="p-12 text-center text-gray-500">
                 Nenhum evento encontrado
               </div>
             ) : (
-              filteredEventos.map((evento: Evento) => (
+              filteredEvents.map((event: Event) => (
                 <div
-                  key={evento.id}
+                  key={event.id}
                   className="p-6 hover:bg-gray-50 cursor-pointer transition-colors"
-                  onClick={() => setSelectedEvento(evento)}
+                  onClick={() => setSelectedEvent(event)}
                 >
                   <div className="flex items-start space-x-4">
-                    <div className={`p-2 rounded-lg ${getSeveridadeColor(evento.severidade)} border`}>
+                    <div className={`p-2 rounded-lg ${getStatusColor(event.status)} border`}>
                       <div className="text-current">
-                        {getTipoIcon(evento.tipo)}
+                        {getTypeIcon(event.type)}
                       </div>
                     </div>
 
@@ -241,43 +279,53 @@ const EventosPage: React.FC = () => {
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-3">
                           <h3 className="text-sm font-medium text-gray-900 capitalize">
-                            {evento.tipo.replace('_', ' ')}
+                            {event.type.replace('_', ' ')}
                           </h3>
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getSeveridadeColor(evento.severidade)}`}>
-                            {evento.severidade}
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(event.status)}`}>
+                            {event.status}
                           </span>
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(evento.status)}`}>
-                            {evento.status}
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(event.status)}`}>
+                            {event.status}
                           </span>
                         </div>
                         <span className="text-sm text-gray-500">
-                          {formatTimestamp(evento.timestamp)}
+                          {formatTimestamp(event.occurredAt)}
                         </span>
                       </div>
 
                       <p className="text-sm text-gray-700 mb-2">
-                        {evento.descricao}
+                        {event.description}
                       </p>
 
-                      {(evento.pessoa || evento.camera) && (
+                      {event.location && (
                         <div className="flex items-center space-x-4 text-xs text-gray-500">
-                          {evento.pessoa && (
-                            <span>Pessoa: {evento.pessoa.nome}</span>
-                          )}
-                          {evento.camera && (
-                            <span>Câmera: {evento.camera.nome} ({evento.camera.localizacao})</span>
-                          )}
-                          {evento.deteccao && (
-                            <span>Confiança: {evento.deteccao.confianca.toFixed(1)}%</span>
-                          )}
+                          <span>Local: {event.location}</span>
                         </div>
                       )}
                     </div>
 
-                    <div className="flex-shrink-0">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
+                    <div className="flex-shrink-0 flex space-x-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditEvent(event);
+                        }}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteEvent(event);
+                        }}
+                        className="text-red-600 border-red-300 hover:bg-red-50"
+                      >
+                        Excluir
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -288,18 +336,220 @@ const EventosPage: React.FC = () => {
       </Card>
 
       {/* Modal de detalhes */}
-      {selectedEvento && (
+      {selectedEvent && (
         <EventoModal
-          evento={selectedEvento}
-          onClose={() => setSelectedEvento(null)}
+          evento={selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+        />
+      )}
+
+      {/* Modal de formulário */}
+      {showEventModal && (
+        <EventFormModal
+          event={editingEvent}
+          onClose={closeEventModal}
+          onSubmit={(data) => {
+            if (editingEvent) {
+              updateEventMutation.mutate({ id: editingEvent.id, data });
+            } else {
+              createEventMutation.mutate(data);
+            }
+          }}
+          isLoading={createEventMutation.isPending || updateEventMutation.isPending}
         />
       )}
     </div>
   );
 };
 
+interface EventFormModalProps {
+  event: Event | null;
+  onClose: () => void;
+  onSubmit: (data: EventFormData) => void;
+  isLoading: boolean;
+}
+
+const EventFormModal: React.FC<EventFormModalProps> = ({ event, onClose, onSubmit, isLoading }) => {
+  const formatDateForInput = (dateString: string) => {
+    try {
+      return new Date(dateString).toISOString().split('T')[0];
+    } catch {
+      return new Date().toISOString().split('T')[0];
+    }
+  };
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm<EventFormData>({
+    defaultValues: event ? {
+      name: event.name,
+      description: event.description || '',
+      type: event.type,
+      occurredAt: formatDateForInput(event.occurredAt),
+      status: event.status,
+      location: event.location || '',
+      coordinates: event.coordinates || '',
+      notes: event.notes || '',
+    } : {
+      name: '',
+      description: '',
+      type: 'sistema',
+      occurredAt: new Date().toISOString().split('T')[0],
+      status: 'novo',
+      location: '',
+      coordinates: '',
+      notes: '',
+    }
+  });
+
+  const onFormSubmit = (data: EventFormData) => {
+    const submitData = {
+      ...data,
+      occurredAt: new Date(data.occurredAt).toISOString(),
+    };
+    onSubmit(submitData);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+          <h3 className="text-lg font-medium text-gray-900">
+            {event ? 'Editar Evento' : 'Criar Novo Evento'}
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit(onFormSubmit)} className="p-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <Input
+                label="Nome do Evento"
+                error={errors.name?.message}
+                {...register('name', {
+                  required: 'Nome é obrigatório',
+                })}
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                Descrição
+              </label>
+              <textarea
+                id="description"
+                rows={3}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                {...register('description')}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
+                Tipo
+              </label>
+              <select
+                id="type"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                {...register('type', { required: 'Tipo é obrigatório' })}
+              >
+                <option value="deteccao">Detecção</option>
+                <option value="acesso_negado">Acesso Negado</option>
+                <option value="sistema">Sistema</option>
+                <option value="erro">Erro</option>
+                <option value="alerta">Alerta</option>
+              </select>
+              {errors.type && <p className="text-red-500 text-sm mt-1">{errors.type.message}</p>}
+            </div>
+
+            <div>
+              <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+                Status
+              </label>
+              <select
+                id="status"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                {...register('status', { required: 'Status é obrigatório' })}
+              >
+                <option value="novo">Novo</option>
+                <option value="visto">Visto</option>
+                <option value="resolvido">Resolvido</option>
+              </select>
+              {errors.status && <p className="text-red-500 text-sm mt-1">{errors.status.message}</p>}
+            </div>
+
+            <div>
+              <Input
+                label="Data de Ocorrência"
+                type="date"
+                error={errors.occurredAt?.message}
+                {...register('occurredAt', {
+                  required: 'Data é obrigatória',
+                })}
+              />
+            </div>
+
+            <div>
+              <Input
+                label="Local"
+                {...register('location')}
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <Input
+                label="Coordenadas"
+                placeholder="Ex: -23.5505,-46.6333"
+                {...register('coordinates')}
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+                Observações
+              </label>
+              <textarea
+                id="notes"
+                rows={3}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                {...register('notes')}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              isLoading={isLoading}
+            >
+              {event ? 'Atualizar' : 'Criar'} Evento
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 interface EventoModalProps {
-  evento: Evento;
+  evento: Event;
   onClose: () => void;
 }
 
@@ -353,11 +603,11 @@ const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose }) => {
           {/* Header */}
           <div className="flex items-center justify-between">
             <h4 className="text-xl font-semibold text-gray-900 capitalize">
-              {evento.tipo.replace('_', ' ')}
+              {evento.type.replace('_', ' ')}
             </h4>
             <div className="flex space-x-2">
-              <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getSeveridadeColor(evento.severidade)}`}>
-                {evento.severidade}
+              <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(evento.status)}`}>
+                {evento.status}
               </span>
               <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(evento.status)}`}>
                 {evento.status}
@@ -365,17 +615,17 @@ const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose }) => {
             </div>
           </div>
 
-          {/* Informações principais */}
+          {/* Informa��es principais */}
           <div className="space-y-4">
             <div>
-              <h5 className="text-sm font-medium text-gray-700 mb-2">Descrição</h5>
-              <p className="text-gray-900">{evento.descricao}</p>
+              <h5 className="text-sm font-medium text-gray-700 mb-2">Descri��o</h5>
+              <p className="text-gray-900">{evento.description}</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <h5 className="text-sm font-medium text-gray-700 mb-2">Data e Hora</h5>
-                <p className="text-gray-900">{new Date(evento.timestamp).toLocaleString('pt-BR')}</p>
+                <p className="text-gray-900">{new Date(evento.occurredAt).toLocaleString('pt-BR')}</p>
               </div>
 
               <div>
@@ -384,36 +634,7 @@ const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose }) => {
               </div>
             </div>
 
-            {evento.pessoa && (
-              <div>
-                <h5 className="text-sm font-medium text-gray-700 mb-2">Pessoa Relacionada</h5>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="font-medium">{evento.pessoa.nome}</p>
-                  <p className="text-sm text-gray-500">ID: {evento.pessoa.id}</p>
-                </div>
-              </div>
-            )}
 
-            {evento.camera && (
-              <div>
-                <h5 className="text-sm font-medium text-gray-700 mb-2">Câmera Relacionada</h5>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="font-medium">{evento.camera.nome}</p>
-                  <p className="text-sm text-gray-500">{evento.camera.localizacao}</p>
-                  <p className="text-sm text-gray-500">ID: {evento.camera.id}</p>
-                </div>
-              </div>
-            )}
-
-            {evento.deteccao && (
-              <div>
-                <h5 className="text-sm font-medium text-gray-700 mb-2">Detecção Relacionada</h5>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-sm">ID: {evento.deteccao.id}</p>
-                  <p className="text-sm">Confiança: {evento.deteccao.confianca.toFixed(2)}%</p>
-                </div>
-              </div>
-            )}
 
             {evento.metadata && (
               <div>

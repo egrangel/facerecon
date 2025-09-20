@@ -13,7 +13,7 @@ export abstract class BaseService<T extends BaseEntity> {
   async findById(id: number, relations?: string[]): Promise<T> {
     const entity = await this.repository.findById(id, relations);
     if (!entity) {
-      throw createError('Registro não encontrado', 404);
+      throw createError('Record not found', 404);
     }
     return entity;
   }
@@ -33,10 +33,10 @@ export abstract class BaseService<T extends BaseEntity> {
       return await this.repository.create(entityData);
     } catch (error: any) {
       if (error.code === '23505') { // Unique violation
-        throw createError('Registro já existe com os dados fornecidos', 409);
+        throw createError('Record already exists with the provided data', 409);
       }
       if (error.code === '23503') { // Foreign key violation
-        throw createError('Referência inválida nos dados fornecidos', 400);
+        throw createError('Invalid reference in the provided data', 400);
       }
       throw error;
     }
@@ -45,21 +45,21 @@ export abstract class BaseService<T extends BaseEntity> {
   async update(id: number, entityData: DeepPartial<T>): Promise<T> {
     const existingEntity = await this.repository.findById(id);
     if (!existingEntity) {
-      throw createError('Registro não encontrado', 404);
+      throw createError('Record not found', 404);
     }
 
     try {
       const updatedEntity = await this.repository.update(id, entityData);
       if (!updatedEntity) {
-        throw createError('Erro ao atualizar registro', 500);
+        throw createError('Error updating record', 500);
       }
       return updatedEntity;
     } catch (error: any) {
       if (error.code === '23505') { // Unique violation
-        throw createError('Dados únicos já existem', 409);
+        throw createError('Unique data already exists', 409);
       }
       if (error.code === '23503') { // Foreign key violation
-        throw createError('Referência inválida nos dados fornecidos', 400);
+        throw createError('Invalid reference in the provided data', 400);
       }
       throw error;
     }
@@ -68,24 +68,24 @@ export abstract class BaseService<T extends BaseEntity> {
   async delete(id: number): Promise<void> {
     const existingEntity = await this.repository.findById(id);
     if (!existingEntity) {
-      throw createError('Registro não encontrado', 404);
+      throw createError('Record not found', 404);
     }
 
     const deleted = await this.repository.delete(id);
     if (!deleted) {
-      throw createError('Erro ao excluir registro', 500);
+      throw createError('Error deleting record', 500);
     }
   }
 
   async hardDelete(id: number): Promise<void> {
     const existingEntity = await this.repository.findById(id);
     if (!existingEntity) {
-      throw createError('Registro não encontrado', 404);
+      throw createError('Record not found', 404);
     }
 
     const deleted = await this.repository.hardDelete(id);
     if (!deleted) {
-      throw createError('Erro ao excluir registro permanentemente', 500);
+      throw createError('Error permanently deleting record', 500);
     }
   }
 

@@ -14,7 +14,7 @@ export class AuthController {
    * @swagger
    * /api/v1/auth/login:
    *   post:
-   *     summary: Login do usuário
+   *     summary: User login
    *     tags: [Authentication]
    *     requestBody:
    *       required: true
@@ -73,7 +73,7 @@ export class AuthController {
    * @swagger
    * /api/v1/auth/register:
    *   post:
-   *     summary: Registro de novo usuário
+   *     summary: Register new user with organization
    *     tags: [Authentication]
    *     requestBody:
    *       required: true
@@ -84,7 +84,8 @@ export class AuthController {
    *             required:
    *               - email
    *               - password
-   *               - nome
+   *               - name
+   *               - organization
    *             properties:
    *               email:
    *                 type: string
@@ -92,17 +93,26 @@ export class AuthController {
    *               password:
    *                 type: string
    *                 minLength: 6
-   *               nome:
+   *               name:
    *                 type: string
    *               role:
    *                 type: string
    *                 enum: [admin, user, operator]
    *                 default: user
+   *               organization:
+   *                 type: object
+   *                 required:
+   *                   - name
+   *                 properties:
+   *                   name:
+   *                     type: string
+   *                   description:
+   *                     type: string
    *     responses:
    *       201:
-   *         description: Usuário registrado com sucesso
+   *         description: User and organization created successfully
    *       409:
-   *         description: Email já está em uso
+   *         description: Email already in use
    */
   register = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const registerData: RegisterData = req.body;
@@ -111,7 +121,7 @@ export class AuthController {
     
     res.status(201).json({
       success: true,
-      message: 'Usuário registrado com sucesso',
+      message: 'User and organization created successfully',
       data: {
         user: result.user.toJSON(),
         tokens: result.tokens,

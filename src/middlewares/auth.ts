@@ -7,6 +7,7 @@ export interface AuthenticatedRequest extends Request {
     id: number;
     email: string;
     role: string;
+    organizationId?: number;
   };
 }
 
@@ -22,14 +23,14 @@ export const authenticateToken = async (
     if (!token) {
       res.status(401).json({
         success: false,
-        message: 'Token de acesso requerido',
+        message: 'Access token required',
       });
       return;
     }
 
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
-      throw new Error('JWT_SECRET não configurado');
+      throw new Error('JWT_SECRET not configured');
     }
 
     const decoded = jwt.verify(token, jwtSecret) as any;
@@ -37,10 +38,10 @@ export const authenticateToken = async (
     const userRepository = new UserRepository();
     const user = await userRepository.findById(decoded.id);
 
-    if (!user || user.status !== 'ativo') {
+    if (!user || user.status !== 'active') {
       res.status(401).json({
         success: false,
-        message: 'Token inválido ou usuário inativo',
+        message: 'Invalid token or inactive user',
       });
       return;
     }
@@ -49,14 +50,15 @@ export const authenticateToken = async (
       id: user.id,
       email: user.email,
       role: user.role,
+      organizationId: decoded.organizationId || user.organizationId,
     };
 
     next();
   } catch (error) {
-    console.error('Erro na autenticação:', error);
+    console.error('Authentication error:', error);
     res.status(403).json({
       success: false,
-      message: 'Token inválido',
+      message: 'Invalid token',
     });
   }
 };
@@ -66,7 +68,7 @@ export const authorize = (roles: string[]) => {
     if (!req.user) {
       res.status(401).json({
         success: false,
-        message: 'Usuário não autenticado',
+        message: 'User not authenticated',
       });
       return;
     }
@@ -74,7 +76,7 @@ export const authorize = (roles: string[]) => {
     if (!roles.includes(req.user.role)) {
       res.status(403).json({
         success: false,
-        message: 'Acesso negado. Permissões insuficientes.',
+        message: 'Access denied. Insufficient permissions.',
       });
       return;
     }
@@ -99,11 +101,12 @@ export const optionalAuth = async (
         const userRepository = new UserRepository();
         const user = await userRepository.findById(decoded.id);
 
-        if (user && user.status === 'ativo') {
+        if (user && user.status === 'active') {
           req.user = {
             id: user.id,
             email: user.email,
             role: user.role,
+            organizationId: decoded.organizationId || user.organizationId,
           };
         }
       }

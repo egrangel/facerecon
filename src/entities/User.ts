@@ -1,7 +1,8 @@
-import { Entity, Column, BeforeInsert, BeforeUpdate } from 'typeorm';
+import { Entity, Column, BeforeInsert, BeforeUpdate, ManyToOne, JoinColumn } from 'typeorm';
 import { IsEmail, IsString, Length, MinLength } from 'class-validator';
 import * as bcrypt from 'bcryptjs';
 import { BaseEntity } from './BaseEntity';
+import { Organization } from './Organization';
 
 @Entity('users')
 export class User extends BaseEntity {
@@ -30,7 +31,7 @@ export class User extends BaseEntity {
   })
   @IsString()
   @Length(1, 255)
-  nome!: string;
+  name!: string;
 
   @Column({
     type: 'varchar',
@@ -45,10 +46,10 @@ export class User extends BaseEntity {
     type: 'varchar',
     length: 50,
     nullable: false,
-    default: 'ativo'
+    default: 'active'
   })
   @IsString()
-  status!: string;
+  status!: 'active' | 'inactive';
 
   @Column({
     type: 'datetime',
@@ -68,6 +69,16 @@ export class User extends BaseEntity {
     nullable: true
   })
   preferences?: string; // JSON string
+
+  @Column({
+    type: 'integer',
+    nullable: true
+  })
+  organizationId?: number;
+
+  @ManyToOne(() => Organization)
+  @JoinColumn({ name: 'organizationId' })
+  organization?: Organization;
 
   @BeforeInsert()
   @BeforeUpdate()

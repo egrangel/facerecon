@@ -1,12 +1,28 @@
 import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
+import { apiClient } from '../services/api';
 
 const DashboardHome: React.FC = () => {
+  const { data: dashboardStats, isLoading: isLoadingStats } = useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: async () => {
+      return await apiClient.getDashboardStats();
+    },
+  });
+
+  const { data: systemStatus, isLoading: isLoadingStatus } = useQuery({
+    queryKey: ['system-status'],
+    queryFn: async () => {
+      return await apiClient.getSystemStatus();
+    },
+  });
+
   const stats = [
     {
       name: 'Total de Pessoas',
-      value: '1,234',
-      change: '+12%',
+      value: isLoadingStats ? '...' : (dashboardStats?.totalPeople.toLocaleString() || '0'),
+      change: '+12%', // This could be calculated from historical data
       changeType: 'increase',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -16,8 +32,8 @@ const DashboardHome: React.FC = () => {
     },
     {
       name: 'Detecções Hoje',
-      value: '89',
-      change: '+23%',
+      value: isLoadingStats ? '...' : (dashboardStats?.detectionsToday.toString() || '0'),
+      change: '+23%', // This could be calculated from historical data
       changeType: 'increase',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -27,8 +43,8 @@ const DashboardHome: React.FC = () => {
     },
     {
       name: 'Câmeras Ativas',
-      value: '12',
-      change: '+1',
+      value: isLoadingStats ? '...' : (dashboardStats?.activeCameras.toString() || '0'),
+      change: '+1', // This could be calculated from historical data
       changeType: 'increase',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -38,8 +54,8 @@ const DashboardHome: React.FC = () => {
     },
     {
       name: 'Eventos Hoje',
-      value: '45',
-      change: '+8%',
+      value: isLoadingStats ? '...' : (dashboardStats?.eventsToday.toString() || '0'),
+      change: '+8%', // This could be calculated from historical data
       changeType: 'increase',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -103,51 +119,60 @@ const DashboardHome: React.FC = () => {
           <CardContent>
             <div className="flow-root">
               <ul className="-mb-8">
-                {[
-                  {
-                    id: 1,
-                    content: 'Nova pessoa cadastrada: João Silva',
-                    time: '2 horas atrás',
-                    icon: 'user',
-                  },
-                  {
-                    id: 2,
-                    content: 'Detecção realizada na Câmera 3',
-                    time: '4 horas atrás',
-                    icon: 'camera',
-                  },
-                  {
-                    id: 3,
-                    content: 'Sistema iniciado',
-                    time: '6 horas atrás',
-                    icon: 'system',
-                  },
-                ].map((item, itemIdx) => (
-                  <li key={item.id}>
-                    <div className="relative pb-8">
-                      {itemIdx !== 2 && (
-                        <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
-                      )}
-                      <div className="relative flex space-x-3">
-                        <div>
-                          <span className="h-8 w-8 rounded-full bg-primary-500 flex items-center justify-center ring-8 ring-white">
-                            <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                            </svg>
-                          </span>
-                        </div>
-                        <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
+                {isLoadingStats ? (
+                  <li className="text-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600 mx-auto"></div>
+                  </li>
+                ) : (
+                  (dashboardStats?.recentActivity || []).map((item, itemIdx) => (
+                    <li key={item.id}>
+                      <div className="relative pb-8">
+                        {itemIdx !== (dashboardStats?.recentActivity.length || 1) - 1 && (
+                          <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
+                        )}
+                        <div className="relative flex space-x-3">
                           <div>
-                            <p className="text-sm text-gray-500">{item.content}</p>
+                            <span className={`h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-white ${
+                              item.type === 'person' ? 'bg-blue-500' :
+                              item.type === 'detection' ? 'bg-green-500' :
+                              item.type === 'event' ? 'bg-yellow-500' :
+                              'bg-primary-500'
+                            }`}>
+                              {item.type === 'person' && (
+                                <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                              {item.type === 'detection' && (
+                                <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                              {item.type === 'event' && (
+                                <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                              {!['person', 'detection', 'event'].includes(item.type) && (
+                                <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </span>
                           </div>
-                          <div className="text-right text-sm whitespace-nowrap text-gray-500">
-                            <time>{item.time}</time>
+                          <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
+                            <div>
+                              <p className="text-sm text-gray-500">{item.content}</p>
+                            </div>
+                            <div className="text-right text-sm whitespace-nowrap text-gray-500">
+                              <time>{item.time}</time>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  ))
+                )}
               </ul>
             </div>
           </CardContent>
@@ -159,37 +184,69 @@ const DashboardHome: React.FC = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="h-4 w-4 bg-green-400 rounded-full mr-3"></div>
-                  <span className="text-sm font-medium text-gray-900">API Backend</span>
+              {isLoadingStatus ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600 mx-auto"></div>
                 </div>
-                <span className="text-sm text-green-600">Online</span>
-              </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className={`h-4 w-4 rounded-full mr-3 ${
+                        systemStatus?.api.status === 'online' ? 'bg-green-400' :
+                        systemStatus?.api.status === 'offline' ? 'bg-red-400' : 'bg-yellow-400'
+                      }`}></div>
+                      <span className="text-sm font-medium text-gray-900">API Backend</span>
+                    </div>
+                    <span className={`text-sm ${
+                      systemStatus?.api.status === 'online' ? 'text-green-600' :
+                      systemStatus?.api.status === 'offline' ? 'text-red-600' : 'text-yellow-600'
+                    }`}>{systemStatus?.api.message || 'Unknown'}</span>
+                  </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="h-4 w-4 bg-green-400 rounded-full mr-3"></div>
-                  <span className="text-sm font-medium text-gray-900">Banco de Dados</span>
-                </div>
-                <span className="text-sm text-green-600">Conectado</span>
-              </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className={`h-4 w-4 rounded-full mr-3 ${
+                        systemStatus?.database.status === 'connected' ? 'bg-green-400' :
+                        systemStatus?.database.status === 'disconnected' ? 'bg-red-400' : 'bg-yellow-400'
+                      }`}></div>
+                      <span className="text-sm font-medium text-gray-900">Banco de Dados</span>
+                    </div>
+                    <span className={`text-sm ${
+                      systemStatus?.database.status === 'connected' ? 'text-green-600' :
+                      systemStatus?.database.status === 'disconnected' ? 'text-red-600' : 'text-yellow-600'
+                    }`}>{systemStatus?.database.message || 'Unknown'}</span>
+                  </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="h-4 w-4 bg-yellow-400 rounded-full mr-3"></div>
-                  <span className="text-sm font-medium text-gray-900">Serviço de IA</span>
-                </div>
-                <span className="text-sm text-yellow-600">Limitado</span>
-              </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className={`h-4 w-4 rounded-full mr-3 ${
+                        systemStatus?.ai.status === 'online' ? 'bg-green-400' :
+                        systemStatus?.ai.status === 'offline' ? 'bg-red-400' : 'bg-yellow-400'
+                      }`}></div>
+                      <span className="text-sm font-medium text-gray-900">Serviço de IA</span>
+                    </div>
+                    <span className={`text-sm ${
+                      systemStatus?.ai.status === 'online' ? 'text-green-600' :
+                      systemStatus?.ai.status === 'offline' ? 'text-red-600' : 'text-yellow-600'
+                    }`}>{systemStatus?.ai.message || 'Unknown'}</span>
+                  </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="h-4 w-4 bg-green-400 rounded-full mr-3"></div>
-                  <span className="text-sm font-medium text-gray-900">Storage</span>
-                </div>
-                <span className="text-sm text-green-600">85% Disponível</span>
-              </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className={`h-4 w-4 rounded-full mr-3 ${
+                        systemStatus?.storage.status === 'available' ? 'bg-green-400' :
+                        systemStatus?.storage.status === 'full' ? 'bg-red-400' : 'bg-yellow-400'
+                      }`}></div>
+                      <span className="text-sm font-medium text-gray-900">Storage</span>
+                    </div>
+                    <span className={`text-sm ${
+                      systemStatus?.storage.status === 'available' ? 'text-green-600' :
+                      systemStatus?.storage.status === 'full' ? 'text-red-600' : 'text-yellow-600'
+                    }`}>{systemStatus?.storage.message || 'Unknown'}</span>
+                  </div>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>

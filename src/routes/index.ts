@@ -1,21 +1,26 @@
 import { Router } from 'express';
 import { authenticateToken, authorize } from '@/middlewares/auth';
+import { organizationAccess } from '@/middlewares/organizationAccess';
 import { AuthController } from '@/controllers/AuthController';
 import {
-  CadastroController,
-  PessoaController,
-  EventoController,
+  OrganizationController,
+  PersonController,
+  EventController,
   CameraController,
-  DeteccaoController,
+  DetectionController,
+  UserController,
 } from '@/controllers';
+import { settingsRoutes } from './settingsRoutes';
+import streamRoutes from './streamRoutes';
 
 // Initialize controllers
 const authController = new AuthController();
-const cadastroController = new CadastroController();
-const pessoaController = new PessoaController();
-const eventoController = new EventoController();
+const organizationController = new OrganizationController();
+const personController = new PersonController();
+const eventController = new EventController();
 const cameraController = new CameraController();
-const deteccaoController = new DeteccaoController();
+const detectionController = new DetectionController();
+const userController = new UserController();
 
 // Auth Routes
 export const authRoutes = Router();
@@ -27,61 +32,63 @@ authRoutes.post('/logout', authenticateToken, authController.logout);
 authRoutes.post('/change-password', authenticateToken, authController.changePassword);
 authRoutes.get('/me', authenticateToken, authController.me);
 
-// Cadastro Routes
-export const cadastroRoutes = Router();
+// Organization Routes
+export const organizationRoutes = Router();
 
 // Public routes (with optional auth)
-cadastroRoutes.get('/', cadastroController.findAll);
-cadastroRoutes.get('/count', cadastroController.count);
-cadastroRoutes.get('/status/:status', cadastroController.findByStatus);
-cadastroRoutes.get('/:id', cadastroController.findById);
-cadastroRoutes.get('/:id/full', cadastroController.findWithRelations);
+organizationRoutes.get('/', organizationController.findAll);
+organizationRoutes.get('/count', organizationController.count);
+organizationRoutes.get('/status/:status', organizationController.findByStatus);
+organizationRoutes.get('/:id', organizationController.findById);
+organizationRoutes.get('/:id/full', organizationController.findWithRelations);
 
 // Protected routes
-cadastroRoutes.use(authenticateToken);
-cadastroRoutes.post('/', authorize(['admin', 'operator']), cadastroController.create);
-cadastroRoutes.put('/:id', authorize(['admin', 'operator']), cadastroController.update);
-cadastroRoutes.delete('/:id', authorize(['admin']), cadastroController.delete);
-cadastroRoutes.delete('/:id/hard', authorize(['admin']), cadastroController.hardDelete);
+organizationRoutes.use(authenticateToken);
+organizationRoutes.post('/', authorize(['admin', 'operator']), organizationController.create);
+organizationRoutes.put('/:id', authorize(['admin', 'operator']), organizationController.update);
+organizationRoutes.delete('/:id', authorize(['admin']), organizationController.delete);
+organizationRoutes.delete('/:id/hard', authorize(['admin']), organizationController.hardDelete);
 
-// Pessoa Routes
-export const pessoaRoutes = Router();
+// Person Routes
+export const personRoutes = Router();
 
 // Public routes
-pessoaRoutes.get('/', pessoaController.findAll);
-pessoaRoutes.get('/count', pessoaController.count);
-pessoaRoutes.get('/documento/:documento', pessoaController.findByDocumento);
-pessoaRoutes.get('/cadastro/:cadastroId', pessoaController.findByCadastroId);
-pessoaRoutes.get('/:id', pessoaController.findById);
-pessoaRoutes.get('/:id/full', pessoaController.findWithFullRelations);
+personRoutes.get('/', personController.findAll);
+personRoutes.get('/count', personController.count);
+personRoutes.get('/document/:document', personController.findByDocument);
+personRoutes.get('/organization/:organizationId', personController.findByOrganizationId);
+personRoutes.get('/:id', personController.findById);
+personRoutes.get('/:id/full', personController.findWithFullRelations);
 
 // Protected routes
-pessoaRoutes.use(authenticateToken);
-pessoaRoutes.post('/', authorize(['admin', 'operator']), pessoaController.create);
-pessoaRoutes.put('/:id', authorize(['admin', 'operator']), pessoaController.update);
-pessoaRoutes.delete('/:id', authorize(['admin']), pessoaController.delete);
+personRoutes.use(authenticateToken);
+personRoutes.use(organizationAccess);
+personRoutes.post('/', authorize(['admin', 'operator']), personController.create);
+personRoutes.put('/:id', authorize(['admin', 'operator']), personController.update);
+personRoutes.delete('/:id', authorize(['admin']), personController.delete);
 
 // Nested resources
-pessoaRoutes.post('/:id/tipos', authorize(['admin', 'operator']), pessoaController.addTipo);
-pessoaRoutes.post('/:id/faces', authorize(['admin', 'operator']), pessoaController.addFace);
-pessoaRoutes.post('/:id/contatos', authorize(['admin', 'operator']), pessoaController.addContato);
-pessoaRoutes.post('/:id/enderecos', authorize(['admin', 'operator']), pessoaController.addEndereco);
+personRoutes.post('/:id/types', authorize(['admin', 'operator']), personController.addType);
+personRoutes.post('/:id/faces', authorize(['admin', 'operator']), personController.addFace);
+personRoutes.post('/:id/contacts', authorize(['admin', 'operator']), personController.addContact);
+personRoutes.post('/:id/addresses', authorize(['admin', 'operator']), personController.addAddress);
 
-// Evento Routes
-export const eventoRoutes = Router();
+// Event Routes
+export const eventRoutes = Router();
 
 // Public routes
-eventoRoutes.get('/', eventoController.findAll);
-eventoRoutes.get('/count', eventoController.count);
-eventoRoutes.get('/cadastro/:cadastroId', eventoController.findByCadastroId);
-eventoRoutes.get('/date-range', eventoController.findByDateRange);
-eventoRoutes.get('/:id', eventoController.findById);
+eventRoutes.get('/', eventController.findAll);
+eventRoutes.get('/count', eventController.count);
+eventRoutes.get('/organization/:organizationId', eventController.findByOrganizationId);
+eventRoutes.get('/date-range', eventController.findByDateRange);
+eventRoutes.get('/:id', eventController.findById);
 
 // Protected routes
-eventoRoutes.use(authenticateToken);
-eventoRoutes.post('/', authorize(['admin', 'operator']), eventoController.create);
-eventoRoutes.put('/:id', authorize(['admin', 'operator']), eventoController.update);
-eventoRoutes.delete('/:id', authorize(['admin']), eventoController.delete);
+eventRoutes.use(authenticateToken);
+eventRoutes.use(organizationAccess);
+eventRoutes.post('/', authorize(['admin', 'operator']), eventController.create);
+eventRoutes.put('/:id', authorize(['admin', 'operator']), eventController.update);
+eventRoutes.delete('/:id', authorize(['admin']), eventController.delete);
 
 // Camera Routes
 export const cameraRoutes = Router();
@@ -89,50 +96,72 @@ export const cameraRoutes = Router();
 // Public routes
 cameraRoutes.get('/', cameraController.findAll);
 cameraRoutes.get('/count', cameraController.count);
-cameraRoutes.get('/cadastro/:cadastroId', cameraController.findByCadastroId);
+cameraRoutes.get('/organization/:organizationId', cameraController.findByOrganizationId);
 cameraRoutes.get('/status/:status', cameraController.findByStatus);
 cameraRoutes.get('/:id', cameraController.findById);
 
 // Protected routes
 cameraRoutes.use(authenticateToken);
+cameraRoutes.use(organizationAccess);
 cameraRoutes.post('/', authorize(['admin', 'operator']), cameraController.create);
 cameraRoutes.put('/:id', authorize(['admin', 'operator']), cameraController.update);
 cameraRoutes.delete('/:id', authorize(['admin']), cameraController.delete);
 cameraRoutes.post('/:id/test-connection', authorize(['admin', 'operator']), cameraController.testConnection);
 
-// Deteccao Routes
-export const deteccaoRoutes = Router();
+// Detection Routes
+export const detectionRoutes = Router();
 
 // Public routes
-deteccaoRoutes.get('/', deteccaoController.findAll);
-deteccaoRoutes.get('/count', deteccaoController.count);
-deteccaoRoutes.get('/stats', deteccaoController.getStats);
-deteccaoRoutes.get('/recent', deteccaoController.findRecentDetections);
-deteccaoRoutes.get('/evento/:eventoId', deteccaoController.findByEventoId);
-deteccaoRoutes.get('/pessoa-face/:pessoaFaceId', deteccaoController.findByPessoaFaceId);
-deteccaoRoutes.get('/:id', deteccaoController.findById);
+detectionRoutes.get('/', detectionController.findAll);
+detectionRoutes.get('/count', detectionController.count);
+detectionRoutes.get('/stats', detectionController.getStats);
+detectionRoutes.get('/recent', detectionController.findRecentDetections);
+detectionRoutes.get('/event/:eventId', detectionController.findByEventId);
+detectionRoutes.get('/person-face/:personFaceId', detectionController.findByPersonFaceId);
+detectionRoutes.get('/:id', detectionController.findById);
 
 // Protected routes
-deteccaoRoutes.use(authenticateToken);
-deteccaoRoutes.post('/', authorize(['admin', 'operator']), deteccaoController.create);
-deteccaoRoutes.put('/:id', authorize(['admin', 'operator']), deteccaoController.update);
-deteccaoRoutes.delete('/:id', authorize(['admin']), deteccaoController.delete);
+detectionRoutes.use(authenticateToken);
+detectionRoutes.post('/', authorize(['admin', 'operator']), detectionController.create);
+detectionRoutes.put('/:id', authorize(['admin', 'operator']), detectionController.update);
+detectionRoutes.delete('/:id', authorize(['admin']), detectionController.delete);
+
+// User Routes
+export const userRoutes = Router();
+
+// Public routes
+userRoutes.get('/', userController.findAll);
+userRoutes.get('/count', userController.count);
+userRoutes.get('/role/:role', userController.findByRole);
+userRoutes.get('/status/:status', userController.findByStatus);
+userRoutes.get('/email/:email', userController.findByEmail);
+userRoutes.get('/:id', userController.findById);
+
+// Protected routes
+userRoutes.use(authenticateToken);
+userRoutes.post('/', authorize(['admin']), userController.create);
+userRoutes.put('/:id', authorize(['admin']), userController.update);
+userRoutes.delete('/:id', authorize(['admin']), userController.delete);
 
 // Main router combining all routes
 export const apiRoutes = Router();
 
 apiRoutes.use('/auth', authRoutes);
-apiRoutes.use('/cadastros', cadastroRoutes);
-apiRoutes.use('/pessoas', pessoaRoutes);
-apiRoutes.use('/eventos', eventoRoutes);
+apiRoutes.use('/organizations', organizationRoutes);
+apiRoutes.use('/people', personRoutes);
+apiRoutes.use('/events', eventRoutes);
 apiRoutes.use('/cameras', cameraRoutes);
-apiRoutes.use('/deteccoes', deteccaoRoutes);
+apiRoutes.use('/detections', detectionRoutes);
+apiRoutes.use('/users', userRoutes);
+apiRoutes.use('/settings', settingsRoutes);
+apiRoutes.use('/streams', streamRoutes);
+
 
 // Health check route
 apiRoutes.get('/health', (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'API está funcionando corretamente',
+    message: 'API is working correctly',
     timestamp: new Date().toISOString(),
     version: process.env.API_VERSION || 'v1',
   });

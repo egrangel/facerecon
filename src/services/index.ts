@@ -2,156 +2,158 @@ import { DeepPartial } from 'typeorm';
 import { BaseService } from './BaseService';
 import { createError } from '@/middlewares/errorHandler';
 import {
-  CadastroRepository,
-  PessoaRepository,
-  PessoaTipoRepository,
-  PessoaFaceRepository,
-  PessoaContatoRepository,
-  PessoaEnderecoRepository,
-  EventoRepository,
+  OrganizationRepository,
+  PersonRepository,
+  PersonTypeRepository,
+  PersonFaceRepository,
+  PersonContactRepository,
+  PersonAddressRepository,
+  EventRepository,
   CameraRepository,
-  DeteccaoRepository,
+  DetectionRepository,
+  UserRepository,
 } from '@/repositories';
 import {
-  Cadastro,
-  Pessoa,
-  PessoaTipo,
-  PessoaFace,
-  PessoaContato,
-  PessoaEndereco,
+  Organization,
+  Person,
+  PersonType,
+  PersonFace,
+  PersonContact,
+  PersonAddress,
+  User,
 } from '@/entities';
-import { Evento, Camera, Deteccao } from '@/entities/EventEntities';
+import { Event, Camera, Detection } from '@/entities/EventEntities';
 
-export class CadastroService extends BaseService<Cadastro> {
+export class OrganizationService extends BaseService<Organization> {
   constructor() {
-    super(new CadastroRepository());
+    super(new OrganizationRepository());
   }
 
-  async findWithRelations(id: number): Promise<Cadastro> {
-    const cadastro = await (this.repository as CadastroRepository).findWithRelations(id);
-    if (!cadastro) {
-      throw createError('Cadastro não encontrado', 404);
+  async findWithRelations(id: number): Promise<Organization> {
+    const organization = await (this.repository as OrganizationRepository).findWithRelations(id);
+    if (!organization) {
+      throw createError('Organization not found', 404);
     }
-    return cadastro;
+    return organization;
   }
 
-  async findByStatus(status: string): Promise<Cadastro[]> {
-    return (this.repository as CadastroRepository).findByStatus(status);
+  async findByStatus(status: string): Promise<Organization[]> {
+    return (this.repository as OrganizationRepository).findByStatus(status);
   }
 
-  async create(data: DeepPartial<Cadastro>): Promise<Cadastro> {
-    this.validateRequiredField(data.nome, 'nome');
+  async create(data: DeepPartial<Organization>): Promise<Organization> {
+    this.validateRequiredField(data.name, 'name');
     return super.create(data);
   }
 }
 
-export class PessoaService extends BaseService<Pessoa> {
-  private pessoaTipoRepository: PessoaTipoRepository;
-  private pessoaFaceRepository: PessoaFaceRepository;
-  private pessoaContatoRepository: PessoaContatoRepository;
-  private pessoaEnderecoRepository: PessoaEnderecoRepository;
+export class PersonService extends BaseService<Person> {
+  private personTypeRepository: PersonTypeRepository;
+  private personFaceRepository: PersonFaceRepository;
+  private personContactRepository: PersonContactRepository;
+  private personAddressRepository: PersonAddressRepository;
 
   constructor() {
-    super(new PessoaRepository());
-    this.pessoaTipoRepository = new PessoaTipoRepository();
-    this.pessoaFaceRepository = new PessoaFaceRepository();
-    this.pessoaContatoRepository = new PessoaContatoRepository();
-    this.pessoaEnderecoRepository = new PessoaEnderecoRepository();
+    super(new PersonRepository());
+    this.personTypeRepository = new PersonTypeRepository();
+    this.personFaceRepository = new PersonFaceRepository();
+    this.personContactRepository = new PersonContactRepository();
+    this.personAddressRepository = new PersonAddressRepository();
   }
 
-  async findByCadastroId(cadastroId: number): Promise<Pessoa[]> {
-    return (this.repository as PessoaRepository).findByCadastroId(cadastroId);
+  async findByOrganizationId(organizationId: number): Promise<Person[]> {
+    return (this.repository as PersonRepository).findByOrganizationId(organizationId);
   }
 
-  async findByDocumento(documento: string): Promise<Pessoa | null> {
-    return (this.repository as PessoaRepository).findByDocumento(documento);
+  async findByDocumentNumber(documentNumber: string): Promise<Person | null> {
+    return (this.repository as PersonRepository).findByDocumentNumber(documentNumber);
   }
 
-  async findWithFullRelations(id: number): Promise<Pessoa> {
-    const pessoa = await (this.repository as PessoaRepository).findWithFullRelations(id);
-    if (!pessoa) {
-      throw createError('Pessoa não encontrada', 404);
+  async findWithFullRelations(id: number): Promise<Person> {
+    const person = await (this.repository as PersonRepository).findWithFullRelations(id);
+    if (!person) {
+      throw createError('Person not found', 404);
     }
-    return pessoa;
+    return person;
   }
 
-  async create(data: DeepPartial<Pessoa>): Promise<Pessoa> {
-    this.validateRequiredField(data.nome, 'nome');
-    this.validateRequiredField(data.cadastroId, 'cadastroId');
-    
-    if (data.documento) {
-      if (data.tipoPessoa === 'fisica') {
-        this.validateCPF(data.documento);
-      } else if (data.tipoPessoa === 'juridica') {
-        this.validateCNPJ(data.documento);
+  async create(data: DeepPartial<Person>): Promise<Person> {
+    this.validateRequiredField(data.name, 'name');
+    this.validateRequiredField(data.organizationId, 'organizationId');
+
+    if (data.documentNumber) {
+      if (data.personType === 'individual') {
+        this.validateCPF(data.documentNumber);
+      } else if (data.personType === 'company') {
+        this.validateCNPJ(data.documentNumber);
       }
 
-      // Verificar se documento já existe
-      const existingPessoa = await this.findByDocumento(data.documento);
-      if (existingPessoa) {
-        throw createError('Documento já cadastrado', 409);
+      // Check if document already exists
+      const existingPerson = await this.findByDocumentNumber(data.documentNumber);
+      if (existingPerson) {
+        throw createError('Document already registered', 409);
       }
     }
 
     return super.create(data);
   }
 
-  async addTipo(pessoaId: number, tipoData: DeepPartial<PessoaTipo>): Promise<PessoaTipo> {
-    const pessoa = await this.findById(pessoaId);
-    return this.pessoaTipoRepository.create({
-      ...tipoData,
-      pessoaId: pessoa.id,
+  async addType(personId: number, typeData: DeepPartial<PersonType>): Promise<PersonType> {
+    const person = await this.findById(personId);
+    return this.personTypeRepository.create({
+      ...typeData,
+      personId: person.id,
     });
   }
 
-  async addFace(pessoaId: number, faceData: DeepPartial<PessoaFace>): Promise<PessoaFace> {
-    const pessoa = await this.findById(pessoaId);
-    return this.pessoaFaceRepository.create({
+  async addFace(personId: number, faceData: DeepPartial<PersonFace>): Promise<PersonFace> {
+    const person = await this.findById(personId);
+    return this.personFaceRepository.create({
       ...faceData,
-      pessoaId: pessoa.id,
+      personId: person.id,
     });
   }
 
-  async addContato(pessoaId: number, contatoData: DeepPartial<PessoaContato>): Promise<PessoaContato> {
-    const pessoa = await this.findById(pessoaId);
-    
-    if (contatoData.tipo === 'email' && contatoData.valor) {
-      this.validateEmailField(contatoData.valor);
+  async addContact(personId: number, contactData: DeepPartial<PersonContact>): Promise<PersonContact> {
+    const person = await this.findById(personId);
+
+    if (contactData.type === 'email' && contactData.value) {
+      this.validateEmailField(contactData.value);
     }
 
-    return this.pessoaContatoRepository.create({
-      ...contatoData,
-      pessoaId: pessoa.id,
+    return this.personContactRepository.create({
+      ...contactData,
+      personId: person.id,
     });
   }
 
-  async addEndereco(pessoaId: number, enderecoData: DeepPartial<PessoaEndereco>): Promise<PessoaEndereco> {
-    const pessoa = await this.findById(pessoaId);
-    return this.pessoaEnderecoRepository.create({
-      ...enderecoData,
-      pessoaId: pessoa.id,
+  async addAddress(personId: number, addressData: DeepPartial<PersonAddress>): Promise<PersonAddress> {
+    const person = await this.findById(personId);
+    return this.personAddressRepository.create({
+      ...addressData,
+      personId: person.id,
     });
   }
 }
 
-export class EventoService extends BaseService<Evento> {
+export class EventService extends BaseService<Event> {
   constructor() {
-    super(new EventoRepository());
+    super(new EventRepository());
   }
 
-  async findByCadastroId(cadastroId: number): Promise<Evento[]> {
-    return (this.repository as EventoRepository).findByCadastroId(cadastroId);
+  async findByOrganizationId(organizationId: number): Promise<Event[]> {
+    return (this.repository as EventRepository).findByOrganizationId(organizationId);
   }
 
-  async findByDateRange(startDate: Date, endDate: Date): Promise<Evento[]> {
-    return (this.repository as EventoRepository).findByDateRange(startDate, endDate);
+  async findByDateRange(startDate: Date, endDate: Date): Promise<Event[]> {
+    return (this.repository as EventRepository).findByDateRange(startDate, endDate);
   }
 
-  async create(data: DeepPartial<Evento>): Promise<Evento> {
-    this.validateRequiredField(data.nome, 'nome');
-    this.validateRequiredField(data.cadastroId, 'cadastroId');
-    this.validateRequiredField(data.dataHoraOcorrencia, 'dataHoraOcorrencia');
-    
+  async create(data: DeepPartial<Event>): Promise<Event> {
+    this.validateRequiredField(data.name, 'name');
+    this.validateRequiredField(data.organizationId, 'organizationId');
+    this.validateRequiredField(data.occurredAt, 'occurredAt');
+
     return super.create(data);
   }
 }
@@ -161,8 +163,8 @@ export class CameraService extends BaseService<Camera> {
     super(new CameraRepository());
   }
 
-  async findByCadastroId(cadastroId: number): Promise<Camera[]> {
-    return (this.repository as CameraRepository).findByCadastroId(cadastroId);
+  async findByOrganizationId(organizationId: number): Promise<Camera[]> {
+    return (this.repository as CameraRepository).findByOrganizationId(organizationId);
   }
 
   async findByStatus(status: string): Promise<Camera[]> {
@@ -170,49 +172,49 @@ export class CameraService extends BaseService<Camera> {
   }
 
   async create(data: DeepPartial<Camera>): Promise<Camera> {
-    this.validateRequiredField(data.nome, 'nome');
+    this.validateRequiredField(data.name, 'name');
     this.validateRequiredField(data.ip, 'ip');
-    this.validateRequiredField(data.cadastroId, 'cadastroId');
-    
+    this.validateRequiredField(data.organizationId, 'organizationId');
+
     return super.create(data);
   }
 
   async testConnection(id: number): Promise<{ success: boolean; message: string }> {
     const camera = await this.findById(id);
-    
-    // Aqui você implementaria a lógica real de teste de conexão
-    // Por exemplo, fazer um ping ou tentar conectar na URL da câmera
-    
+
+    // Here you would implement the actual connection test logic
+    // For example, ping or try to connect to the camera URL
+
     return {
       success: true,
-      message: `Conexão com câmera ${camera.nome} testada com sucesso`,
+      message: `Connection to camera ${camera.name} tested successfully`,
     };
   }
 }
 
-export class DeteccaoService extends BaseService<Deteccao> {
+export class DetectionService extends BaseService<Detection> {
   constructor() {
-    super(new DeteccaoRepository());
+    super(new DetectionRepository());
   }
 
-  async findByEventoId(eventoId: number): Promise<Deteccao[]> {
-    return (this.repository as DeteccaoRepository).findByEventoId(eventoId);
+  async findByEventId(eventId: number): Promise<Detection[]> {
+    return (this.repository as DetectionRepository).findByEventId(eventId);
   }
 
-  async findByPessoaFaceId(pessoaFaceId: number): Promise<Deteccao[]> {
-    return (this.repository as DeteccaoRepository).findByPessoaFaceId(pessoaFaceId);
+  async findByPersonFaceId(personFaceId: number): Promise<Detection[]> {
+    return (this.repository as DetectionRepository).findByPersonFaceId(personFaceId);
   }
 
-  async findRecentDetections(hours: number = 24): Promise<Deteccao[]> {
-    return (this.repository as DeteccaoRepository).findRecentDetections(hours);
+  async findRecentDetections(hours: number = 24): Promise<Detection[]> {
+    return (this.repository as DetectionRepository).findRecentDetections(hours);
   }
 
-  async create(data: DeepPartial<Deteccao>): Promise<Deteccao> {
-    this.validateRequiredField(data.eventoId, 'eventoId');
-    this.validateRequiredField(data.pessoaFaceId, 'pessoaFaceId');
-    this.validateRequiredField(data.dataHoraDeteccao, 'dataHoraDeteccao');
-    this.validateNumericField(data.confiabilidade, 'confiabilidade');
-    
+  async create(data: DeepPartial<Detection>): Promise<Detection> {
+    this.validateRequiredField(data.eventId, 'eventId');
+    this.validateRequiredField(data.personFaceId, 'personFaceId');
+    this.validateRequiredField(data.detectedAt, 'detectedAt');
+    this.validateNumericField(data.confidence, 'confidence');
+
     return super.create(data);
   }
 
@@ -221,14 +223,56 @@ export class DeteccaoService extends BaseService<Deteccao> {
     byDay: Array<{ date: string; count: number }>;
     byConfidence: Array<{ range: string; count: number }>;
   }> {
-    // Implementar estatísticas de detecção
-    // Esta é uma implementação simplificada
-    const deteccoes = await this.repository.findAll();
-    
+    // Implement detection statistics
+    // This is a simplified implementation
+    const detections = await this.repository.findAll();
+
     return {
-      total: deteccoes.length,
+      total: detections.length,
       byDay: [],
       byConfidence: [],
     };
   }
 }
+
+export class UserService extends BaseService<User> {
+  constructor() {
+    super(new UserRepository());
+  }
+
+  async findByEmail(email: string): Promise<User | null> {
+    return (this.repository as UserRepository).findByEmail(email);
+  }
+
+  async findByRole(role: string): Promise<User[]> {
+    return (this.repository as UserRepository).findByRole(role);
+  }
+
+  async findByStatus(status: string): Promise<User[]> {
+    return (this.repository as UserRepository).findByStatus(status);
+  }
+
+  async findByOrganizationId(organizationId: number): Promise<User[]> {
+    return (this.repository as UserRepository).findByOrganizationId(organizationId);
+  }
+
+  async create(data: DeepPartial<User>): Promise<User> {
+    this.validateRequiredField(data.name, 'name');
+    this.validateRequiredField(data.email, 'email');
+    this.validateRequiredField(data.password, 'password');
+    this.validateEmailField(data.email!);
+
+    // Check if email already exists
+    const existingUser = await this.findByEmail(data.email!);
+    if (existingUser) {
+      throw createError('Email already registered', 409);
+    }
+
+    return super.create(data);
+  }
+
+  async updateLastLogin(id: number): Promise<void> {
+    await this.repository.update(id, { lastLoginAt: new Date() });
+  }
+}
+

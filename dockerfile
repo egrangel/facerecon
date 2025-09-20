@@ -31,6 +31,11 @@ RUN npm run build
 FROM base AS runner
 WORKDIR /app
 
+ENV NODE_ENV=production
+
+# Install curl for health checks
+RUN apk add --no-cache curl
+
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nodejs
@@ -42,11 +47,17 @@ COPY --from=builder --chown=nodejs:nodejs /app/package.json ./package.json
 # Copy production dependencies
 COPY --from=deps --chown=nodejs:nodejs /app/node_modules ./node_modules
 
+# Create data directory for SQLite
+RUN mkdir -p /app/data && chown nodejs:nodejs /app/data
+
 # Switch to non-root user
 USER nodejs
 
 # Expose port
 EXPOSE 3000
+
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

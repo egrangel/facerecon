@@ -4,48 +4,31 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { apiClient } from '../services/api';
-
-interface Deteccao {
-  id: number;
-  pessoa: {
-    id: number;
-    nome: string;
-    foto?: string;
-  };
-  camera: {
-    id: number;
-    nome: string;
-    localizacao: string;
-  };
-  confianca: number;
-  timestamp: string;
-  foto?: string;
-  metadata?: any;
-  status: 'pendente' | 'confirmada' | 'rejeitada';
-}
+import { Detection } from '../types/api';
 
 const DeteccoesPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [dateFilter, setDateFilter] = useState<string>('');
-  const [selectedDeteccao, setSelectedDeteccao] = useState<Deteccao | null>(null);
+  const [selectedDetection, setSelectedDetection] = useState<Detection | null>(null);
 
-  const { data: deteccoes = [], isLoading } = useQuery({
-    queryKey: ['deteccoes'],
+  const { data: detectionsResponse, isLoading } = useQuery({
+    queryKey: ['detections'],
     queryFn: async () => {
-      const response = await apiClient.get('/deteccoes');
-      return response.data;
+      return await apiClient.getDetections();
     },
   });
 
-  const filteredDeteccoes = deteccoes.filter((deteccao: Deteccao) => {
-    const matchesSearch = deteccao.pessoa.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         deteccao.camera.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         deteccao.camera.localizacao.toLowerCase().includes(searchTerm.toLowerCase());
+  const detections = detectionsResponse?.data || [];
 
-    const matchesStatus = !statusFilter || deteccao.status === statusFilter;
+  const filteredDetections = detections.filter((detection: Detection) => {
+    const matchesSearch = detection.personFace?.person?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         detection.camera?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         detection.camera?.location?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesDate = !dateFilter || new Date(deteccao.timestamp).toDateString() === new Date(dateFilter).toDateString();
+    const matchesStatus = !statusFilter || detection.status === statusFilter;
+
+    const matchesDate = !dateFilter || new Date(detection.detectedAt).toDateString() === new Date(dateFilter).toDateString();
 
     return matchesSearch && matchesStatus && matchesDate;
   });
@@ -132,47 +115,47 @@ const DeteccoesPage: React.FC = () => {
           <div className="col-span-full flex justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
           </div>
-        ) : filteredDeteccoes.length === 0 ? (
+        ) : filteredDetections.length === 0 ? (
           <div className="col-span-full text-center py-12 text-gray-500">
-            Nenhuma detec√ß√£o encontrada
+            No detections found.
           </div>
         ) : (
-          filteredDeteccoes.map((deteccao: Deteccao) => (
-            <Card key={deteccao.id} className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setSelectedDeteccao(deteccao)}>
+          filteredDetections.map((detection: Detection) => (
+            <Card key={detection.id} className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setSelectedDetection(detection)}>
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center space-x-3">
                     <div className="h-12 w-12 bg-primary-100 rounded-full flex items-center justify-center">
                       <span className="text-sm font-medium text-primary-600">
-                        {deteccao.pessoa.nome.charAt(0).toUpperCase()}
+                        {detection.personFace?.person?.name?.charAt(0).toUpperCase() || '?'}
                       </span>
                     </div>
                     <div>
-                      <h3 className="font-medium text-gray-900">{deteccao.pessoa.nome}</h3>
-                      <p className="text-sm text-gray-500">{deteccao.camera.nome}</p>
+                      <h3 className="font-medium text-gray-900">{detection.personFace?.person?.name || 'Desconhecido'}</h3>
+                      <p className="text-sm text-gray-500">{detection.camera?.name || 'N/A'}</p>
                     </div>
                   </div>
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(deteccao.status)}`}>
-                    {deteccao.status}
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(detection.status)}`}>
+                    {detection.status}
                   </span>
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Localiza√ß√£o:</span>
-                    <span className="font-medium text-gray-900">{deteccao.camera.localizacao}</span>
+                    <span className="text-gray-500">LocalizaÁ„o:</span>
+                    <span className="font-medium text-gray-900">{detection.camera?.location || 'N/A'}</span>
                   </div>
 
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Confian√ßa:</span>
-                    <span className={`font-medium ${getConfidenceColor(deteccao.confianca)}`}>
-                      {deteccao.confianca.toFixed(1)}%
+                    <span className="text-gray-500">ConfianÁa:</span>
+                    <span className={`font-medium ${getConfidenceColor(detection.confidence)}`}>
+                      {detection.confidence.toFixed(1)}%
                     </span>
                   </div>
 
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Data/Hora:</span>
-                    <span className="font-medium text-gray-900">{formatTimestamp(deteccao.timestamp)}</span>
+                    <span className="font-medium text-gray-900">{formatTimestamp(detection.detectedAt)}</span>
                   </div>
                 </div>
 
@@ -188,10 +171,10 @@ const DeteccoesPage: React.FC = () => {
       </div>
 
       {/* Modal de detalhes */}
-      {selectedDeteccao && (
+      {selectedDetection && (
         <DeteccaoModal
-          deteccao={selectedDeteccao}
-          onClose={() => setSelectedDeteccao(null)}
+          deteccao={selectedDetection}
+          onClose={() => setSelectedDetection(null)}
         />
       )}
     </div>
@@ -199,7 +182,7 @@ const DeteccoesPage: React.FC = () => {
 };
 
 interface DeteccaoModalProps {
-  deteccao: Deteccao;
+  deteccao: Detection;
   onClose: () => void;
 }
 
@@ -244,7 +227,7 @@ const DeteccaoModal: React.FC<DeteccaoModalProps> = ({ deteccao, onClose }) => {
           {/* Header com status */}
           <div className="flex items-center justify-between">
             <h4 className="text-xl font-semibold text-gray-900">
-              {deteccao.pessoa.nome}
+              {deteccao.personFace?.person?.name || 'Desconhecido'}
             </h4>
             <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(deteccao.status)}`}>
               {deteccao.status}
@@ -260,12 +243,12 @@ const DeteccaoModal: React.FC<DeteccaoModalProps> = ({ deteccao, onClose }) => {
                   <div className="flex items-center space-x-3">
                     <div className="h-16 w-16 bg-primary-100 rounded-full flex items-center justify-center">
                       <span className="text-lg font-medium text-primary-600">
-                        {deteccao.pessoa.nome.charAt(0).toUpperCase()}
+                        {deteccao.personFace?.person?.name?.charAt(0).toUpperCase() || '?'}
                       </span>
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">{deteccao.pessoa.nome}</p>
-                      <p className="text-sm text-gray-500">ID: {deteccao.pessoa.id}</p>
+                      <p className="font-medium text-gray-900">{deteccao.personFace?.person?.name || 'Desconhecido'}</p>
+                      <p className="text-sm text-gray-500">ID: {deteccao.personFace?.person?.id || 'N/A'}</p>
                     </div>
                   </div>
                 </div>
@@ -275,19 +258,19 @@ const DeteccaoModal: React.FC<DeteccaoModalProps> = ({ deteccao, onClose }) => {
                 <h5 className="text-sm font-medium text-gray-700 mb-2">Detec√ß√£o</h5>
                 <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Confian√ßa:</span>
-                    <span className={`text-sm font-medium ${getConfidenceColor(deteccao.confianca)}`}>
-                      {deteccao.confianca.toFixed(2)}%
+                    <span className="text-sm text-gray-600">ConfianÁa:</span>
+                    <span className={`text-sm font-medium ${getConfidenceColor(deteccao.confidence)}`}>
+                      {deteccao.confidence.toFixed(2)}%
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Data/Hora:</span>
                     <span className="text-sm font-medium text-gray-900">
-                      {new Date(deteccao.timestamp).toLocaleString('pt-BR')}
+                      {new Date(deteccao.detectedAt).toLocaleString('pt-BR')}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">ID Detec√ß√£o:</span>
+                    <span className="text-sm text-gray-600">ID DetecÁ„o:</span>
                     <span className="text-sm font-medium text-gray-900">#{deteccao.id}</span>
                   </div>
                 </div>
@@ -296,7 +279,7 @@ const DeteccaoModal: React.FC<DeteccaoModalProps> = ({ deteccao, onClose }) => {
 
             <div className="space-y-4">
               <div>
-                <h5 className="text-sm font-medium text-gray-700 mb-2">Informa√ß√µes da C√¢mera</h5>
+                <h5 className="text-sm font-medium text-gray-700 mb-2">InformaÁıes da C‚mera</h5>
                 <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                   <div className="flex items-center space-x-3">
                     <div className="p-2 bg-primary-100 rounded-lg">
@@ -305,13 +288,13 @@ const DeteccaoModal: React.FC<DeteccaoModalProps> = ({ deteccao, onClose }) => {
                       </svg>
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">{deteccao.camera.nome}</p>
-                      <p className="text-sm text-gray-500">{deteccao.camera.localizacao}</p>
+                      <p className="font-medium text-gray-900">{deteccao.camera?.name || 'N/A'}</p>
+                      <p className="text-sm text-gray-500">{deteccao.camera?.location || 'N/A'}</p>
                     </div>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">ID C√¢mera:</span>
-                    <span className="text-sm font-medium text-gray-900">{deteccao.camera.id}</span>
+                    <span className="text-sm font-medium text-gray-900">{deteccao.camera?.id || 'N/A'}</span>
                   </div>
                 </div>
               </div>

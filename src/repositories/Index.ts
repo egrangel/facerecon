@@ -1,160 +1,167 @@
 import { AppDataSource } from '@/config/database';
 import { BaseRepository } from './BaseRepository';
-import { Cadastro } from '@/entities/Cadastro';
-import { Pessoa } from '@/entities/Pessoa';
-import { PessoaTipo, PessoaFace, PessoaContato, PessoaEndereco } from '@/entities';
-import { Evento, Camera, Deteccao } from '@/entities/EventEntities';
+import { Organization } from '@/entities/Organization';
+import { Person } from '@/entities/Person';
+import { PersonType, PersonFace, PersonContact, PersonAddress } from '@/entities';
+import { Event, Camera, Detection } from '@/entities/EventEntities';
 import { User } from '@/entities/User';
 
-export class CadastroRepository extends BaseRepository<Cadastro> {
+export class OrganizationRepository extends BaseRepository<Organization> {
   constructor() {
-    super(AppDataSource.getRepository(Cadastro));
+    super(AppDataSource.getRepository(Organization));
   }
 
-  async findWithRelations(id: number): Promise<Cadastro | null> {
+  async findWithRelations(id: number): Promise<Organization | null> {
     return this.repository.findOne({
       where: { id },
-      relations: ['pessoas', 'eventos', 'cameras'],
+      relations: ['people', 'events', 'cameras'],
     });
   }
 
-  async findByStatus(status: string): Promise<Cadastro[]> {
+  async findByStatus(status: string): Promise<Organization[]> {
     return this.repository.find({
       where: { status },
     });
   }
 }
 
-export class PessoaRepository extends BaseRepository<Pessoa> {
+export class PersonRepository extends BaseRepository<Person> {
   constructor() {
-    super(AppDataSource.getRepository(Pessoa));
+    super(AppDataSource.getRepository(Person));
   }
 
-  async findByCadastroId(cadastroId: number): Promise<Pessoa[]> {
+  async findByOrganizationId(organizationId: number): Promise<Person[]> {
     return this.repository.find({
-      where: { cadastroId },
-      relations: ['tipos', 'faces', 'contatos', 'enderecos'],
+      where: { organizationId },
+      relations: ['organization'],
     });
   }
 
-  async findByDocumento(documento: string): Promise<Pessoa | null> {
+  async findByPersonId(personId: number): Promise<Person[]> {
+    return this.repository.find({
+      where: { id: personId },
+      relations: ['types', 'faces', 'contacts', 'addresses'],
+    });
+  }
+
+  async findByDocumentNumber(documentNumber: string): Promise<Person | null> {
     return this.repository.findOne({
-      where: { documento },
-      relations: ['cadastro'],
+      where: { documentNumber },
+      relations: ['organization'],
     });
   }
 
-  async findWithFullRelations(id: number): Promise<Pessoa | null> {
+  async findWithFullRelations(id: number): Promise<Person | null> {
     return this.repository.findOne({
       where: { id },
-      relations: ['cadastro', 'tipos', 'faces', 'contatos', 'enderecos'],
+      relations: ['organization', 'types', 'faces', 'contacts', 'addresses'],
     });
   }
 }
 
-export class PessoaTipoRepository extends BaseRepository<PessoaTipo> {
+export class PersonTypeRepository extends BaseRepository<PersonType> {
   constructor() {
-    super(AppDataSource.getRepository(PessoaTipo));
+    super(AppDataSource.getRepository(PersonType));
   }
 
-  async findByPessoaId(pessoaId: number): Promise<PessoaTipo[]> {
+  async findByPersonId(personId: number): Promise<PersonType[]> {
     return this.repository.find({
-      where: { pessoaId },
-      relations: ['pessoa'],
+      where: { personId },
+      relations: ['person'],
     });
   }
 
-  async findByTipo(tipo: string): Promise<PessoaTipo[]> {
+  async findByType(type: string): Promise<PersonType[]> {
     return this.repository.find({
-      where: { tipo },
-      relations: ['pessoa'],
+      where: { type },
+      relations: ['person'],
     });
   }
 }
 
-export class PessoaFaceRepository extends BaseRepository<PessoaFace> {
+export class PersonFaceRepository extends BaseRepository<PersonFace> {
   constructor() {
-    super(AppDataSource.getRepository(PessoaFace));
+    super(AppDataSource.getRepository(PersonFace));
   }
 
-  async findByPessoaId(pessoaId: number): Promise<PessoaFace[]> {
+  async findByPersonId(personId: number): Promise<PersonFace[]> {
     return this.repository.find({
-      where: { pessoaId },
-      relations: ['pessoa'],
+      where: { personId },
+      relations: ['person'],
     });
   }
 
-  async findByFaceId(faceId: string): Promise<PessoaFace | null> {
+  async findByFaceId(faceId: string): Promise<PersonFace | null> {
     return this.repository.findOne({
       where: { faceId },
-      relations: ['pessoa'],
+      relations: ['person'],
     });
   }
 }
 
-export class PessoaContatoRepository extends BaseRepository<PessoaContato> {
+export class PersonContactRepository extends BaseRepository<PersonContact> {
   constructor() {
-    super(AppDataSource.getRepository(PessoaContato));
+    super(AppDataSource.getRepository(PersonContact));
   }
 
-  async findByPessoaId(pessoaId: number): Promise<PessoaContato[]> {
+  async findByPersonId(personId: number): Promise<PersonContact[]> {
     return this.repository.find({
-      where: { pessoaId },
-      relations: ['pessoa'],
+      where: { personId },
+      relations: ['person'],
     });
   }
 
-  async findPrincipalByPessoa(pessoaId: number, tipo: string): Promise<PessoaContato | null> {
+  async findPrincipalByPerson(personId: number, type: string): Promise<PersonContact | null> {
     return this.repository.findOne({
-      where: { pessoaId, tipo, principal: true },
-      relations: ['pessoa'],
+      where: { personId, type, isPrimary: true },
+      relations: ['person'],
     });
   }
 }
 
-export class PessoaEnderecoRepository extends BaseRepository<PessoaEndereco> {
+export class PersonAddressRepository extends BaseRepository<PersonAddress> {
   constructor() {
-    super(AppDataSource.getRepository(PessoaEndereco));
+    super(AppDataSource.getRepository(PersonAddress));
   }
 
-  async findByPessoaId(pessoaId: number): Promise<PessoaEndereco[]> {
+  async findByPersonId(personId: number): Promise<PersonAddress[]> {
     return this.repository.find({
-      where: { pessoaId },
-      relations: ['pessoa'],
+      where: { personId },
+      relations: ['person'],
     });
   }
 
-  async findPrincipalByPessoa(pessoaId: number): Promise<PessoaEndereco | null> {
+  async findPrincipalByPerson(personId: number): Promise<PersonAddress | null> {
     return this.repository.findOne({
-      where: { pessoaId, principal: true },
-      relations: ['pessoa'],
+      where: { personId, isPrimary: true },
+      relations: ['person'],
     });
   }
 }
 
-export class EventoRepository extends BaseRepository<Evento> {
+export class EventRepository extends BaseRepository<Event> {
   constructor() {
-    super(AppDataSource.getRepository(Evento));
+    super(AppDataSource.getRepository(Event));
   }
 
-  async findByCadastroId(cadastroId: number): Promise<Evento[]> {
+  async findByOrganizationId(organizationId: number): Promise<Event[]> {
     return this.repository.find({
-      where: { cadastroId },
-      relations: ['cadastro', 'deteccoes'],
-      order: { dataHoraOcorrencia: 'DESC' },
+      where: { organizationId },
+      relations: ['organization', 'detections'],
+      order: { occurredAt: 'DESC' },
     });
   }
 
-  async findByDateRange(startDate: Date, endDate: Date): Promise<Evento[]> {
+  async findByDateRange(startDate: Date, endDate: Date): Promise<Event[]> {
     return this.repository
-      .createQueryBuilder('evento')
-      .where('evento.dataHoraOcorrencia BETWEEN :startDate AND :endDate', {
+      .createQueryBuilder('event')
+      .where('event.occurredAt BETWEEN :startDate AND :endDate', {
         startDate,
         endDate,
       })
-      .leftJoinAndSelect('evento.cadastro', 'cadastro')
-      .leftJoinAndSelect('evento.deteccoes', 'deteccoes')
-      .orderBy('evento.dataHoraOcorrencia', 'DESC')
+      .leftJoinAndSelect('event.organization', 'organization')
+      .leftJoinAndSelect('event.detections', 'detections')
+      .orderBy('event.occurredAt', 'DESC')
       .getMany();
   }
 }
@@ -164,53 +171,53 @@ export class CameraRepository extends BaseRepository<Camera> {
     super(AppDataSource.getRepository(Camera));
   }
 
-  async findByCadastroId(cadastroId: number): Promise<Camera[]> {
+  async findByOrganizationId(organizationId: number): Promise<Camera[]> {
     return this.repository.find({
-      where: { cadastroId },
-      relations: ['cadastro'],
+      where: { organizationId },
+      relations: ['organization'],
     });
   }
 
   async findByStatus(status: string): Promise<Camera[]> {
     return this.repository.find({
       where: { status },
-      relations: ['cadastro'],
+      relations: ['organization'],
     });
   }
 }
 
-export class DeteccaoRepository extends BaseRepository<Deteccao> {
+export class DetectionRepository extends BaseRepository<Detection> {
   constructor() {
-    super(AppDataSource.getRepository(Deteccao));
+    super(AppDataSource.getRepository(Detection));
   }
 
-  async findByEventoId(eventoId: number): Promise<Deteccao[]> {
+  async findByEventId(eventId: number): Promise<Detection[]> {
     return this.repository.find({
-      where: { eventoId },
-      relations: ['evento', 'pessoaFace', 'camera'],
+      where: { eventId },
+      relations: ['event', 'personFace', 'camera'],
     });
   }
 
-  async findByPessoaFaceId(pessoaFaceId: number): Promise<Deteccao[]> {
+  async findByPersonFaceId(personFaceId: number): Promise<Detection[]> {
     return this.repository.find({
-      where: { pessoaFaceId },
-      relations: ['evento', 'pessoaFace', 'camera'],
-      order: { dataHoraDeteccao: 'DESC' },
+      where: { personFaceId },
+      relations: ['event', 'personFace', 'camera'],
+      order: { detectedAt: 'DESC' },
     });
   }
 
-  async findRecentDetections(hours: number = 24): Promise<Deteccao[]> {
+  async findRecentDetections(hours: number = 24): Promise<Detection[]> {
     const dateThreshold = new Date();
     dateThreshold.setHours(dateThreshold.getHours() - hours);
 
     return this.repository
-      .createQueryBuilder('deteccao')
-      .where('deteccao.dataHoraDeteccao >= :dateThreshold', { dateThreshold })
-      .leftJoinAndSelect('deteccao.evento', 'evento')
-      .leftJoinAndSelect('deteccao.pessoaFace', 'pessoaFace')
-      .leftJoinAndSelect('pessoaFace.pessoa', 'pessoa')
-      .leftJoinAndSelect('deteccao.camera', 'camera')
-      .orderBy('deteccao.dataHoraDeteccao', 'DESC')
+      .createQueryBuilder('detection')
+      .where('detection.detectedAt >= :dateThreshold', { dateThreshold })
+      .leftJoinAndSelect('detection.event', 'event')
+      .leftJoinAndSelect('detection.personFace', 'personFace')
+      .leftJoinAndSelect('personFace.person', 'person')
+      .leftJoinAndSelect('detection.camera', 'camera')
+      .orderBy('detection.detectedAt', 'DESC')
       .getMany();
   }
 }
@@ -235,6 +242,25 @@ export class UserRepository extends BaseRepository<User> {
   async updateLastLogin(userId: number): Promise<void> {
     await this.repository.update(userId, {
       lastLoginAt: new Date(),
+    });
+  }
+
+  async findByRole(role: string): Promise<User[]> {
+    return this.repository.find({
+      where: { role },
+    });
+  }
+
+  async findByStatus(status: string): Promise<User[]> {
+    return this.repository.find({
+      where: { status },
+    });
+  }
+
+  async findByOrganizationId(organizationId: number): Promise<User[]> {
+    return this.repository.find({
+      where: { organizationId },
+      relations: ['organization'],
     });
   }
 }

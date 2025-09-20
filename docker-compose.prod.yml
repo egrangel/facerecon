@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: facial_recognition_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: facial_recognition_prod
+      POSTGRES_USER: facial_recognition_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - facial_recognition_network
+    ports:
+      - "5432:5432"
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: dockerfile
+    container_name: facial_recognition_api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DB_TYPE: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: facial_recognition_user
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_DATABASE: facial_recognition_prod
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      CORS_ORIGIN: ${FRONTEND_URL}
+      TRUST_PROXY: true
+    depends_on:
+      - postgres
+    networks:
+      - facial_recognition_network
+    ports:
+      - "3000:3000"
+    volumes:
+      - backend_data:/app/data
+
+  # Frontend
+  frontend:
+    build:
+      context: ./facial-recognition-frontend
+      dockerfile: Dockerfile
+    container_name: facial_recognition_frontend
+    restart: unless-stopped
+    networks:
+      - facial_recognition_network
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+  # Nginx Reverse Proxy (Optional)
+  nginx:
+    image: nginx:alpine
+    container_name: facial_recognition_proxy
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - facial_recognition_network
+
+volumes:
+  postgres_data:
+  backend_data:
+
+networks:
+  facial_recognition_network:
+    driver: bridge

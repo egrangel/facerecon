@@ -7,113 +7,115 @@ export interface BaseEntity {
 
 export interface User extends BaseEntity {
   email: string;
-  nome: string;
+  name: string;
   role: 'admin' | 'user' | 'operator';
   status: string;
   lastLoginAt?: string;
   preferences?: string;
 }
 
-export interface Cadastro extends BaseEntity {
-  nome: string;
-  descricao?: string;
+export interface Organization extends BaseEntity {
+  name: string;
+  description?: string;
   status: string;
-  configuracoes?: string;
+  settings?: string;
 }
 
-export interface Pessoa extends BaseEntity {
-  nome: string;
-  tipoPessoa: string;
-  documento?: string;
-  rg?: string;
-  dataNascimento?: string;
-  sexo?: string;
+export interface Person extends BaseEntity {
+  name: string;
+  personType: string;
+  documentNumber?: string;
+  nationalId?: string;
+  birthDate?: string;
+  gender?: string;
   status: string;
-  observacoes?: string;
-  metadados?: string;
-  cadastroId: number;
-  cadastro?: Cadastro;
+  notes?: string;
+  metadata?: string;
+  organizationId: number;
+  organization?: Organization;
 }
 
-export interface PessoaFace extends BaseEntity {
+export interface PersonFace extends BaseEntity {
   faceId: string;
-  parametrosBiometricos?: string;
-  confiabilidade?: number;
+  biometricParameters?: string;
+  reliability?: number;
   status: string;
-  observacoes?: string;
-  pessoaId: number;
-  pessoa?: Pessoa;
+  notes?: string;
+  personId: number;
+  person?: Person;
 }
 
-export interface PessoaContato extends BaseEntity {
-  tipo: string;
-  valor: string;
-  principal: boolean;
+export interface PersonContact extends BaseEntity {
+  type: string;
+  value: string;
+  isPrimary: boolean;
   status: string;
-  pessoaId: number;
-  pessoa?: Pessoa;
+  personId: number;
+  person?: Person;
 }
 
-export interface PessoaEndereco extends BaseEntity {
-  tipo: string;
-  logradouro: string;
-  numero?: string;
-  complemento?: string;
-  bairro: string;
-  cidade: string;
-  uf: string;
-  cep?: string;
-  pais: string;
-  principal: boolean;
+export interface PersonAddress extends BaseEntity {
+  type: string;
+  street: string;
+  number?: string;
+  complement?: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  zipCode?: string;
+  country: string;
+  isPrimary: boolean;
   status: string;
-  pessoaId: number;
-  pessoa?: Pessoa;
+  personId: number;
+  person?: Person;
 }
 
-export interface Evento extends BaseEntity {
-  nome: string;
-  descricao?: string;
-  tipo: string;
-  dataHoraOcorrencia: string;
+export interface Event extends BaseEntity {
+  name: string;
+  description?: string;
+  type: string;
+  occurredAt: string;
   status: string;
-  local?: string;
-  coordenadas?: string;
-  observacoes?: string;
-  metadados?: string;
-  cadastroId: number;
-  cadastro?: Cadastro;
+  location?: string;
+  coordinates?: string;
+  notes?: string;
+  metadata?: string;
+  organizationId: number;
+  organization?: Organization;
 }
 
 export interface Camera extends BaseEntity {
-  nome: string;
-  descricao?: string;
+  name: string;
+  description?: string;
   ip: string;
-  porta: number;
-  usuario?: string;
-  senha?: string;
-  urlStream?: string;
-  protocolo: string;
-  localizacao?: string;
+  port: number;
+  username?: string;
+  password?: string;
+  streamUrl?: string;
+  protocol: string;
+  location?: string;
   status: string;
-  configuracoes?: string;
-  cadastroId: number;
-  cadastro?: Cadastro;
+  settings?: string;
+  organizationId: number;
+  organization?: Organization;
 }
 
-export interface Deteccao extends BaseEntity {
-  dataHoraDeteccao: string;
-  confiabilidade: number;
+export interface Detection extends BaseEntity {
+  detectedAt: string;
+  confidence: number;
   status: string;
-  imagemUrl?: string;
-  metadados?: string;
-  eventoId: number;
-  pessoaFaceId: number;
+  imageUrl?: string;
+  metadata?: string;
+  eventId: number;
+  personFaceId: number;
   cameraId?: number;
-  evento?: Evento;
-  pessoaFace?: PessoaFace;
+  event?: Event;
+  personFace?: PersonFace;
   camera?: Camera;
 }
 
+
+// Auth related interfaces
 export interface LoginCredentials {
   email: string;
   password: string;
@@ -122,8 +124,12 @@ export interface LoginCredentials {
 export interface RegisterData {
   email: string;
   password: string;
-  nome: string;
+  name: string;
   role?: 'admin' | 'user' | 'operator';
+  organization: {
+    name: string;
+    description?: string;
+  };
 }
 
 export interface TokenPair {
@@ -155,7 +161,7 @@ export interface QueryParams {
   page?: number;
   limit?: number;
   search?: string;
-  status?: string;
-  sort?: string;
-  order?: 'asc' | 'desc';
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  [key: string]: any;
 }

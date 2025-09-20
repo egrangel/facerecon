@@ -2,9 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(npm run build:*)",
-      "Bash(docker:*)",
-      "Bash(npm run dev:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

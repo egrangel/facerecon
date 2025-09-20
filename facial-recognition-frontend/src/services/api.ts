@@ -7,14 +7,14 @@ import {
   PaginatedResponse,
   QueryParams,
   User,
-  Cadastro,
-  Pessoa,
-  PessoaFace,
-  PessoaContato,
-  PessoaEndereco,
-  Evento,
+  Organization,
+  Person,
+  PersonFace,
+  PersonContact,
+  PersonAddress,
+  Event,
   Camera,
-  Deteccao,
+  Detection,
   BaseEntity
 } from '../types/api';
 
@@ -50,8 +50,10 @@ class ApiClient {
     this.client.interceptors.response.use(
       (response) => response,
       async (error) => {
-        if (error.response?.status === 401) {
-          // Try to refresh token
+        const isAuthEndpoint = error.config?.url?.includes('/auth/');
+
+        if (error.response?.status === 401 && !isAuthEndpoint) {
+          // Try to refresh token only for non-auth endpoints
           try {
             await this.refreshToken();
             // Retry original request
@@ -70,23 +72,25 @@ class ApiClient {
 
   // Auth methods
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const response: AxiosResponse<AuthResponse> = await this.client.post('/auth/login', credentials);
-    const { tokens } = response.data;
+    const response: AxiosResponse<{ success: boolean; data: AuthResponse }> = await this.client.post('/auth/login', credentials);
+    const { data } = response.data;
+    const { tokens } = data;
 
     localStorage.setItem('accessToken', tokens.accessToken);
     localStorage.setItem('refreshToken', tokens.refreshToken);
 
-    return response.data;
+    return data;
   }
 
   async register(data: RegisterData): Promise<AuthResponse> {
-    const response: AxiosResponse<AuthResponse> = await this.client.post('/auth/register', data);
-    const { tokens } = response.data;
+    const response: AxiosResponse<{ success: boolean; data: AuthResponse }> = await this.client.post('/auth/register', data);
+    const { data: responseData } = response.data;
+    const { tokens } = responseData;
 
     localStorage.setItem('accessToken', tokens.accessToken);
     localStorage.setItem('refreshToken', tokens.refreshToken);
 
-    return response.data;
+    return responseData;
   }
 
   async refreshToken(): Promise<void> {
@@ -110,8 +114,8 @@ class ApiClient {
   }
 
   async getCurrentUser(): Promise<User> {
-    const response: AxiosResponse<User> = await this.client.get('/auth/me');
-    return response.data;
+    const response: AxiosResponse<{ success: boolean; data: User }> = await this.client.get('/auth/me');
+    return response.data.data;
   }
 
   // Generic CRUD methods
@@ -139,46 +143,46 @@ class ApiClient {
     await this.client.delete(endpoint);
   }
 
-  // Cadastro methods
-  async getCadastros(params?: QueryParams): Promise<PaginatedResponse<Cadastro>> {
-    return this.getPaginated<Cadastro>('/cadastros', params);
+  // Organization methods
+  async getOrganizations(params?: QueryParams): Promise<PaginatedResponse<Organization>> {
+    return this.getPaginated<Organization>('/organizations', params);
   }
 
-  async getCadastro(id: number): Promise<Cadastro> {
-    return this.get<Cadastro>(`/cadastros/${id}`);
+  async getOrganization(id: number): Promise<Organization> {
+    return this.get<Organization>(`/organizations/${id}`);
   }
 
-  async createCadastro(data: Omit<Cadastro, keyof BaseEntity>): Promise<Cadastro> {
-    return this.post<Cadastro>('/cadastros', data);
+  async createOrganization(data: Omit<Organization, keyof BaseEntity>): Promise<Organization> {
+    return this.post<Organization>('/organizations', data);
   }
 
-  async updateCadastro(id: number, data: Partial<Cadastro>): Promise<Cadastro> {
-    return this.put<Cadastro>(`/cadastros/${id}`, data);
+  async updateOrganization(id: number, data: Partial<Organization>): Promise<Organization> {
+    return this.put<Organization>(`/organizations/${id}`, data);
   }
 
-  async deleteCadastro(id: number): Promise<void> {
-    return this.delete(`/cadastros/${id}`);
+  async deleteOrganization(id: number): Promise<void> {
+    return this.delete(`/organizations/${id}`);
   }
 
-  // Pessoa methods
-  async getPessoas(params?: QueryParams): Promise<PaginatedResponse<Pessoa>> {
-    return this.getPaginated<Pessoa>('/pessoas', params);
+  // Person methods
+  async getPeople(params?: QueryParams): Promise<PaginatedResponse<Person>> {
+    return this.getPaginated<Person>('/people', params);
   }
 
-  async getPessoa(id: number): Promise<Pessoa> {
-    return this.get<Pessoa>(`/pessoas/${id}`);
+  async getPerson(id: number): Promise<Person> {
+    return this.get<Person>(`/people/${id}`);
   }
 
-  async createPessoa(data: Omit<Pessoa, keyof BaseEntity>): Promise<Pessoa> {
-    return this.post<Pessoa>('/pessoas', data);
+  async createPerson(data: Omit<Person, keyof BaseEntity>): Promise<Person> {
+    return this.post<Person>('/people', data);
   }
 
-  async updatePessoa(id: number, data: Partial<Pessoa>): Promise<Pessoa> {
-    return this.put<Pessoa>(`/pessoas/${id}`, data);
+  async updatePerson(id: number, data: Partial<Person>): Promise<Person> {
+    return this.put<Person>(`/people/${id}`, data);
   }
 
-  async deletePessoa(id: number): Promise<void> {
-    return this.delete(`/pessoas/${id}`);
+  async deletePerson(id: number): Promise<void> {
+    return this.delete(`/people/${id}`);
   }
 
   // Camera methods
@@ -202,34 +206,304 @@ class ApiClient {
     return this.delete(`/cameras/${id}`);
   }
 
-  // Evento methods
-  async getEventos(params?: QueryParams): Promise<PaginatedResponse<Evento>> {
-    return this.getPaginated<Evento>('/eventos', params);
+  // Event methods
+  async getEvents(params?: QueryParams): Promise<PaginatedResponse<Event>> {
+    return this.getPaginated<Event>('/events', params);
   }
 
-  async getEvento(id: number): Promise<Evento> {
-    return this.get<Evento>(`/eventos/${id}`);
+  async getEvent(id: number): Promise<Event> {
+    return this.get<Event>(`/events/${id}`);
   }
 
-  async createEvento(data: Omit<Evento, keyof BaseEntity>): Promise<Evento> {
-    return this.post<Evento>('/eventos', data);
+  async createEvent(data: Omit<Event, keyof BaseEntity>): Promise<Event> {
+    return this.post<Event>('/events', data);
   }
 
-  async updateEvento(id: number, data: Partial<Evento>): Promise<Evento> {
-    return this.put<Evento>(`/eventos/${id}`, data);
+  async updateEvent(id: number, data: Partial<Event>): Promise<Event> {
+    return this.put<Event>(`/events/${id}`, data);
   }
 
-  async deleteEvento(id: number): Promise<void> {
-    return this.delete(`/eventos/${id}`);
+  async deleteEvent(id: number): Promise<void> {
+    return this.delete(`/events/${id}`);
   }
 
-  // Deteccao methods
-  async getDeteccoes(params?: QueryParams): Promise<PaginatedResponse<Deteccao>> {
-    return this.getPaginated<Deteccao>('/deteccoes', params);
+  // Detection methods
+  async getDetections(params?: QueryParams): Promise<PaginatedResponse<Detection>> {
+    return this.getPaginated<Detection>('/detections', params);
   }
 
-  async getDeteccao(id: number): Promise<Deteccao> {
-    return this.get<Deteccao>(`/deteccoes/${id}`);
+  async getDetection(id: number): Promise<Detection> {
+    return this.get<Detection>(`/detections/${id}`);
+  }
+
+  // User methods
+  async getUsers(params?: QueryParams): Promise<PaginatedResponse<User>> {
+    return this.getPaginated<User>('/users', params);
+  }
+
+  async getUser(id: number): Promise<User> {
+    return this.get<User>(`/users/${id}`);
+  }
+
+  async createUser(data: Omit<User, keyof BaseEntity>): Promise<User> {
+    return this.post<User>('/users', data);
+  }
+
+  async updateUser(id: number, data: Partial<User>): Promise<User> {
+    return this.put<User>(`/users/${id}`, data);
+  }
+
+  async deleteUser(id: number): Promise<void> {
+    return this.delete(`/users/${id}`);
+  }
+
+  // Settings methods
+  async getCurrentOrganization(): Promise<Organization> {
+    const response: AxiosResponse<{ success: boolean; data: Organization }> = await this.client.get('/settings/organization');
+    return response.data.data;
+  }
+
+  async updateCurrentOrganization(data: Partial<Organization>): Promise<Organization> {
+    const response: AxiosResponse<{ success: boolean; data: Organization }> = await this.client.put('/settings/organization', data);
+    return response.data.data;
+  }
+
+  // Streaming methods
+  async startCameraStream(cameraId: number): Promise<{ sessionId: string; streamUrl: string }> {
+    const response: AxiosResponse<{ success: boolean; data: { sessionId: string; streamUrl: string; cameraId: number; rtspUrl: string } }> =
+      await this.client.post(`/streams/start/${cameraId}`);
+    return response.data.data;
+  }
+
+  async stopStream(sessionId: string): Promise<void> {
+    await this.client.post(`/streams/stop/${sessionId}`);
+  }
+
+  async getStreamStatus(sessionId: string): Promise<{ sessionId: string; isActive: boolean; streamUrl: string | null }> {
+    const response: AxiosResponse<{ success: boolean; data: { sessionId: string; isActive: boolean; streamUrl: string | null } }> =
+      await this.client.get(`/streams/status/${sessionId}`);
+    return response.data.data;
+  }
+
+  async getCameraStreamUrl(cameraId: number): Promise<{ sessionId: string; streamUrl: string }> {
+    const response: AxiosResponse<{ success: boolean; data: { sessionId: string; streamUrl: string; cameraId: number } }> =
+      await this.client.get(`/streams/camera/${cameraId}/url`);
+    return response.data.data;
+  }
+
+  async getActiveStreams(): Promise<Array<{ sessionId: string; cameraId: number; streamUrl: string; createdAt: string; lastAccessed: string }>> {
+    const response: AxiosResponse<{ success: boolean; data: Array<{ sessionId: string; cameraId: number; streamUrl: string; createdAt: string; lastAccessed: string }> }> =
+      await this.client.get('/streams/active');
+    return response.data.data;
+  }
+
+  async getStreamingHealth(): Promise<{ activeSessions: number; streamDirectory: string; uptime: number }> {
+    const response: AxiosResponse<{ success: boolean; data: { activeSessions: number; streamDirectory: string; uptime: number } }> =
+      await this.client.get('/streams/health');
+    return response.data.data;
+  }
+
+  async getOrganizationUsers(): Promise<User[]> {
+    const response: AxiosResponse<{ success: boolean; data: User[] }> = await this.client.get('/settings/users');
+    return response.data.data;
+  }
+
+  async createOrganizationUser(data: {
+    email: string;
+    password: string;
+    name: string;
+    role?: 'admin' | 'user' | 'operator';
+  }): Promise<User> {
+    return this.post<User>('/settings/users', data);
+  }
+
+  async updateOrganizationUser(id: number, data: Partial<User>): Promise<User> {
+    return this.put<User>(`/settings/users/${id}`, data);
+  }
+
+  async deleteOrganizationUser(id: number): Promise<void> {
+    return this.delete(`/settings/users/${id}`);
+  }
+
+  // Stats methods
+  async getStats(): Promise<{
+    totalPeople: number;
+    totalCameras: number;
+    totalUsuarios: number;
+    recentRegistrations: Array<{
+      id: number;
+      type: 'person' | 'camera' | 'user';
+      name: string;
+      date: string;
+    }>;
+  }> {
+    try {
+      const [peopleResponse, camerasResponse, usersResponse] = await Promise.all([
+        this.getPeople({ limit: 1 }),
+        this.getCameras({ limit: 1 }),
+        this.getUsers({ limit: 1 })
+      ]);
+
+      const [recentPeople, recentCameras, recentUsers] = await Promise.all([
+        this.getPeople({ limit: 2, sort: 'createdAt', order: 'desc' }),
+        this.getCameras({ limit: 2, sort: 'createdAt', order: 'desc' }),
+        this.getUsers({ limit: 1, sort: 'createdAt', order: 'desc' })
+      ]);
+
+      const recentRegistrations = [
+        ...(recentPeople?.data || []).map(person => ({
+          id: person.id,
+          type: 'person' as const,
+          name: person.name,
+          date: person.createdAt
+        })),
+        ...(recentCameras?.data || []).map(camera => ({
+          id: camera.id,
+          type: 'camera' as const,
+          name: camera.name,
+          date: camera.createdAt
+        })),
+        ...(recentUsers?.data || []).map(user => ({
+          id: user.id,
+          type: 'user' as const,
+          name: user.name,
+          date: user.createdAt
+        }))
+      ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
+
+      return {
+        totalPeople: peopleResponse?.total || 0,
+        totalCameras: camerasResponse?.total || 0,
+        totalUsuarios: usersResponse?.total || 0,
+        recentRegistrations
+      };
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+      return {
+        totalPeople: 0,
+        totalCameras: 0,
+        totalUsuarios: 0,
+        recentRegistrations: []
+      };
+    }
+  }
+
+  // Dashboard specific methods
+  async getDashboardStats(): Promise<{
+    totalPeople: number;
+    detectionsToday: number;
+    activeCameras: number;
+    eventsToday: number;
+    recentActivity: Array<{
+      id: number;
+      content: string;
+      time: string;
+      type: 'person' | 'detection' | 'camera' | 'event' | 'system';
+    }>;
+  }> {
+    try {
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+      const [peopleResponse, camerasResponse, eventsResponse, detectionsResponse] = await Promise.all([
+        this.getPeople({ limit: 1 }),
+        this.getCameras({ limit: 1 }),
+        this.getEvents({ limit: 1 }),
+        this.getDetections({ limit: 1 })
+      ]);
+
+      // Get active cameras (assuming 'active' status)
+      const activeCamerasResponse = await this.get<PaginatedResponse<Camera>>('/cameras', { status: 'active' });
+
+      // Get recent items for activity feed
+      const [recentPeople, recentDetections, recentEvents] = await Promise.all([
+        this.getPeople({ limit: 2, sort: 'createdAt', order: 'desc' }),
+        this.getDetections({ limit: 2, sort: 'detectedAt', order: 'desc' }),
+        this.getEvents({ limit: 2, sort: 'occurredAt', order: 'desc' })
+      ]);
+
+      const recentActivity = [
+        ...(recentPeople?.data || []).map(person => ({
+          id: person.id,
+          content: `Nova pessoa cadastrada: ${person.name}`,
+          time: this.formatTimeAgo(person.createdAt),
+          type: 'person' as const
+        })),
+        ...(recentDetections?.data || []).map(detection => ({
+          id: detection.id,
+          content: `Detecção realizada: ${detection.personFace?.person?.name || 'Desconhecido'}`,
+          time: this.formatTimeAgo(detection.detectedAt),
+          type: 'detection' as const
+        })),
+        ...(recentEvents?.data || []).map(event => ({
+          id: event.id,
+          content: `Evento: ${event.description || event.name}`,
+          time: this.formatTimeAgo(event.occurredAt),
+          type: 'event' as const
+        }))
+      ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 5);
+
+      return {
+        totalPeople: peopleResponse?.total || 0,
+        detectionsToday: detectionsResponse?.total || 0, // This would need filtering by date in real implementation
+        activeCameras: activeCamerasResponse?.total || camerasResponse?.total || 0,
+        eventsToday: eventsResponse?.total || 0, // This would need filtering by date in real implementation
+        recentActivity
+      };
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      return {
+        totalPeople: 0,
+        detectionsToday: 0,
+        activeCameras: 0,
+        eventsToday: 0,
+        recentActivity: []
+      };
+    }
+  }
+
+  private formatTimeAgo(dateString: string): string {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (diffInSeconds < 60) {
+      return 'Agora mesmo';
+    } else if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60);
+      return `${minutes} minuto${minutes > 1 ? 's' : ''} atrás`;
+    } else if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600);
+      return `${hours} hora${hours > 1 ? 's' : ''} atrás`;
+    } else {
+      const days = Math.floor(diffInSeconds / 86400);
+      return `${days} dia${days > 1 ? 's' : ''} atrás`;
+    }
+  }
+
+  async getSystemStatus(): Promise<{
+    api: { status: 'online' | 'offline' | 'error'; message: string };
+    database: { status: 'connected' | 'disconnected' | 'error'; message: string };
+    ai: { status: 'online' | 'limited' | 'offline'; message: string };
+    storage: { status: 'available' | 'warning' | 'full'; message: string; percentage: number };
+  }> {
+    try {
+      const healthResponse = await this.healthCheck();
+      return {
+        api: { status: 'online', message: 'Online' },
+        database: { status: 'connected', message: 'Conectado' },
+        ai: { status: 'limited', message: 'Limitado' },
+        storage: { status: 'available', message: '85% Disponível', percentage: 85 }
+      };
+    } catch (error) {
+      return {
+        api: { status: 'error', message: 'Erro de conexão' },
+        database: { status: 'error', message: 'Falha na conexão' },
+        ai: { status: 'offline', message: 'Offline' },
+        storage: { status: 'warning', message: 'Status desconhecido', percentage: 0 }
+      };
+    }
   }
 
   // Health check

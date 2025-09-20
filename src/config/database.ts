@@ -4,15 +4,15 @@ import path from 'path';
 
 // Import all entities
 import {
-  Cadastro,
-  Pessoa,
-  PessoaTipo,
-  PessoaFace,
-  PessoaContato,
-  PessoaEndereco,
-  Evento,
+  Organization,
+  Person,
+  PersonType,
+  PersonFace,
+  PersonContact,
+  PersonAddress,
+  Event,
   Camera,
-  Deteccao,
+  Detection,
   User
 } from '@/entities';
 
@@ -35,20 +35,22 @@ export const AppDataSource = new DataSource({
   synchronize: process.env.NODE_ENV === 'development',
   logging: process.env.NODE_ENV === 'development',
   entities: [
-    Cadastro,
-    Pessoa,
-    PessoaTipo,
-    PessoaFace,
-    PessoaContato,
-    PessoaEndereco,
-    Evento,
+    Organization,
+    Person,
+    PersonType,
+    PersonFace,
+    PersonContact,
+    PersonAddress,
+    Event,
     Camera,
-    Deteccao,
+    Detection,
     User
   ],
   migrations: [path.join(__dirname, '../migrations/*.{ts,js}')],
   subscribers: [path.join(__dirname, '../subscribers/*.{ts,js}')],
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  ...(process.env.DB_TYPE === 'postgres' && process.env.NODE_ENV === 'production'
+    ? { ssl: { rejectUnauthorized: false } }
+    : {}),
 });
 
 export const initializeDatabase = async (): Promise<void> => {
