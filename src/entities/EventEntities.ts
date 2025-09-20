@@ -6,7 +6,7 @@ import { PessoaFace } from './index';
 
 // Evento Entity
 @Entity('eventos')
-export class Evento extends BaseEntity {
+class Evento extends BaseEntity {
   @Column({
     type: 'varchar',
     length: 255,
@@ -34,7 +34,7 @@ export class Evento extends BaseEntity {
   tipo!: string; // entrada, saida, deteccao, etc.
 
   @Column({
-    type: 'timestamp',
+    type: 'datetime',
     nullable: false
   })
   @IsDateString()
@@ -59,11 +59,11 @@ export class Evento extends BaseEntity {
   local?: string;
 
   @Column({
-    type: 'jsonb',
+    type: 'text',
     nullable: true
   })
   @IsOptional()
-  coordenadas?: Record<string, any>; // x, y, width, height da face detectada
+  coordenadas?: string; // JSON string: x, y, width, height da face detectada
 
   @Column({
     type: 'text',
@@ -74,44 +74,10 @@ export class Evento extends BaseEntity {
   observacoes?: string;
 
   // Foreign Keys
-  @Column({ name: 'evento_id', nullable: false })
-  eventoId!: number;
-
-  @Column({ name: 'pessoa_face_id', nullable: false })
-  pessoaFaceId!: number;
-
-  @Column({ name: 'camera_id', nullable: true })
-  cameraId?: number;
-
-  // Relationships
-  @ManyToOne(() => Evento, (evento) => evento.deteccoes, {
-    nullable: false,
-    onDelete: 'CASCADE'
-  })
-  @JoinColumn({ name: 'evento_id' })
-  evento!: Evento;
-
-  @ManyToOne(() => PessoaFace, {
-    nullable: false,
-    onDelete: 'CASCADE'
-  })
-  @JoinColumn({ name: 'pessoa_face_id' })
-  pessoaFace!: PessoaFace;
-
-  @ManyToOne(() => Camera, (camera) => camera.deteccoes, {
-    nullable: true,
-    onDelete: 'SET NULL'
-  })
-  @JoinColumn({ name: 'camera_id' })
-  camera?: Camera;
-}
-
-export { Evento, Camera, Deteccao };
-  metadados?: Record<string, any>;
-
   @Column({ name: 'cadastro_id', nullable: false })
   cadastroId!: number;
 
+  // Relationships
   @ManyToOne(() => Cadastro, (cadastro) => cadastro.eventos, {
     nullable: false,
     onDelete: 'CASCADE'
@@ -124,11 +90,18 @@ export { Evento, Camera, Deteccao };
     onDelete: 'CASCADE'
   })
   deteccoes!: Deteccao[];
+
+  @Column({
+    type: 'text',
+    nullable: true
+  })
+  @IsOptional()
+  metadados?: string; // JSON string
 }
 
 // Camera Entity
 @Entity('cameras')
-export class Camera extends BaseEntity {
+class Camera extends BaseEntity {
   @Column({
     type: 'varchar',
     length: 255,
@@ -219,11 +192,11 @@ export class Camera extends BaseEntity {
   status!: string;
 
   @Column({
-    type: 'jsonb',
+    type: 'text',
     nullable: true
   })
   @IsOptional()
-  configuracoes?: Record<string, any>;
+  configuracoes?: string; // JSON string
 
   @Column({ name: 'cadastro_id', nullable: false })
   cadastroId!: number;
@@ -244,9 +217,9 @@ export class Camera extends BaseEntity {
 
 // Deteccao Entity
 @Entity('deteccoes')
-export class Deteccao extends BaseEntity {
+class Deteccao extends BaseEntity {
   @Column({
-    type: 'timestamp',
+    type: 'datetime',
     nullable: false
   })
   @IsDateString()
@@ -278,7 +251,43 @@ export class Deteccao extends BaseEntity {
   imagemUrl?: string;
 
   @Column({
-    type: 'jsonb',
+    type: 'text',
     nullable: true
   })
   @IsOptional()
+  metadados?: string; // JSON string
+
+  // Foreign Keys
+  @Column({ name: 'evento_id', nullable: false })
+  eventoId!: number;
+
+  @Column({ name: 'pessoa_face_id', nullable: false })
+  pessoaFaceId!: number;
+
+  @Column({ name: 'camera_id', nullable: true })
+  cameraId?: number;
+
+  // Relationships
+  @ManyToOne(() => Evento, (evento) => evento.deteccoes, {
+    nullable: false,
+    onDelete: 'CASCADE'
+  })
+  @JoinColumn({ name: 'evento_id' })
+  evento!: Evento;
+
+  @ManyToOne(() => PessoaFace, {
+    nullable: false,
+    onDelete: 'CASCADE'
+  })
+  @JoinColumn({ name: 'pessoa_face_id' })
+  pessoaFace!: PessoaFace;
+
+  @ManyToOne(() => Camera, (camera) => camera.deteccoes, {
+    nullable: true,
+    onDelete: 'SET NULL'
+  })
+  @JoinColumn({ name: 'camera_id' })
+  camera?: Camera;
+}
+
+export { Evento, Camera, Deteccao };

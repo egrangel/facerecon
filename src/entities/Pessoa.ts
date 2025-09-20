@@ -2,10 +2,7 @@ import { Entity, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { IsString, IsOptional, Length, IsDateString } from 'class-validator';
 import { BaseEntity } from './BaseEntity';
 import { Cadastro } from './Cadastro';
-import { PessoaTipo } from './PessoaTipo';
-import { PessoaFace } from './PessoaFace';
-import { PessoaContato } from './PessoaContato';
-import { PessoaEndereco } from './PessoaEndereco';
+import { PessoaTipo, PessoaFace, PessoaContato, PessoaEndereco } from './index';
 
 @Entity('pessoas')
 export class Pessoa extends BaseEntity {
@@ -84,11 +81,11 @@ export class Pessoa extends BaseEntity {
   observacoes?: string;
 
   @Column({
-    type: 'jsonb',
+    type: 'text',
     nullable: true
   })
   @IsOptional()
-  metadados?: Record<string, any>;
+  metadados?: string; // JSON string
 
   // Foreign Keys
   @Column({ name: 'cadastro_id', nullable: false })

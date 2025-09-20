@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { User } from '@/entities/User';
 import { UserRepository } from '@/repositories';
 import { createError } from '@/middlewares/errorHandler';
@@ -55,10 +55,10 @@ export class AuthService {
       refreshToken: tokens.refreshToken,
     });
 
-    // Atualizar senha
-    await this.userRepository.update(userId, {
-      password: newPassword,
-    });
+    // Atualizar último login
+    await this.userRepository.updateLastLogin(user.id);
+
+    return { user, tokens };
   }
 
   private generateTokens(user: User): TokenPair {
@@ -77,13 +77,13 @@ export class AuthService {
       role: user.role,
     };
 
-    const accessToken = jwt.sign(payload, jwtSecret, {
+    const accessToken = jwt.sign(payload, jwtSecret as string, {
       expiresIn: jwtExpiresIn,
-    });
+    } as SignOptions);
 
-    const refreshToken = jwt.sign(payload, jwtRefreshSecret, {
+    const refreshToken = jwt.sign(payload, jwtRefreshSecret as string, {
       expiresIn: jwtRefreshExpiresIn,
-    });
+    } as SignOptions);
 
     return { accessToken, refreshToken };
   }
@@ -99,11 +99,6 @@ export class AuthService {
     } catch (error) {
       throw createError('Token inválido', 401);
     }
-  }
-} último login
-    await this.userRepository.updateLastLogin(user.id);
-
-    return { user, tokens };
   }
 
   async register(registerData: RegisterData): Promise<{ user: User; tokens: TokenPair }> {
@@ -174,7 +169,7 @@ export class AuthService {
 
   async logout(userId: number): Promise<void> {
     await this.userRepository.update(userId, {
-      refreshToken: null,
+      refreshToken: undefined,
     });
   }
 
@@ -194,4 +189,9 @@ export class AuthService {
       throw createError('Senha atual incorreta', 400);
     }
 
-    // Atualizar
+    // Atualizar senha
+    await this.userRepository.update(user.id, {
+      password: newPassword,
+    });
+  }
+}

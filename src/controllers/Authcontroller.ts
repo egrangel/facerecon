@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { AuthService, LoginCredentials, RegisterData } from '@/services/AuthService';
+import { AuthService, LoginCredentials, RegisterData } from '@/services/AuthServices';
 import { AuthenticatedRequest } from '@/middlewares/auth';
 import { asyncHandler } from '@/middlewares/errorHandler';
 

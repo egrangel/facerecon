@@ -72,12 +72,12 @@ export abstract class BaseRepository<T extends BaseEntity> {
 
   async delete(id: number): Promise<boolean> {
     const result = await this.repository.softDelete(id);
-    return result.affected !== undefined && result.affected > 0;
+    return (result.affected ?? 0) > 0;
   }
 
   async hardDelete(id: number): Promise<boolean> {
     const result = await this.repository.delete(id);
-    return result.affected !== undefined && result.affected > 0;
+    return (result.affected ?? 0) > 0;
   }
 
   async exists(where: FindOptionsWhere<T>): Promise<boolean> {

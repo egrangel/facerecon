@@ -2,8 +2,7 @@ import { Entity, Column, OneToMany } from 'typeorm';
 import { IsString, IsOptional, Length } from 'class-validator';
 import { BaseEntity } from './BaseEntity';
 import { Pessoa } from './Pessoa';
-import { Evento } from './Evento';
-import { Camera } from './Camera';
+import { Evento, Camera } from './EventEntities';
 
 @Entity('cadastros')
 export class Cadastro extends BaseEntity {
@@ -35,11 +34,11 @@ export class Cadastro extends BaseEntity {
   status!: string;
 
   @Column({
-    type: 'jsonb',
+    type: 'text',
     nullable: true
   })
   @IsOptional()
-  configuracoes?: Record<string, any>;
+  configuracoes?: string; // JSON string
 
   // Relationships
   @OneToMany(() => Pessoa, (pessoa) => pessoa.cadastro, {

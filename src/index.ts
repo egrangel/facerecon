@@ -25,7 +25,7 @@ const limiter = rateLimit({
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'), // limit each IP to 100 requests per windowMs
   message: {
     success: false,
-    message: 'Muitas requisi��es realizadas. Tente novamente em alguns minutos.',
+    message: 'Muitas requisi��es realizadas. Tente novamente em alguns minutos.',
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -83,26 +83,26 @@ app.use(errorHandler);
 // Initialize database and start server
 const startServer = async (): Promise<void> => {
   try {
-    // Initialize database connection
+    // Try to initialize database connection
     await initializeDatabase();
-    console.log('? Database initialized successfully');
-
-    // Start the server
-    app.listen(PORT, () => {
-      console.log(`?? Server is running on port ${PORT}`);
-      console.log(`?? API base URL: http://localhost:${PORT}/api/${API_VERSION}`);
-      console.log(`?? Health check: http://localhost:${PORT}/api/${API_VERSION}/health`);
-      
-      if (process.env.SWAGGER_ENABLED === 'true') {
-        console.log(`?? API Documentation: http://localhost:${PORT}/api/docs`);
-      }
-      
-      console.log(`?? Environment: ${process.env.NODE_ENV || 'development'}`);
-    });
+    console.log('✅ Database initialized successfully');
   } catch (error) {
-    console.error('? Failed to start server:', error);
-    process.exit(1);
+    console.error('⚠️ Database connection failed:', error.message);
+    console.log('🔄 Server will start without database connection (some features may be unavailable)');
   }
+
+  // Start the server regardless of database connection status
+  app.listen(PORT, () => {
+    console.log(`🚀 Server is running on port ${PORT}`);
+    console.log(`📡 API base URL: http://localhost:${PORT}/api/${API_VERSION}`);
+    console.log(`🔍 Health check: http://localhost:${PORT}/api/${API_VERSION}/health`);
+
+    if (process.env.SWAGGER_ENABLED === 'true') {
+      console.log(`📚 API Documentation: http://localhost:${PORT}/api/docs`);
+    }
+
+    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  });
 };
 
 // Graceful shutdown

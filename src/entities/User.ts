@@ -51,7 +51,7 @@ export class User extends BaseEntity {
   status!: string;
 
   @Column({
-    type: 'timestamp',
+    type: 'datetime',
     nullable: true
   })
   lastLoginAt?: Date;
@@ -64,10 +64,10 @@ export class User extends BaseEntity {
   refreshToken?: string;
 
   @Column({
-    type: 'jsonb',
+    type: 'text',
     nullable: true
   })
-  preferences?: Record<string, any>;
+  preferences?: string; // JSON string
 
   @BeforeInsert()
   @BeforeUpdate()

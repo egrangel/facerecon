@@ -5,7 +5,7 @@ import { BaseEntity } from './BaseEntity';
 import { Pessoa } from './Pessoa';
 
 @Entity('pessoa_tipos')
-export class PessoaTipo extends BaseEntity {
+class PessoaTipo extends BaseEntity {
   @Column({
     type: 'varchar',
     length: 100,
@@ -46,7 +46,7 @@ export class PessoaTipo extends BaseEntity {
 
 // PessoaFace Entity
 @Entity('pessoa_faces')
-export class PessoaFace extends BaseEntity {
+class PessoaFace extends BaseEntity {
   @Column({
     type: 'varchar',
     length: 255,
@@ -58,10 +58,10 @@ export class PessoaFace extends BaseEntity {
   faceId!: string; // Biometric identifier
 
   @Column({
-    type: 'jsonb',
+    type: 'text',
     nullable: true
   })
-  parametrosBiometricos?: Record<string, any>;
+  parametrosBiometricos?: string; // JSON string
 
   @Column({
     type: 'float',
@@ -97,7 +97,7 @@ export class PessoaFace extends BaseEntity {
 
 // PessoaContato Entity
 @Entity('pessoa_contatos')
-export class PessoaContato extends BaseEntity {
+class PessoaContato extends BaseEntity {
   @Column({
     type: 'varchar',
     length: 50,
@@ -145,7 +145,7 @@ export class PessoaContato extends BaseEntity {
 
 // PessoaEndereco Entity
 @Entity('pessoa_enderecos')
-export class PessoaEndereco extends BaseEntity {
+class PessoaEndereco extends BaseEntity {
   @Column({
     type: 'varchar',
     length: 50,
@@ -250,3 +250,7 @@ export class PessoaEndereco extends BaseEntity {
 
 // Export all entities
 export { PessoaTipo, PessoaFace, PessoaContato, PessoaEndereco };
+export { Pessoa } from './Pessoa';
+export { Cadastro } from './Cadastro';
+export { User } from './User';
+export { Evento, Camera, Deteccao } from './EventEntities';
