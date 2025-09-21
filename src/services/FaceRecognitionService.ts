@@ -1,11 +1,11 @@
 import * as tf from '@tensorflow/tfjs';
 import '@tensorflow/tfjs-backend-cpu';
 import * as faceDetection from '@tensorflow-models/face-detection';
-import { createCanvas, loadImage, Canvas, CanvasRenderingContext2D } from 'canvas';
+import { createCanvas, loadImage, Canvas } from 'canvas';
 import * as sharp from 'sharp';
 import * as path from 'path';
 import * as fs from 'fs';
-import { PersonService, DetectionService } from './index';
+import { PersonService, DetectionService, EventService, EventCameraService } from './index';
 
 export interface FaceDetectionResult {
   faces: DetectedFace[];
@@ -36,12 +36,16 @@ export class FaceRecognitionService {
   private isInitialized = false;
   private personService: PersonService;
   private detectionService: DetectionService;
+  private eventService: EventService;
+  private eventCameraService: EventCameraService;
   private readonly faceThreshold = 0.8; // Minimum confidence for face detection
   private readonly recognitionThreshold = 0.8; // Minimum confidence for face recognition
 
   constructor() {
     this.personService = new PersonService();
     this.detectionService = new DetectionService();
+    this.eventService = new EventService();
+    this.eventCameraService = new EventCameraService();
   }
 
   /**
@@ -118,7 +122,8 @@ export class FaceRecognitionService {
   public async processVideoFrame(
     frameBuffer: Buffer,
     cameraId: number,
-    organizationId: number
+    organizationId: number,
+    eventId?: number
   ): Promise<void> {
     try {
       // Detect faces in the frame
@@ -127,6 +132,9 @@ export class FaceRecognitionService {
       if (detection.faces.length === 0) {
         return; // No faces detected
       }
+
+      // Use provided eventId or get the active event for this camera
+      const currentEventId = eventId || await this.getActiveEventForCamera(cameraId);
 
       // Save the frame with detected faces
       const imageUrl = await this.saveDetectionImage(frameBuffer, detection.faces);
@@ -160,9 +168,10 @@ export class FaceRecognitionService {
               isKnown: recognition.isMatch,
               recognitionConfidence: recognition.confidence,
             }),
-            eventId: event.id,
+            eventId: currentEventId,
             personFaceId,
             cameraId,
+            organizationId,
           });
         }
       }
@@ -171,6 +180,39 @@ export class FaceRecognitionService {
     } catch (error) {
       console.error('Error processing video frame:', error);
       // Don't throw - we don't want to stop the stream for recognition errors
+    }
+  }
+
+  /**
+   * Get the active event for a specific camera
+   */
+  private async getActiveEventForCamera(cameraId: number): Promise<number> {
+    try {
+      // Get all event-camera associations for this camera
+      const eventCameras = await this.eventCameraService.findByCameraId(cameraId);
+
+      // Filter for active associations
+      const activeEventCameras = eventCameras.filter(ec => ec.isActive);
+
+      if (activeEventCameras.length === 0) {
+        throw new Error(`No active events found for camera ${cameraId}`);
+      }
+
+      // Get the event details for active associations
+      const rightNow = new Date();
+      for (const eventCamera of activeEventCameras) {
+        const event = await this.eventService.findById(eventCamera.eventId);
+
+        // Check if the event is active and scheduled (if it's a scheduled event)
+        if (event.isActive && (event.startTime && event.endTime && rightNow >= new Date(event.startTime) && rightNow <= new Date(event.endTime))) {
+          return event.id;
+        }
+      }
+
+      throw new Error(`No active events found for camera ${cameraId}`);
+    } catch (error) {
+      console.error(`Error getting active event for camera ${cameraId}:`, error);
+      throw error;
     }
   }
 
@@ -299,20 +341,6 @@ export class FaceRecognitionService {
     } catch (error) {
       console.error('Failed to convert buffer to canvas:', error);
       throw error;
-    }
-  }
-
-  /**
-   * Extract frame from video stream (placeholder for integration with StreamService)
-   */
-  public async extractFrameFromStream(streamPath: string): Promise<Buffer | null> {
-    try {
-      // This would integrate with FFmpeg to extract frames from the HLS stream
-      // For now, return null - this needs to be implemented based on your stream setup
-      return null;
-    } catch (error) {
-      console.error('Failed to extract frame from stream:', error);
-      return null;
     }
   }
 

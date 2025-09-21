@@ -423,14 +423,18 @@ export class EventController extends BaseController<any> {
     const newStatus = !currentEvent.isActive;
     const data = await this.eventService.update(parseInt(eventId), { isActive: newStatus });
 
-    // Handle the status change (stop/start streams)
-    await eventSchedulerService.handleEventStatusChange(parseInt(eventId), newStatus);
-
+    // Send immediate response to frontend
     res.status(200).json({
       success: true,
       message: newStatus ? 'Event activated successfully' : 'Event deactivated successfully',
       data,
     });
+
+    // Handle the status change (stop/start streams) asynchronously - don't await
+    eventSchedulerService.handleEventStatusChange(parseInt(eventId), newStatus)
+      .catch(error => {
+        console.error(`Error handling event status change for event ${eventId}:`, error);
+      });
   });
 }
 
