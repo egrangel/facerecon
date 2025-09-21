@@ -12,6 +12,7 @@ import {
 } from '@/controllers';
 import { settingsRoutes } from './settingsRoutes';
 import streamRoutes from './streamRoutes';
+import { dashboardRoutes } from './dashboardRoutes';
 
 // Initialize controllers
 const authController = new AuthController();
@@ -90,6 +91,21 @@ eventRoutes.post('/', authorize(['admin', 'operator']), eventController.create);
 eventRoutes.put('/:id', authorize(['admin', 'operator']), eventController.update);
 eventRoutes.delete('/:id', authorize(['admin']), eventController.delete);
 
+// Camera-Event Association routes
+eventRoutes.get('/:eventId/cameras', authorize(['admin', 'operator']), eventController.getEventCameras);
+eventRoutes.get('/:eventId/cameras/active', authorize(['admin', 'operator']), eventController.getActiveEventCameras);
+eventRoutes.post('/:eventId/cameras/:cameraId', authorize(['admin', 'operator']), eventController.addCameraToEvent);
+eventRoutes.delete('/:eventId/cameras/:cameraId', authorize(['admin', 'operator']), eventController.removeCameraFromEvent);
+eventRoutes.patch('/:eventId/cameras/:cameraId/toggle', authorize(['admin', 'operator']), eventController.toggleCameraInEvent);
+
+// Event Scheduler Management routes
+eventRoutes.get('/scheduler/health', authorize(['admin', 'operator']), eventController.getSchedulerHealth);
+eventRoutes.get('/scheduler/sessions', authorize(['admin', 'operator']), eventController.getActiveSessions);
+eventRoutes.get('/scheduled', authorize(['admin', 'operator']), eventController.findScheduledEvents);
+eventRoutes.post('/:eventId/start', authorize(['admin', 'operator']), eventController.manuallyStartEvent);
+eventRoutes.post('/:eventId/stop', authorize(['admin', 'operator']), eventController.manuallyStopEvent);
+eventRoutes.patch('/:eventId/toggle-status', authorize(['admin', 'operator']), eventController.toggleEventStatus);
+
 // Camera Routes
 export const cameraRoutes = Router();
 
@@ -155,6 +171,7 @@ apiRoutes.use('/detections', detectionRoutes);
 apiRoutes.use('/users', userRoutes);
 apiRoutes.use('/settings', settingsRoutes);
 apiRoutes.use('/streams', streamRoutes);
+apiRoutes.use('/dashboard', dashboardRoutes);
 
 
 // Health check route

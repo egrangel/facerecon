@@ -31,14 +31,70 @@ class Event extends BaseEntity {
   })
   @IsString()
   @Length(1, 100)
-  type!: string; // entry, exit, detection, etc.
+  type!: string; // entry, exit, detection, scheduled, etc.
 
   @Column({
     type: 'datetime',
-    nullable: false
+    nullable: true
   })
+  @IsOptional()
   @IsDateString()
-  occurredAt!: Date;
+  occurredAt?: Date; // For occurred events
+
+  // Scheduling fields
+  @Column({
+    type: 'boolean',
+    nullable: false,
+    default: false
+  })
+  isScheduled!: boolean; // If true, this is a scheduled event
+
+  @Column({
+    type: 'boolean',
+    nullable: false,
+    default: true
+  })
+  isActive!: boolean; // If false, event is disabled
+
+  @Column({
+    type: 'date',
+    nullable: true
+  })
+  @IsOptional()
+  @IsDateString()
+  scheduledDate?: Date; // Specific date for one-time events
+
+  @Column({
+    type: 'time',
+    nullable: true
+  })
+  @IsOptional()
+  startTime?: string; // Format: HH:MM
+
+  @Column({
+    type: 'time',
+    nullable: true
+  })
+  @IsOptional()
+  endTime?: string; // Format: HH:MM
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    nullable: true
+  })
+  @IsOptional()
+  @IsString()
+  weekDays?: string; // JSON array: ["monday", "tuesday"] or comma-separated
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    nullable: false,
+    default: 'once'
+  })
+  @IsString()
+  recurrenceType!: string; // 'once', 'daily', 'weekly', 'monthly'
 
   @Column({
     type: 'varchar',
@@ -90,6 +146,12 @@ class Event extends BaseEntity {
     onDelete: 'CASCADE'
   })
   detections!: Detection[];
+
+  @OneToMany(() => EventCamera, (eventCamera) => eventCamera.event, {
+    cascade: true,
+    onDelete: 'CASCADE'
+  })
+  eventCameras!: EventCamera[];
 
   @Column({
     type: 'text',
@@ -213,6 +275,12 @@ class Camera extends BaseEntity {
     onDelete: 'CASCADE'
   })
   detections!: Detection[];
+
+  @OneToMany(() => EventCamera, (eventCamera) => eventCamera.camera, {
+    cascade: true,
+    onDelete: 'CASCADE'
+  })
+  eventCameras!: EventCamera[];
 }
 
 // Detection Entity
@@ -267,6 +335,9 @@ class Detection extends BaseEntity {
   @Column({ name: 'camera_id', nullable: true })
   cameraId?: number;
 
+  @Column({ name: 'organization_id', nullable: false })
+  organizationId!: number;
+  
   // Relationships
   @ManyToOne(() => Event, (event) => event.detections, {
     nullable: false,
@@ -288,6 +359,51 @@ class Detection extends BaseEntity {
   })
   @JoinColumn({ name: 'camera_id' })
   camera?: Camera;
+
+  @ManyToOne(() => Organization, {
+    nullable: false
+  })
+  @JoinColumn({ name: 'organization_id' })
+  organization!: Organization;
 }
 
-export { Event, Camera, Detection };
+// EventCamera Association Entity
+@Entity('event_cameras')
+class EventCamera extends BaseEntity {
+  @Column({ name: 'event_id', nullable: false })
+  eventId!: number;
+
+  @Column({ name: 'camera_id', nullable: false })
+  cameraId!: number;
+
+  @Column({
+    type: 'boolean',
+    nullable: false,
+    default: true
+  })
+  isActive!: boolean; // Individual camera can be disabled for this event
+
+  @Column({
+    type: 'text',
+    nullable: true
+  })
+  @IsOptional()
+  settings?: string; // JSON string for camera-specific settings
+
+  // Relationships
+  @ManyToOne(() => Event, (event) => event.eventCameras, {
+    nullable: false,
+    onDelete: 'CASCADE'
+  })
+  @JoinColumn({ name: 'event_id' })
+  event!: Event;
+
+  @ManyToOne(() => Camera, (camera) => camera.eventCameras, {
+    nullable: false,
+    onDelete: 'CASCADE'
+  })
+  @JoinColumn({ name: 'camera_id' })
+  camera!: Camera;
+}
+
+export { Event, Camera, Detection, EventCamera };

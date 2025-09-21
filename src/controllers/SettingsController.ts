@@ -159,7 +159,7 @@ export class SettingsController {
       password,
       name,
       role,
-      status: 'active',
+      status: 'active' as any,
       organizationId: req.organizationId,
     };
 

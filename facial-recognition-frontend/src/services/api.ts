@@ -7,14 +7,12 @@ import {
   PaginatedResponse,
   QueryParams,
   User,
-  Organization,
   Person,
-  PersonFace,
-  PersonContact,
-  PersonAddress,
+  Organization,
   Event,
   Camera,
   Detection,
+  EventCamera,
   BaseEntity
 } from '../types/api';
 
@@ -227,6 +225,53 @@ class ApiClient {
     return this.delete(`/events/${id}`);
   }
 
+  // Event-Camera Association methods
+  async getEventCameras(eventId: number): Promise<ApiResponse<EventCamera[]>> {
+    return this.get<ApiResponse<EventCamera[]>>(`/events/${eventId}/cameras`);
+  }
+
+  async getActiveEventCameras(eventId: number): Promise<ApiResponse<EventCamera[]>> {
+    return this.get<ApiResponse<EventCamera[]>>(`/events/${eventId}/cameras/active`);
+  }
+
+  async addCameraToEvent(eventId: number, cameraId: number, settings?: string): Promise<ApiResponse<EventCamera>> {
+    return this.post<ApiResponse<EventCamera>>(`/events/${eventId}/cameras/${cameraId}`, { settings });
+  }
+
+  async removeCameraFromEvent(eventId: number, cameraId: number): Promise<void> {
+    return this.delete(`/events/${eventId}/cameras/${cameraId}`);
+  }
+
+  async toggleCameraInEvent(eventId: number, cameraId: number): Promise<ApiResponse<EventCamera>> {
+    return this.put<ApiResponse<EventCamera>>(`/events/${eventId}/cameras/${cameraId}/toggle`, {});
+  }
+
+  // Event Scheduler methods
+  async getSchedulerHealth(): Promise<ApiResponse<any>> {
+    return this.get<ApiResponse<any>>('/events/scheduler/health');
+  }
+
+  async getActiveSessions(): Promise<ApiResponse<any[]>> {
+    return this.get<ApiResponse<any[]>>('/events/scheduler/sessions');
+  }
+
+  async getScheduledEvents(): Promise<ApiResponse<Event[]>> {
+    return this.get<ApiResponse<Event[]>>('/events/scheduled');
+  }
+
+  async manuallyStartEvent(eventId: number): Promise<ApiResponse<{ success: boolean }>> {
+    return this.post<ApiResponse<{ success: boolean }>>(`/events/${eventId}/start`, {});
+  }
+
+  async manuallyStopEvent(eventId: number): Promise<ApiResponse<{ success: boolean }>> {
+    return this.post<ApiResponse<{ success: boolean }>>(`/events/${eventId}/stop`, {});
+  }
+
+  async toggleEventStatus(eventId: number): Promise<ApiResponse<Event>> {
+    const response: AxiosResponse<ApiResponse<Event>> = await this.client.patch(`/events/${eventId}/toggle-status`, {});
+    return response.data;
+  }
+
   // Detection methods
   async getDetections(params?: QueryParams): Promise<PaginatedResponse<Detection>> {
     return this.getPaginated<Detection>('/detections', params);
@@ -394,6 +439,12 @@ class ApiClient {
     detectionsToday: number;
     activeCameras: number;
     eventsToday: number;
+    changes: {
+      totalPeople: { value: string; type: 'increase' | 'decrease' | 'neutral' };
+      detectionsToday: { value: string; type: 'increase' | 'decrease' | 'neutral' };
+      activeCameras: { value: string; type: 'increase' | 'decrease' | 'neutral' };
+      eventsToday: { value: string; type: 'increase' | 'decrease' | 'neutral' };
+    };
     recentActivity: Array<{
       id: number;
       content: string;
@@ -402,55 +453,8 @@ class ApiClient {
     }>;
   }> {
     try {
-      const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-
-      const [peopleResponse, camerasResponse, eventsResponse, detectionsResponse] = await Promise.all([
-        this.getPeople({ limit: 1 }),
-        this.getCameras({ limit: 1 }),
-        this.getEvents({ limit: 1 }),
-        this.getDetections({ limit: 1 })
-      ]);
-
-      // Get active cameras (assuming 'active' status)
-      const activeCamerasResponse = await this.get<PaginatedResponse<Camera>>('/cameras', { status: 'active' });
-
-      // Get recent items for activity feed
-      const [recentPeople, recentDetections, recentEvents] = await Promise.all([
-        this.getPeople({ limit: 2, sort: 'createdAt', order: 'desc' }),
-        this.getDetections({ limit: 2, sort: 'detectedAt', order: 'desc' }),
-        this.getEvents({ limit: 2, sort: 'occurredAt', order: 'desc' })
-      ]);
-
-      const recentActivity = [
-        ...(recentPeople?.data || []).map(person => ({
-          id: person.id,
-          content: `Nova pessoa cadastrada: ${person.name}`,
-          time: this.formatTimeAgo(person.createdAt),
-          type: 'person' as const
-        })),
-        ...(recentDetections?.data || []).map(detection => ({
-          id: detection.id,
-          content: `Detecção realizada: ${detection.personFace?.person?.name || 'Desconhecido'}`,
-          time: this.formatTimeAgo(detection.detectedAt),
-          type: 'detection' as const
-        })),
-        ...(recentEvents?.data || []).map(event => ({
-          id: event.id,
-          content: `Evento: ${event.description || event.name}`,
-          time: this.formatTimeAgo(event.occurredAt),
-          type: 'event' as const
-        }))
-      ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 5);
-
-      return {
-        totalPeople: peopleResponse?.total || 0,
-        detectionsToday: detectionsResponse?.total || 0, // This would need filtering by date in real implementation
-        activeCameras: activeCamerasResponse?.total || camerasResponse?.total || 0,
-        eventsToday: eventsResponse?.total || 0, // This would need filtering by date in real implementation
-        recentActivity
-      };
+      const response: AxiosResponse<{ success: boolean; data: any }> = await this.client.get('/dashboard/stats');
+      return response.data.data;
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
       return {
@@ -458,6 +462,12 @@ class ApiClient {
         detectionsToday: 0,
         activeCameras: 0,
         eventsToday: 0,
+        changes: {
+          totalPeople: { value: '0%', type: 'neutral' },
+          detectionsToday: { value: '0%', type: 'neutral' },
+          activeCameras: { value: '0%', type: 'neutral' },
+          eventsToday: { value: '0%', type: 'neutral' }
+        },
         recentActivity: []
       };
     }
@@ -489,13 +499,8 @@ class ApiClient {
     storage: { status: 'available' | 'warning' | 'full'; message: string; percentage: number };
   }> {
     try {
-      const healthResponse = await this.healthCheck();
-      return {
-        api: { status: 'online', message: 'Online' },
-        database: { status: 'connected', message: 'Conectado' },
-        ai: { status: 'limited', message: 'Limitado' },
-        storage: { status: 'available', message: '85% Disponível', percentage: 85 }
-      };
+      const response: AxiosResponse<{ success: boolean; data: any }> = await this.client.get('/dashboard/system-status');
+      return response.data.data;
     } catch (error) {
       return {
         api: { status: 'error', message: 'Erro de conexão' },

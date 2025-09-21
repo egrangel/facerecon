@@ -1,25 +1,27 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
+import { Card, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { apiClient } from '../services/api';
-import { Event } from '../types/api';
+import { Event, Camera } from '../types/api';
 
 interface EventFormData {
   name: string;
   description?: string;
   type: string;
-  occurredAt: string;
+  occurredAt?: string;
+  // Scheduling fields
+  isScheduled: boolean;
+  isActive: boolean;
+  scheduledDate?: string;
+  startTime?: string;
+  endTime?: string;
+  weekDays?: string[];
+  recurrenceType: string;
   status: string;
-  location?: string;
-  coordinates?: string;
-  notes?: string;
-}
-
-interface EventCreateData extends EventFormData {
-  organizationId?: number; // Will be set by backend middleware
+  selectedCameraIds?: number[];
 }
 
 const EventosPage: React.FC = () => {
@@ -42,11 +44,27 @@ const EventosPage: React.FC = () => {
 
   // Mutations for CRUD operations
   const createEventMutation = useMutation({
-    mutationFn: (data: EventFormData) => {
-      // The organizationId will be automatically set by the backend middleware
-      // since we're using the organizationAccess middleware on the routes
-      const createData: EventCreateData = { ...data };
-      return apiClient.createEvent(createData as any);
+    mutationFn: async (data: EventFormData) => {
+      // Convert weekDays array to string format for backend
+      const eventData = {
+        ...data,
+        weekDays: data.weekDays ? JSON.stringify(data.weekDays) : undefined,
+        selectedCameraIds: undefined // Remove from event data
+      };
+
+      // Create the event first
+      const event = await apiClient.createEvent(eventData as any);
+
+      // If cameras were selected, associate them with the event
+      if (data.selectedCameraIds && data.selectedCameraIds.length > 0) {
+        await Promise.all(
+          data.selectedCameraIds.map(cameraId =>
+            apiClient.addCameraToEvent(event.id, cameraId)
+          )
+        );
+      }
+
+      return event;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['events'] });
@@ -59,8 +77,45 @@ const EventosPage: React.FC = () => {
   });
 
   const updateEventMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Event> }) =>
-      apiClient.updateEvent(id, data),
+    mutationFn: async ({ id, data }: { id: number; data: EventFormData }) => {
+      // Convert weekDays array to string format for backend
+      const eventData = {
+        ...data,
+        weekDays: data.weekDays ? JSON.stringify(data.weekDays) : undefined,
+        selectedCameraIds: undefined // Remove from event data
+      };
+
+      // Update the event first
+      const event = await apiClient.updateEvent(id, eventData as any);
+
+      // Handle camera associations
+      if (data.selectedCameraIds !== undefined) {
+        // Get current cameras for this event
+        const currentCamerasResponse = await apiClient.getEventCameras(id);
+        const currentCameraIds = currentCamerasResponse.data?.map(ec => ec.cameraId) || [];
+
+        // Remove cameras that are no longer selected
+        const camerasToRemove = currentCameraIds.filter(cameraId =>
+          !data.selectedCameraIds!.includes(cameraId)
+        );
+
+        // Add new cameras that were selected
+        const camerasToAdd = data.selectedCameraIds.filter(cameraId =>
+          !currentCameraIds.includes(cameraId)
+        );
+
+        await Promise.all([
+          ...camerasToRemove.map(cameraId =>
+            apiClient.removeCameraFromEvent(id, cameraId)
+          ),
+          ...camerasToAdd.map(cameraId =>
+            apiClient.addCameraToEvent(id, cameraId)
+          )
+        ]);
+      }
+
+      return event;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['events'] });
       setShowEventModal(false);
@@ -80,6 +135,17 @@ const EventosPage: React.FC = () => {
     },
     onError: (error: any) => {
       alert(error.response?.data?.message || 'Erro ao excluir evento');
+    },
+  });
+
+  const toggleEventStatusMutation = useMutation({
+    mutationFn: (eventId: number) => apiClient.toggleEventStatus(eventId),
+    onSuccess: (response: any) => {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      alert(response.message || 'Status do evento alterado com sucesso!');
+    },
+    onError: (error: any) => {
+      alert(error.response?.data?.message || 'Erro ao alterar status do evento');
     },
   });
 
@@ -110,7 +176,7 @@ const EventosPage: React.FC = () => {
     const matchesType = !typeFilter || event.type === typeFilter;
     const matchesStatus = !statusFilter || event.status === statusFilter;
 
-    const matchesDate = !dateFilter || new Date(event.occurredAt).toDateString() === new Date(dateFilter).toDateString();
+    const matchesDate = !dateFilter || (event.occurredAt && new Date(event.occurredAt).toDateString() === new Date(dateFilter).toDateString());
 
     return matchesSearch && matchesType && matchesStatus && matchesDate;
   });
@@ -197,36 +263,11 @@ const EventosPage: React.FC = () => {
       <Card>
         <CardContent className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-            <Input
+            <Input 
               placeholder="Buscar eventos..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
-
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-            >
-              <option value="">Todos os tipos</option>
-              <option value="deteccao">Detec��o</option>
-              <option value="acesso_negado">Acesso Negado</option>
-              <option value="sistema">Sistema</option>
-              <option value="erro">Erro</option>
-              <option value="alerta">Alerta</option>
-            </select>
-
-
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-            >
-              <option value="">Todos os status</option>
-              <option value="novo">Novo</option>
-              <option value="visto">Visto</option>
-              <option value="resolvido">Resolvido</option>
-            </select>
 
             <Input
               type="date"
@@ -284,12 +325,21 @@ const EventosPage: React.FC = () => {
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(event.status)}`}>
                             {event.status}
                           </span>
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(event.status)}`}>
-                            {event.status}
-                          </span>
+                          {event.isScheduled && (
+                            <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${
+                              event.isActive
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              <div className={`w-2 h-2 rounded-full mr-1 ${
+                                event.isActive ? 'bg-green-500' : 'bg-gray-400'
+                              }`}></div>
+                              {event.isActive ? 'Ativo' : 'Inativo'}
+                            </span>
+                          )}
                         </div>
                         <span className="text-sm text-gray-500">
-                          {formatTimestamp(event.occurredAt)}
+                          {event.occurredAt ? formatTimestamp(event.occurredAt) : 'Evento agendado'}
                         </span>
                       </div>
 
@@ -305,6 +355,24 @@ const EventosPage: React.FC = () => {
                     </div>
 
                     <div className="flex-shrink-0 flex space-x-2">
+                      {event.isScheduled && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleEventStatusMutation.mutate(event.id);
+                          }}
+                          className={`${
+                            event.isActive
+                              ? 'text-orange-600 border-orange-300 hover:bg-orange-50'
+                              : 'text-green-600 border-green-300 hover:bg-green-50'
+                          }`}
+                          isLoading={toggleEventStatusMutation.isPending}
+                        >
+                          {event.isActive ? 'Desativar' : 'Ativar'}
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="outline"
@@ -370,11 +438,56 @@ interface EventFormModalProps {
 }
 
 const EventFormModal: React.FC<EventFormModalProps> = ({ event, onClose, onSubmit, isLoading }) => {
-  const formatDateForInput = (dateString: string) => {
+  const [selectedCameraIds, setSelectedCameraIds] = useState<number[]>([]);
+
+  // Query for cameras
+  const { data: camerasResponse } = useQuery({
+    queryKey: ['cameras'],
+    queryFn: async () => {
+      return await apiClient.getCameras();
+    },
+  });
+
+  // Query for event cameras if editing
+  const { data: eventCamerasResponse } = useQuery({
+    queryKey: ['eventCameras', event?.id],
+    queryFn: async () => {
+      if (!event?.id) return null;
+      return await apiClient.getEventCameras(event.id);
+    },
+    enabled: !!event?.id,
+  });
+
+  const formatDateForInput = (dateString?: string) => {
+    if (!dateString) return '';
     try {
       return new Date(dateString).toISOString().split('T')[0];
     } catch {
-      return new Date().toISOString().split('T')[0];
+      return '';
+    }
+  };
+
+  const formatTimeForInput = (timeString?: string) => {
+    if (!timeString) return '';
+    // If it's already in HH:MM format, return as is
+    if (timeString.match(/^\d{2}:\d{2}$/)) return timeString;
+    try {
+      return new Date(`2000-01-01 ${timeString}`).toTimeString().slice(0, 5);
+    } catch {
+      return '';
+    }
+  };
+
+  const parseWeekDays = (weekDaysString?: string): string[] => {
+    if (!weekDaysString) return [];
+    try {
+      if (weekDaysString.startsWith('[')) {
+        return JSON.parse(weekDaysString);
+      } else {
+        return weekDaysString.split(',').map(day => day.trim().toLowerCase());
+      }
+    } catch {
+      return [];
     }
   };
 
@@ -382,33 +495,55 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ event, onClose, onSubmi
     register,
     handleSubmit,
     formState: { errors },
+    watch,
+    setValue,
     reset,
   } = useForm<EventFormData>({
     defaultValues: event ? {
       name: event.name,
       description: event.description || '',
-      type: event.type,
-      occurredAt: formatDateForInput(event.occurredAt),
+      type: 'deteccao',
+      occurredAt: event.occurredAt ? formatDateForInput(event.occurredAt) : '',
+      isScheduled: event.isScheduled || false,
+      isActive: event.isActive !== undefined ? event.isActive : true,
+      scheduledDate: event.scheduledDate ? formatDateForInput(event.scheduledDate) : '',
+      startTime: formatTimeForInput(event.startTime),
+      endTime: formatTimeForInput(event.endTime),
+      weekDays: parseWeekDays(event.weekDays),
+      recurrenceType: event.recurrenceType || 'once',
       status: event.status,
-      location: event.location || '',
-      coordinates: event.coordinates || '',
-      notes: event.notes || '',
     } : {
       name: '',
       description: '',
-      type: 'sistema',
-      occurredAt: new Date().toISOString().split('T')[0],
-      status: 'novo',
-      location: '',
-      coordinates: '',
-      notes: '',
+      type: 'scheduled',
+      occurredAt: '',
+      isScheduled: true,
+      isActive: true,
+      scheduledDate: '',
+      startTime: '',
+      endTime: '',
+      weekDays: [],
+      recurrenceType: 'once',
+      status: 'active',
     }
   });
+
+  const isScheduled = watch('isScheduled');
+  const recurrenceType = watch('recurrenceType');
+
+  // Set initial selected cameras when editing
+  React.useEffect(() => {
+    if (eventCamerasResponse?.data) {
+      const cameraIds = eventCamerasResponse.data.map(ec => ec.cameraId);
+      setSelectedCameraIds(cameraIds);
+    }
+  }, [eventCamerasResponse]);
 
   const onFormSubmit = (data: EventFormData) => {
     const submitData = {
       ...data,
-      occurredAt: new Date(data.occurredAt).toISOString(),
+      occurredAt: data.occurredAt ? new Date(data.occurredAt).toISOString() : undefined,
+      selectedCameraIds,
     };
     onSubmit(submitData);
   };
@@ -430,100 +565,185 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ event, onClose, onSubmi
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onFormSubmit)} className="p-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <Input
-                label="Nome do Evento"
-                error={errors.name?.message}
-                {...register('name', {
-                  required: 'Nome é obrigatório',
-                })}
-              />
+        <form onSubmit={handleSubmit(onFormSubmit)} className="p-6 space-y-6">
+          {/* Basic Information */}
+          <div className="space-y-4">
+            <h4 className="text-lg font-medium text-gray-900 border-b pb-2">Informações Básicas</h4>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <Input
+                  label="Nome do Evento"
+                  error={errors.name?.message}
+                  {...register('name', {
+                    required: 'Nome é obrigatório',
+                  })}
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                  Descrição
+                </label>
+                <textarea
+                  id="description"
+                  rows={3}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                  {...register('description')}
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    {...register('isScheduled')}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Este é um evento agendado</span>
+                </label>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    {...register('isActive')}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Evento ativo</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Scheduling Section */}
+          {isScheduled && (
+            <div className="space-y-4">
+              <h4 className="text-lg font-medium text-gray-900 border-b pb-2">Configurações de Agendamento</h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="recurrenceType" className="block text-sm font-medium text-gray-700 mb-1">
+                    Tipo de Recorrência
+                  </label>
+                  <select
+                    id="recurrenceType"
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                    {...register('recurrenceType')}
+                  >
+                    <option value="once">Uma vez</option>
+                    <option value="daily">Diariamente</option>
+                    <option value="weekly">Semanalmente</option>
+                    <option value="monthly">Mensalmente</option>
+                  </select>
+                </div>
+
+                {recurrenceType === 'once' && (
+                  <div>
+                    <Input
+                      label="Data Específica"
+                      type="date"
+                      {...register('scheduledDate')}
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <Input
+                    label="Hora de Início"
+                    type="time"
+                    {...register('startTime')}
+                  />
+                </div>
+
+                <div>
+                  <Input
+                    label="Hora de Fim"
+                    type="time"
+                    {...register('endTime')}
+                  />
+                </div>
+
+                {recurrenceType === 'weekly' && (
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Dias da Semana
+                    </label>
+                    <div className="grid grid-cols-7 gap-2">
+                      {[
+                        { value: 'sunday', label: 'Dom' },
+                        { value: 'monday', label: 'Seg' },
+                        { value: 'tuesday', label: 'Ter' },
+                        { value: 'wednesday', label: 'Qua' },
+                        { value: 'thursday', label: 'Qui' },
+                        { value: 'friday', label: 'Sex' },
+                        { value: 'saturday', label: 'Sáb' }
+                      ].map(day => (
+                        <label key={day.value} className="flex flex-col items-center space-y-1">
+                          <input
+                            type="checkbox"
+                            value={day.value}
+                            {...register('weekDays')}
+                            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                          />
+                          <span className="text-xs text-gray-600">{day.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Camera Selection */}
+          <div className="space-y-4">
+            <h4 className="text-lg font-medium text-gray-900 border-b pb-2">Câmeras Associadas</h4>
+
+            <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-md p-3">
+              {camerasResponse?.data.length ? (
+                <div className="space-y-2">
+                  {camerasResponse.data.map((camera: Camera) => (
+                    <label key={camera.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
+                      <input
+                        type="checkbox"
+                        checked={selectedCameraIds.includes(camera.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedCameraIds([...selectedCameraIds, camera.id]);
+                          } else {
+                            setSelectedCameraIds(selectedCameraIds.filter(id => id !== camera.id));
+                          }
+                        }}
+                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-gray-900">{camera.name}</div>
+                        <div className="text-xs text-gray-500">{camera.ip}:{camera.port}</div>
+                        {camera.description && (
+                          <div className="text-xs text-gray-500">{camera.description}</div>
+                        )}
+                      </div>
+                      <div className={`px-2 py-1 text-xs rounded-full ${
+                        camera.status === 'active'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {camera.status}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center text-gray-500 py-4">
+                  Nenhuma câmera disponível
+                </div>
+              )}
             </div>
 
-            <div className="md:col-span-2">
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                Descrição
-              </label>
-              <textarea
-                id="description"
-                rows={3}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                {...register('description')}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
-                Tipo
-              </label>
-              <select
-                id="type"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                {...register('type', { required: 'Tipo é obrigatório' })}
-              >
-                <option value="deteccao">Detecção</option>
-                <option value="acesso_negado">Acesso Negado</option>
-                <option value="sistema">Sistema</option>
-                <option value="erro">Erro</option>
-                <option value="alerta">Alerta</option>
-              </select>
-              {errors.type && <p className="text-red-500 text-sm mt-1">{errors.type.message}</p>}
-            </div>
-
-            <div>
-              <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
-                Status
-              </label>
-              <select
-                id="status"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                {...register('status', { required: 'Status é obrigatório' })}
-              >
-                <option value="novo">Novo</option>
-                <option value="visto">Visto</option>
-                <option value="resolvido">Resolvido</option>
-              </select>
-              {errors.status && <p className="text-red-500 text-sm mt-1">{errors.status.message}</p>}
-            </div>
-
-            <div>
-              <Input
-                label="Data de Ocorrência"
-                type="date"
-                error={errors.occurredAt?.message}
-                {...register('occurredAt', {
-                  required: 'Data é obrigatória',
-                })}
-              />
-            </div>
-
-            <div>
-              <Input
-                label="Local"
-                {...register('location')}
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <Input
-                label="Coordenadas"
-                placeholder="Ex: -23.5505,-46.6333"
-                {...register('coordinates')}
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
-                Observações
-              </label>
-              <textarea
-                id="notes"
-                rows={3}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
-                {...register('notes')}
-              />
+            <div className="text-sm text-gray-600">
+              {selectedCameraIds.length} câmera(s) selecionada(s)
             </div>
           </div>
 
@@ -625,7 +845,9 @@ const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <h5 className="text-sm font-medium text-gray-700 mb-2">Data e Hora</h5>
-                <p className="text-gray-900">{new Date(evento.occurredAt).toLocaleString('pt-BR')}</p>
+                <p className="text-gray-900">
+                  {evento.occurredAt ? new Date(evento.occurredAt).toLocaleString('pt-BR') : 'Evento agendado'}
+                </p>
               </div>
 
               <div>

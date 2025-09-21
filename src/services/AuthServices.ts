@@ -133,7 +133,7 @@ export class AuthService {
       password,
       name,
       role,
-      status: 'active',
+      status: 'active' as any,
       organizationId: createdOrganization.id
     };
 

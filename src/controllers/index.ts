@@ -9,7 +9,9 @@ import {
   CameraService,
   DetectionService,
   UserService,
+  EventCameraService,
 } from '@/services';
+import { eventSchedulerService } from '@/services/EventSchedulerService';
 
 export class OrganizationController extends BaseController<any> {
   private organizationService: OrganizationService;
@@ -189,12 +191,44 @@ export class PersonController extends BaseController<any> {
 
 export class EventController extends BaseController<any> {
   private eventService: EventService;
+  private eventCameraService: EventCameraService;
 
   constructor() {
     const service = new EventService();
     super(service);
     this.eventService = service;
+    this.eventCameraService = new EventCameraService();
   }
+
+  // Override update to handle event status changes
+  update = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const eventId = parseInt(id);
+
+    // Get the current event to compare status
+    const currentEvent = await this.eventService.findById(eventId);
+    if (!currentEvent) {
+      res.status(404).json({
+        success: false,
+        message: 'Event not found',
+      });
+      return;
+    }
+
+    // Update the event
+    const data = await this.eventService.update(eventId, req.body);
+
+    // Check if isActive status changed and handle accordingly
+    if (req.body.isActive !== undefined && req.body.isActive !== currentEvent.isActive) {
+      await eventSchedulerService.handleEventStatusChange(eventId, req.body.isActive);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Evento atualizado com sucesso',
+      data,
+    });
+  });
 
   // Override create to automatically set organizationId
   create = asyncHandler(async (req: OrganizationRequest, res: Response): Promise<void> => {
@@ -243,6 +277,158 @@ export class EventController extends BaseController<any> {
     res.status(200).json({
       success: true,
       message: 'Events found successfully',
+      data,
+    });
+  });
+
+  // Camera-Event Association methods
+  addCameraToEvent = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { eventId, cameraId } = req.params;
+    const { settings } = req.body;
+
+    const data = await this.eventCameraService.addCameraToEvent(
+      parseInt(eventId),
+      parseInt(cameraId),
+      settings
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Camera added to event successfully',
+      data,
+    });
+  });
+
+  removeCameraFromEvent = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { eventId, cameraId } = req.params;
+
+    const success = await this.eventCameraService.removeCameraFromEvent(
+      parseInt(eventId),
+      parseInt(cameraId)
+    );
+
+    res.status(200).json({
+      success,
+      message: success ? 'Camera removed from event successfully' : 'Camera not found in event',
+    });
+  });
+
+  toggleCameraInEvent = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { eventId, cameraId } = req.params;
+
+    const data = await this.eventCameraService.toggleCameraInEvent(
+      parseInt(eventId),
+      parseInt(cameraId)
+    );
+
+    res.status(200).json({
+      success: true,
+      message: data ? 'Camera status toggled successfully' : 'Camera not found in event',
+      data,
+    });
+  });
+
+  getEventCameras = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { eventId } = req.params;
+
+    const data = await this.eventCameraService.findByEventId(parseInt(eventId));
+
+    res.status(200).json({
+      success: true,
+      message: 'Event cameras found successfully',
+      data,
+    });
+  });
+
+  getActiveEventCameras = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { eventId } = req.params;
+
+    const data = await this.eventCameraService.findActiveByEventId(parseInt(eventId));
+
+    res.status(200).json({
+      success: true,
+      message: 'Active event cameras found successfully',
+      data,
+    });
+  });
+
+  // Event Scheduler Management methods
+  getSchedulerHealth = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const health = eventSchedulerService.getServiceHealth();
+
+    res.status(200).json({
+      success: true,
+      message: 'Event scheduler health retrieved successfully',
+      data: health,
+    });
+  });
+
+  manuallyStartEvent = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { eventId } = req.params;
+
+    await eventSchedulerService.manuallyStartEvent(parseInt(eventId));
+
+    res.status(200).json({
+      success: true,
+      message: 'Event started manually',
+    });
+  });
+
+  manuallyStopEvent = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { eventId } = req.params;
+
+    await eventSchedulerService.manuallyStopEvent(parseInt(eventId));
+
+    res.status(200).json({
+      success: true,
+      message: 'Event stopped manually',
+    });
+  });
+
+  getActiveSessions = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const activeSessions = eventSchedulerService.getActiveSessions();
+
+    res.status(200).json({
+      success: true,
+      message: 'Active sessions retrieved successfully',
+      data: activeSessions,
+    });
+  });
+
+  findScheduledEvents = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const data = await this.eventService.findScheduledEvents();
+
+    res.status(200).json({
+      success: true,
+      message: 'Scheduled events found successfully',
+      data,
+    });
+  });
+
+  // Toggle event active status
+  toggleEventStatus = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { eventId } = req.params;
+
+    // Get the current event
+    const currentEvent = await this.eventService.findById(parseInt(eventId));
+    if (!currentEvent) {
+      res.status(404).json({
+        success: false,
+        message: 'Event not found',
+      });
+      return;
+    }
+
+    // Toggle the active status
+    const newStatus = !currentEvent.isActive;
+    const data = await this.eventService.update(parseInt(eventId), { isActive: newStatus });
+
+    // Handle the status change (stop/start streams)
+    await eventSchedulerService.handleEventStatusChange(parseInt(eventId), newStatus);
+
+    res.status(200).json({
+      success: true,
+      message: newStatus ? 'Event activated successfully' : 'Event deactivated successfully',
       data,
     });
   });
@@ -433,3 +619,4 @@ export class UserController extends BaseController<any> {
   });
 }
 
+export { DashboardController } from './DashboardController';

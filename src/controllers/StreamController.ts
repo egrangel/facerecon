@@ -4,6 +4,8 @@ import * as path from 'path';
 import { streamService } from '../services/StreamService';
 import { asyncHandler, createError } from '../middlewares/errorHandler';
 import { CameraService } from '../services';
+import { frameExtractionService } from '../services/FrameExtractionService';
+import { simpleFaceDetectionService } from '../services/SimpleFaceDetectionService';
 
 export class StreamController {
   private cameraService: CameraService;
@@ -58,7 +60,16 @@ export class StreamController {
     }
 
     try {
-      const sessionId = await streamService.startStream(cameraIdNum, rtspUrl);
+      // Check for face recognition parameter
+      const enableFaceRecognition = req.query.faceRecognition === 'true' || req.body.faceRecognition === true;
+      const organizationId = camera.organizationId;
+
+      const sessionId = await streamService.startStream(
+        cameraIdNum,
+        rtspUrl,
+        organizationId,
+        enableFaceRecognition
+      );
 
       res.status(200).json({
         success: true,
@@ -68,6 +79,7 @@ export class StreamController {
           streamUrl: `/api/v1/streams/${sessionId}/playlist.m3u8`,
           cameraId: cameraIdNum,
           rtspUrl: rtspUrl,
+          faceRecognitionEnabled: enableFaceRecognition,
         },
       });
     } catch (error: any) {
@@ -342,7 +354,16 @@ export class StreamController {
     }
 
     try {
-      const sessionId = await streamService.startStream(cameraIdNum, rtspUrl);
+      // Check for face recognition parameter
+      const enableFaceRecognition = req.query.faceRecognition === 'true';
+      const organizationId = camera.organizationId;
+
+      const sessionId = await streamService.startStream(
+        cameraIdNum,
+        rtspUrl,
+        organizationId,
+        enableFaceRecognition
+      );
 
       res.status(200).json({
         success: true,
@@ -352,10 +373,142 @@ export class StreamController {
           streamUrl: `/streams/${sessionId}/playlist.m3u8`,
           cameraId: cameraIdNum,
           rtspUrl: rtspUrl,
+          faceRecognitionEnabled: enableFaceRecognition,
         },
       });
     } catch (error: any) {
       throw createError(`Failed to start stream: ${error.message}`, 500);
     }
+  });
+
+  /**
+   * @swagger
+   * /api/v1/streams/face-recognition/health:
+   *   get:
+   *     summary: Get face recognition service health
+   *     tags: [Streams]
+   *     responses:
+   *       200:
+   *         description: Face recognition service health
+   */
+  getFaceRecognitionHealth = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const health = {
+      frameExtraction: frameExtractionService.getServiceHealth(),
+      faceRecognition: simpleFaceDetectionService.getServiceHealth(),
+    };
+
+    res.status(200).json({
+      success: true,
+      message: 'Face recognition service health',
+      data: health,
+    });
+  });
+
+  /**
+   * @swagger
+   * /api/v1/streams/face-recognition/sessions:
+   *   get:
+   *     summary: Get active face recognition sessions
+   *     tags: [Streams]
+   *     responses:
+   *       200:
+   *         description: Active face recognition sessions
+   */
+  getActiveFaceRecognitionSessions = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const sessions = frameExtractionService.getActiveSessions();
+
+    res.status(200).json({
+      success: true,
+      message: 'Active face recognition sessions',
+      data: sessions,
+    });
+  });
+
+  /**
+   * @swagger
+   * /api/v1/streams/face-recognition/enable/{sessionId}:
+   *   post:
+   *     summary: Enable face recognition for an existing stream
+   *     tags: [Streams]
+   *     parameters:
+   *       - in: path
+   *         name: sessionId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Face recognition enabled
+   *       404:
+   *         description: Stream session not found
+   */
+  enableFaceRecognition = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { sessionId } = req.params;
+
+    // Get the stream session
+    const activeSessions = streamService.getActiveSessions();
+    const session = activeSessions.find(s => s.id === sessionId);
+
+    if (!session) {
+      throw createError('Stream session not found', 404);
+    }
+
+    if (!session.organizationId) {
+      throw createError('Organization ID required for face recognition', 400);
+    }
+
+    // Start face recognition
+    await frameExtractionService.startFrameExtraction(
+      sessionId,
+      session.cameraId,
+      session.organizationId,
+      session.rtspUrl,
+      5
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Face recognition enabled for stream',
+      data: {
+        sessionId,
+        cameraId: session.cameraId,
+        faceRecognitionEnabled: true,
+      },
+    });
+  });
+
+  /**
+   * @swagger
+   * /api/v1/streams/face-recognition/disable/{sessionId}:
+   *   post:
+   *     summary: Disable face recognition for a stream
+   *     tags: [Streams]
+   *     parameters:
+   *       - in: path
+   *         name: sessionId
+   *         required: true
+   *         schema:
+   *           type: string
+   *     responses:
+   *       200:
+   *         description: Face recognition disabled
+   */
+  disableFaceRecognition = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { sessionId } = req.params;
+
+    const success = frameExtractionService.stopFrameExtraction(sessionId);
+
+    if (!success) {
+      throw createError('Face recognition session not found', 404);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Face recognition disabled for stream',
+      data: {
+        sessionId,
+        faceRecognitionEnabled: false,
+      },
+    });
   });
 }

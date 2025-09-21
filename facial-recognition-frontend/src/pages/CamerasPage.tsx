@@ -5,7 +5,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { apiClient } from '../services/api';
 import { Camera } from '../types/api';
-import Hls from 'hls.js';
+import { useStream } from '../contexts/StreamContext';
 
 interface CameraFormData {
   name: string;
@@ -28,181 +28,35 @@ interface LiveStreamContainerProps {
 }
 
 const LiveStreamContainer: React.FC<LiveStreamContainerProps> = ({ camera, className = '' }) => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasError, setHasError] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string>('');
   const videoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<Hls | null>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { startStream, stopStream, getStreamState, attachVideoElement, detachVideoElement, refreshStream } = useStream();
 
-  // Cleanup HLS instance and timeout on unmount
+  // Get current stream state
+  const { isPlaying, isLoading, hasError, errorMessage } = getStreamState(camera.id);
+
+  // Attach/detach video element when component mounts/unmounts
   useEffect(() => {
+    if (videoRef.current) {
+      attachVideoElement(camera.id, videoRef.current);
+    }
+
     return () => {
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-      }
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
+      detachVideoElement(camera.id);
     };
-  }, []);
+  }, [camera.id, attachVideoElement, detachVideoElement]);
 
-  const startStream = async () => {
-    setIsLoading(true);
-    setHasError(false);
-    setErrorMessage('');
-
-    // Clear any existing timeout
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-
-    try {
-      // Start stream on backend
-      const response = await apiClient.getCameraStreamUrl(camera.id);
-      setSessionId(response.sessionId);
-
-      // Set 10-second timeout to cancel stream if not playing
-      timeoutRef.current = setTimeout(async () => {
-        if (!isPlaying) {
-          console.warn('Stream timeout: canceling after 30 seconds');
-          setIsLoading(false);
-          setHasError(true);
-          setErrorMessage('Timeout: Stream n�o iniciou em 30 segundos');
-
-          // Stop the stream session
-          await stopStreamSession(response);
-
-          // Cleanup HLS
-          if (hlsRef.current) {
-            hlsRef.current.destroy();
-            hlsRef.current = null;
-          }
-
-          setSessionId(null);
-        }
-      }, 30000);
-
-      // Initialize HLS player
-      if (videoRef.current) {
-        const video = videoRef.current;
-
-        if (Hls.isSupported()) {
-          // Use HLS.js for browsers that support it
-          const hls = new Hls({
-            enableWorker: false,
-            lowLatencyMode: true,
-            backBufferLength: 90,
-          });
-
-          hlsRef.current = hls;
-          const src = `${process.env.REACT_APP_API_URL}${response.streamUrl}`;
-          hls.loadSource(src);
-          hls.attachMedia(video);
-
-          hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            // Clear timeout since stream is ready
-            if (timeoutRef.current) {
-              clearTimeout(timeoutRef.current);
-              timeoutRef.current = null;
-            }
-            setIsLoading(false);
-            setIsPlaying(true);
-            video.play().catch(err => {
-              console.warn('Autoplay failed:', err);
-              setHasError(true);
-              setErrorMessage('Autoplay bloqueado. Clique para reproduzir.');
-            });
-          });
-
-          hls.on(Hls.Events.ERROR, (event, data) => {
-            console.error('HLS Error:', event, data);
-            if (data.fatal) {
-              setIsLoading(false);
-              setHasError(true);
-              setIsPlaying(false);
-              stopStreamSession(response);
-              setSessionId(null);
-              setErrorMessage(`Erro no stream: ${data.type} - ${data.details}`);
-            }
-          });
-
-        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          // Safari native HLS support
-          video.src = `${process.env.REACT_APP_API_URL}${response.streamUrl}`;
-
-          video.addEventListener('loadedmetadata', () => {
-            // Clear timeout since stream is ready
-            if (timeoutRef.current) {
-              clearTimeout(timeoutRef.current);
-              timeoutRef.current = null;
-            }
-            setIsLoading(false);
-            setIsPlaying(true);
-          });
-
-          video.addEventListener('error', () => {
-            setIsLoading(false);
-            setHasError(true);
-            setIsPlaying(false);
-            setErrorMessage('Erro ao carregar o stream');
-          });
-
-          video.load();
-        } else {
-          throw new Error('HLS not supported in this browser');
-        }
-      }
-    } catch (error: any) {
-      console.error('Error starting stream:', error);
-      setIsLoading(false);
-      setHasError(true);
-      setIsPlaying(false);
-      setErrorMessage(error.response?.data?.message || error.message || 'Erro ao iniciar stream');
+  const handleStartStream = async () => {
+    if (videoRef.current) {
+      await startStream(camera.id, videoRef.current);
     }
   };
 
-  const stopStream = async () => {
-    try {
-      // Clear timeout
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-
-      // Stop HLS player
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
-
-      if (videoRef.current) {
-        videoRef.current.pause();
-        videoRef.current.src = '';
-        videoRef.current.load();
-      }
-
-      // Stop stream on backend
-      if (sessionId) {
-        await apiClient.stopStream(sessionId);
-        setSessionId(null);
-      }
-
-      setIsPlaying(false);
-      setIsLoading(false);
-      setHasError(false);
-      setErrorMessage('');
-    } catch (error) {
-      console.error('Error stopping stream:', error);
-    }
+  const handleStopStream = async () => {
+    await stopStream(camera.id);
   };
 
-  const refreshStream = () => {
-    stopStream().then(() => {
-      setTimeout(() => startStream(), 1000);
-    });
+  const handleRefreshStream = async () => {
+    await refreshStream(camera.id);
   };
 
   return (
@@ -241,7 +95,7 @@ const LiveStreamContainer: React.FC<LiveStreamContainerProps> = ({ camera, class
                 </p>
                 <Button
                   size="sm"
-                  onClick={refreshStream}
+                  onClick={handleRefreshStream}
                   className="bg-red-600 hover:bg-red-700 text-white"
                 >
                   Tentar Novamente
@@ -253,7 +107,7 @@ const LiveStreamContainer: React.FC<LiveStreamContainerProps> = ({ camera, class
           {!isLoading && !hasError && !isPlaying && (
             <div className="absolute inset-0 flex items-center justify-center">
               <Button
-                onClick={startStream}
+                onClick={handleStartStream}
                 className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -302,7 +156,7 @@ const LiveStreamContainer: React.FC<LiveStreamContainerProps> = ({ camera, class
           {!isPlaying ? (
             <Button
               size="sm"
-              onClick={startStream}
+              onClick={handleStartStream}
               className="bg-green-600 hover:bg-green-700 text-white"
               disabled={isLoading}
             >
@@ -314,7 +168,7 @@ const LiveStreamContainer: React.FC<LiveStreamContainerProps> = ({ camera, class
           ) : (
             <Button
               size="sm"
-              onClick={stopStream}
+              onClick={handleStopStream}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
               <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
@@ -598,21 +452,6 @@ const CameraModal: React.FC<CameraModalProps> = ({ camera, onClose, onSave, isLo
             </select>
           </div>
 
-          <Input
-            label="IP Address"
-            value={formData.ip}
-            onChange={(e) => setFormData({ ...formData, ip: e.target.value })}
-            placeholder="Ex: 192.168.1.100"
-          />
-
-          <Input
-            label="Port"
-            type="number"
-            value={formData.port.toString()}
-            onChange={(e) => setFormData({ ...formData, port: parseInt(e.target.value) || 8080 })}
-            placeholder="Ex: 554"
-          />
-
           <div className="flex justify-end space-x-3 pt-4">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
@@ -628,13 +467,3 @@ const CameraModal: React.FC<CameraModalProps> = ({ camera, onClose, onSave, isLo
 };
 
 export default CamerasPage;
-
-async function stopStreamSession(response: { sessionId: string; streamUrl: string; }) {
-  try {
-    if (response.sessionId) {
-      await apiClient.stopStream(response.sessionId);
-    }
-  } catch (error) {
-    console.error('Error stopping timed out stream:', error);
-  }
-}

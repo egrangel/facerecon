@@ -4,7 +4,7 @@ import { BaseEntity } from '@/entities/BaseEntity';
 import { createError } from '@/middlewares/errorHandler';
 
 export abstract class BaseService<T extends BaseEntity> {
-  protected repository: BaseRepository<T>;
+  public repository: BaseRepository<T>;
 
   constructor(repository: BaseRepository<T>) {
     this.repository = repository;

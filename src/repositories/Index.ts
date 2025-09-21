@@ -3,7 +3,7 @@ import { BaseRepository } from './BaseRepository';
 import { Organization } from '@/entities/Organization';
 import { Person } from '@/entities/Person';
 import { PersonType, PersonFace, PersonContact, PersonAddress } from '@/entities';
-import { Event, Camera, Detection } from '@/entities/EventEntities';
+import { Event, Camera, Detection, EventCamera } from '@/entities/EventEntities';
 import { User } from '@/entities/User';
 
 export class OrganizationRepository extends BaseRepository<Organization> {
@@ -247,13 +247,13 @@ export class UserRepository extends BaseRepository<User> {
 
   async findByRole(role: string): Promise<User[]> {
     return this.repository.find({
-      where: { role },
+      where: { role: role as any },
     });
   }
 
   async findByStatus(status: string): Promise<User[]> {
     return this.repository.find({
-      where: { status },
+      where: { status: status as any },
     });
   }
 
@@ -262,5 +262,61 @@ export class UserRepository extends BaseRepository<User> {
       where: { organizationId },
       relations: ['organization'],
     });
+  }
+}
+
+// EventCamera Repository
+export class EventCameraRepository extends BaseRepository<EventCamera> {
+  constructor() {
+    super(AppDataSource.getRepository(EventCamera));
+  }
+
+  async findByEventId(eventId: number): Promise<EventCamera[]> {
+    return this.repository.find({
+      where: { eventId },
+      relations: ['camera', 'event'],
+    });
+  }
+
+  async findByCameraId(cameraId: number): Promise<EventCamera[]> {
+    return this.repository.find({
+      where: { cameraId },
+      relations: ['camera', 'event'],
+    });
+  }
+
+  async findActiveByEventId(eventId: number): Promise<EventCamera[]> {
+    return this.repository.find({
+      where: { eventId, isActive: true },
+      relations: ['camera', 'event'],
+    });
+  }
+
+  async addCameraToEvent(eventId: number, cameraId: number, settings?: string): Promise<EventCamera> {
+    const eventCamera = this.repository.create({
+      eventId,
+      cameraId,
+      isActive: true,
+      settings,
+    });
+    return this.repository.save(eventCamera);
+  }
+
+  async removeCameraFromEvent(eventId: number, cameraId: number): Promise<boolean> {
+    const result = await this.repository.delete({ eventId, cameraId });
+    return result.affected! > 0;
+  }
+
+  async toggleCameraInEvent(eventId: number, cameraId: number): Promise<EventCamera | null> {
+    const eventCamera = await this.repository.findOne({
+      where: { eventId, cameraId },
+    });
+
+    if (!eventCamera) {
+      return null;
+    }
+
+    eventCamera.isActive = !eventCamera.isActive;
+    return this.repository.save(eventCamera);
   }
 }

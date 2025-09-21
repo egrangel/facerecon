@@ -22,8 +22,8 @@ const DashboardHome: React.FC = () => {
     {
       name: 'Total de Pessoas',
       value: isLoadingStats ? '...' : (dashboardStats?.totalPeople.toLocaleString() || '0'),
-      change: '+12%', // This could be calculated from historical data
-      changeType: 'increase',
+      change: isLoadingStats ? '...' : (dashboardStats?.changes?.totalPeople?.value || '0%'),
+      changeType: isLoadingStats ? 'neutral' : (dashboardStats?.changes?.totalPeople?.type || 'neutral'),
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
@@ -33,8 +33,8 @@ const DashboardHome: React.FC = () => {
     {
       name: 'Detecções Hoje',
       value: isLoadingStats ? '...' : (dashboardStats?.detectionsToday.toString() || '0'),
-      change: '+23%', // This could be calculated from historical data
-      changeType: 'increase',
+      change: isLoadingStats ? '...' : (dashboardStats?.changes?.detectionsToday?.value || '0%'),
+      changeType: isLoadingStats ? 'neutral' : (dashboardStats?.changes?.detectionsToday?.type || 'neutral'),
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -44,8 +44,8 @@ const DashboardHome: React.FC = () => {
     {
       name: 'Câmeras Ativas',
       value: isLoadingStats ? '...' : (dashboardStats?.activeCameras.toString() || '0'),
-      change: '+1', // This could be calculated from historical data
-      changeType: 'increase',
+      change: isLoadingStats ? '...' : (dashboardStats?.changes?.activeCameras?.value || '0%'),
+      changeType: isLoadingStats ? 'neutral' : (dashboardStats?.changes?.activeCameras?.type || 'neutral'),
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -55,8 +55,8 @@ const DashboardHome: React.FC = () => {
     {
       name: 'Eventos Hoje',
       value: isLoadingStats ? '...' : (dashboardStats?.eventsToday.toString() || '0'),
-      change: '+8%', // This could be calculated from historical data
-      changeType: 'increase',
+      change: isLoadingStats ? '...' : (dashboardStats?.changes?.eventsToday?.value || '0%'),
+      changeType: isLoadingStats ? 'neutral' : (dashboardStats?.changes?.eventsToday?.type || 'neutral'),
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -94,11 +94,29 @@ const DashboardHome: React.FC = () => {
                       <div className="text-2xl font-semibold text-gray-900">
                         {item.value}
                       </div>
-                      <div className="ml-2 flex items-baseline text-sm font-semibold text-green-600">
-                        <svg className="self-center flex-shrink-0 h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                        </svg>
-                        <span className="sr-only">Increased by</span>
+                      <div className={`ml-2 flex items-baseline text-sm font-semibold ${
+                        item.changeType === 'increase' ? 'text-green-600' :
+                        item.changeType === 'decrease' ? 'text-red-600' : 'text-gray-500'
+                      }`}>
+                        {item.changeType === 'increase' && (
+                          <svg className="self-center flex-shrink-0 h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                        {item.changeType === 'decrease' && (
+                          <svg className="self-center flex-shrink-0 h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 12.586V5a1 1 0 012 0v7.586l2.293-2.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                        {item.changeType === 'neutral' && (
+                          <svg className="self-center flex-shrink-0 h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                        <span className="sr-only">
+                          {item.changeType === 'increase' ? 'Increased by' :
+                           item.changeType === 'decrease' ? 'Decreased by' : 'No change'}
+                        </span>
                         {item.change}
                       </div>
                     </dd>

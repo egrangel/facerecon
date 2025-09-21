@@ -26,4 +26,10 @@ router.get('/camera/:cameraId/url', streamController.getCameraStreamUrl);
 router.get('/active', authorize(['admin', 'operator']), streamController.getActiveStreams);
 router.get('/health', authorize(['admin']), streamController.getServiceHealth);
 
+// Face recognition routes
+router.get('/face-recognition/health', authorize(['admin']), streamController.getFaceRecognitionHealth);
+router.get('/face-recognition/sessions', authorize(['admin', 'operator']), streamController.getActiveFaceRecognitionSessions);
+router.post('/face-recognition/enable/:sessionId', authorize(['admin', 'operator']), streamController.enableFaceRecognition);
+router.post('/face-recognition/disable/:sessionId', authorize(['admin', 'operator']), streamController.disableFaceRecognition);
+
 export default router;

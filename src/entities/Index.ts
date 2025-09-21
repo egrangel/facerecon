@@ -253,4 +253,4 @@ export { PersonType, PersonFace, PersonContact, PersonAddress };
 export { Person } from './Person';
 export { Organization } from './Organization';
 export { User } from './User';
-export { Event, Camera, Detection } from './EventEntities';
+export { Event, Camera, Detection, EventCamera } from './EventEntities';

@@ -12,6 +12,7 @@ import {
   CameraRepository,
   DetectionRepository,
   UserRepository,
+  EventCameraRepository,
 } from '@/repositories';
 import {
   Organization,
@@ -22,7 +23,7 @@ import {
   PersonAddress,
   User,
 } from '@/entities';
-import { Event, Camera, Detection } from '@/entities/EventEntities';
+import { Event, Camera, Detection, EventCamera } from '@/entities/EventEntities';
 
 export class OrganizationService extends BaseService<Organization> {
   constructor() {
@@ -149,10 +150,32 @@ export class EventService extends BaseService<Event> {
     return (this.repository as EventRepository).findByDateRange(startDate, endDate);
   }
 
+  async findScheduledEvents(): Promise<Event[]> {
+    return (this.repository as EventRepository).getRepository().find({
+      where: { isScheduled: true, isActive: true },
+      relations: ['eventCameras', 'eventCameras.camera'],
+    });
+  }
+
+  async findActiveScheduledEvents(): Promise<Event[]> {
+    return (this.repository as EventRepository).getRepository().find({
+      where: {
+        isScheduled: true,
+        isActive: true,
+        type: 'scheduled'
+      },
+      relations: ['eventCameras', 'eventCameras.camera'],
+    });
+  }
+
   async create(data: DeepPartial<Event>): Promise<Event> {
     this.validateRequiredField(data.name, 'name');
     this.validateRequiredField(data.organizationId, 'organizationId');
-    this.validateRequiredField(data.occurredAt, 'occurredAt');
+
+    // Make occurredAt optional for scheduled events
+    if (!data.isScheduled) {
+      this.validateRequiredField(data.occurredAt, 'occurredAt');
+    }
 
     return super.create(data);
   }
@@ -173,7 +196,6 @@ export class CameraService extends BaseService<Camera> {
 
   async create(data: DeepPartial<Camera>): Promise<Camera> {
     this.validateRequiredField(data.name, 'name');
-    this.validateRequiredField(data.ip, 'ip');
     this.validateRequiredField(data.organizationId, 'organizationId');
 
     return super.create(data);
@@ -275,4 +297,44 @@ export class UserService extends BaseService<User> {
     await this.repository.update(id, { lastLoginAt: new Date() });
   }
 }
+
+// EventCamera Service
+export class EventCameraService extends BaseService<EventCamera> {
+  private eventCameraRepository: EventCameraRepository;
+
+  constructor() {
+    const repository = new EventCameraRepository();
+    super(repository);
+    this.eventCameraRepository = repository;
+  }
+
+  async findByEventId(eventId: number): Promise<EventCamera[]> {
+    return this.eventCameraRepository.findByEventId(eventId);
+  }
+
+  async findByCameraId(cameraId: number): Promise<EventCamera[]> {
+    return this.eventCameraRepository.findByCameraId(cameraId);
+  }
+
+  async findActiveByEventId(eventId: number): Promise<EventCamera[]> {
+    return this.eventCameraRepository.findActiveByEventId(eventId);
+  }
+
+  async addCameraToEvent(eventId: number, cameraId: number, settings?: string): Promise<EventCamera> {
+    return this.eventCameraRepository.addCameraToEvent(eventId, cameraId, settings);
+  }
+
+  async removeCameraFromEvent(eventId: number, cameraId: number): Promise<boolean> {
+    return this.eventCameraRepository.removeCameraFromEvent(eventId, cameraId);
+  }
+
+  async toggleCameraInEvent(eventId: number, cameraId: number): Promise<EventCamera | null> {
+    return this.eventCameraRepository.toggleCameraInEvent(eventId, cameraId);
+  }
+}
+
+// Export face recognition services
+export { simpleFaceDetectionService, SimpleFaceDetectionService } from './SimpleFaceDetectionService';
+export { frameExtractionService, FrameExtractionService } from './FrameExtractionService';
+export { eventSchedulerService, EventSchedulerService } from './EventSchedulerService';
 

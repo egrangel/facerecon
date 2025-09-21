@@ -13,6 +13,7 @@ import {
   Event,
   Camera,
   Detection,
+  EventCamera,
   User
 } from '@/entities';
 
@@ -44,6 +45,7 @@ export const AppDataSource = new DataSource({
     Event,
     Camera,
     Detection,
+    EventCamera,
     User
   ],
   migrations: [path.join(__dirname, '../migrations/*.{ts,js}')],

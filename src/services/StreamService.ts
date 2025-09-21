@@ -3,16 +3,19 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { createError } from '../middlewares/errorHandler';
+import { frameExtractionService } from './FrameExtractionService';
 
 export interface StreamSession {
   id: string;
   cameraId: number;
+  organizationId?: number;
   rtspUrl: string;
   hlsPath: string;
   isActive: boolean;
   process?: ChildProcess;
   createdAt: Date;
   lastAccessed: Date;
+  faceRecognitionEnabled?: boolean;
 }
 
 export class StreamService {
@@ -61,7 +64,13 @@ export class StreamService {
     }
   }
 
-  public async startStream(cameraId: number, rtspUrl: string): Promise<string> {
+  public async startStream(
+    cameraId: number,
+    rtspUrl: string,
+    organizationId?: number,
+    enableFaceRecognition: boolean = false
+  ): Promise<string> {
+    let sessionId: string | null = null;
     try {
       // Check if stream already exists for this camera
       const existingSession = this.findSessionByCameraId(cameraId);
@@ -71,19 +80,24 @@ export class StreamService {
       }
 
       // Create new session
-      const sessionId = uuidv4();
+      sessionId = uuidv4();
       const hlsPath = path.join(this.streamDir, `${sessionId}.m3u8`);
       const segmentPattern = path.join(this.streamDir, `${sessionId}_%03d.ts`);
 
       const session: StreamSession = {
         id: sessionId,
         cameraId,
+        organizationId,
         rtspUrl,
         hlsPath,
         isActive: false,
         createdAt: new Date(),
         lastAccessed: new Date(),
+        faceRecognitionEnabled: enableFaceRecognition,
       };
+
+      // Store session early so we can clean up on error
+      this.sessions.set(sessionId, session);
 
       // Check if FFmpeg is available
       await this.checkFFmpegAvailability();
@@ -131,7 +145,6 @@ export class StreamService {
       });
 
       session.process = ffmpegProcess;
-      this.sessions.set(sessionId, session);
 
       // Handle process events
       ffmpegProcess.stdout?.on('data', (data) => {
@@ -155,13 +168,13 @@ export class StreamService {
       ffmpegProcess.on('error', (error) => {
         console.error(`FFmpeg process error for camera ${cameraId}:`, error);
         session.isActive = false;
-        this.cleanup(sessionId);
+        if (sessionId) this.cleanup(sessionId);
       });
 
       ffmpegProcess.on('exit', (code, signal) => {
         console.log(`FFmpeg process exited for camera ${cameraId} with code ${code} and signal ${signal}`);
         session.isActive = false;
-        this.cleanup(sessionId);
+        if (sessionId) this.cleanup(sessionId);
       });
 
       // Wait for the stream to initialize
@@ -170,13 +183,30 @@ export class StreamService {
       // Mark as active after successful initialization
       session.isActive = true;
 
+      // Start face recognition if enabled
+      if (enableFaceRecognition && organizationId) {
+        try {
+          await frameExtractionService.startFrameExtraction(
+            sessionId,
+            cameraId,
+            organizationId,
+            rtspUrl,
+            5 // Extract frame every 5 seconds
+          );
+          console.log(`Face recognition started for session ${sessionId}`);
+        } catch (error) {
+          console.error(`Failed to start face recognition for session ${sessionId}:`, error);
+          // Don't fail the stream if face recognition fails
+        }
+      }
+
       return sessionId;
     } catch (error: any) {
       console.error('Error starting stream:', error);
 
       // Clean up the session if it was created
-      if (session && session.id) {
-        this.cleanup(session.id);
+      if (sessionId) {
+        this.cleanup(sessionId);
       }
 
       // If it's already a custom error, rethrow it
@@ -192,6 +222,16 @@ export class StreamService {
     const session = this.sessions.get(sessionId);
     if (!session) {
       return false;
+    }
+
+    // Stop face recognition if it was enabled
+    if (session.faceRecognitionEnabled) {
+      try {
+        frameExtractionService.stopFrameExtraction(sessionId);
+        console.log(`Face recognition stopped for session ${sessionId}`);
+      } catch (error) {
+        console.error(`Error stopping face recognition for session ${sessionId}:`, error);
+      }
     }
 
     if (session.process && !session.process.killed) {

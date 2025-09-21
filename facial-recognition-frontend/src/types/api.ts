@@ -74,7 +74,15 @@ export interface Event extends BaseEntity {
   name: string;
   description?: string;
   type: string;
-  occurredAt: string;
+  occurredAt?: string;
+  // Scheduling fields
+  isScheduled: boolean;
+  isActive: boolean;
+  scheduledDate?: string;
+  startTime?: string;
+  endTime?: string;
+  weekDays?: string;
+  recurrenceType: string;
   status: string;
   location?: string;
   coordinates?: string;
@@ -82,6 +90,16 @@ export interface Event extends BaseEntity {
   metadata?: string;
   organizationId: number;
   organization?: Organization;
+  eventCameras?: EventCamera[];
+}
+
+export interface EventCamera extends BaseEntity {
+  eventId: number;
+  cameraId: number;
+  isActive: boolean;
+  settings?: string;
+  event?: Event;
+  camera?: Camera;
 }
 
 export interface Camera extends BaseEntity {
