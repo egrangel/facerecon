@@ -5,7 +5,7 @@ import { streamService } from '../services/StreamService';
 import { asyncHandler, createError } from '../middlewares/errorHandler';
 import { CameraService } from '../services';
 import { frameExtractionService } from '../services/FrameExtractionService';
-import { simpleFaceDetectionService } from '../services/SimpleFaceDetectionService';
+import { faceRecognitionService } from '../services/FaceRecognitionService';
 
 export class StreamController {
   private cameraService: CameraService;
@@ -64,12 +64,16 @@ export class StreamController {
       const enableFaceRecognition = req.query.faceRecognition === 'true' || req.body.faceRecognition === true;
       const organizationId = camera.organizationId;
 
+      console.log(`Starting stream for camera ${cameraIdNum}, RTSP: ${rtspUrl}, Face Recognition: ${enableFaceRecognition}`);
+
       const sessionId = await streamService.startStream(
         cameraIdNum,
         rtspUrl,
         organizationId,
         enableFaceRecognition
       );
+
+      console.log(`Stream started successfully with session ID: ${sessionId}`);
 
       res.status(200).json({
         success: true,
@@ -108,12 +112,22 @@ export class StreamController {
   stopStream = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { sessionId } = req.params;
 
+    console.log(`Attempting to stop stream session: ${sessionId}`);
+
     const success = streamService.stopStream(sessionId);
 
     if (!success) {
-      throw createError('Stream session not found', 404);
+      console.warn(`Stream session ${sessionId} not found - may have already been cleaned up`);
+      // Return success anyway since the goal (stream stopped) is achieved
+      res.status(200).json({
+        success: true,
+        message: 'Stream session not found (may have already been stopped)',
+        warning: 'Session was already cleaned up'
+      });
+      return;
     }
 
+    console.log(`Stream session ${sessionId} stopped successfully`);
     res.status(200).json({
       success: true,
       message: 'Stream stopped successfully',
@@ -394,7 +408,7 @@ export class StreamController {
   getFaceRecognitionHealth = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const health = {
       frameExtraction: frameExtractionService.getServiceHealth(),
-      faceRecognition: simpleFaceDetectionService.getServiceHealth(),
+      faceRecognition: faceRecognitionService.getServiceHealth(),
     };
 
     res.status(200).json({

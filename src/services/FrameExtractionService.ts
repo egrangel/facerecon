@@ -1,7 +1,7 @@
 import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
-import { simpleFaceDetectionService } from './SimpleFaceDetectionService';
+import { faceRecognitionService } from './FaceRecognitionService';
 
 export interface FrameExtractionSession {
   cameraId: number;
@@ -19,7 +19,7 @@ export class FrameExtractionService {
   private static instance: FrameExtractionService;
   private sessions: Map<string, FrameExtractionSession> = new Map();
   private readonly frameDir: string;
-  private readonly defaultInterval = 5; // Extract frame every 5 seconds
+  private readonly defaultInterval = 1; // Extract frame every 1 second
 
   constructor() {
     this.frameDir = path.join(process.cwd(), 'temp', 'frames');
@@ -67,10 +67,17 @@ export class FrameExtractionService {
         extractionInterval,
       };
 
-      // Face detection service is ready (no initialization needed for simple version)
+      // Initialize face recognition service - CRITICAL: Must succeed
+      try {
+        await faceRecognitionService.initialize();
+        console.log('✅ Face recognition service ready for frame processing');
+      } catch (error) {
+        console.error('❌ CRITICAL: Cannot start frame extraction - Face recognition service failed to initialize');
+        throw error; // Re-throw to fail the frame extraction startup
+      }
 
       // Start FFmpeg process for frame extraction
-      const frameOutputPattern = path.join(this.frameDir, `${sessionId}_%d.jpg`);
+      const frameOutputPattern = path.join(this.frameDir, `${sessionId}_%03d.jpg`);
 
       const ffmpegArgs = [
         // Input options
@@ -83,7 +90,7 @@ export class FrameExtractionService {
         '-vf', `fps=1/${extractionInterval}`, // Extract 1 frame every N seconds
         '-f', 'image2',
         '-q:v', '2', // High quality JPEG
-        '-update', '1', // Overwrite existing files
+        '-start_number', '1', // Start numbering from 1
         '-y', // Overwrite output files
 
         // Output pattern
@@ -203,7 +210,7 @@ export class FrameExtractionService {
       const frameBuffer = fs.readFileSync(framePath);
 
       // Process frame with face detection
-      await simpleFaceDetectionService.processVideoFrame(
+      await faceRecognitionService.processVideoFrame(
         frameBuffer,
         session.cameraId,
         session.organizationId
@@ -329,7 +336,7 @@ export class FrameExtractionService {
     return {
       activeSessions: this.sessions.size,
       frameDirectory: this.frameDir,
-      faceRecognitionHealth: simpleFaceDetectionService.getServiceHealth(),
+      faceRecognitionHealth: faceRecognitionService.getServiceHealth(),
       uptime: process.uptime(),
     };
   }

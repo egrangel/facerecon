@@ -334,7 +334,7 @@ export class EventCameraService extends BaseService<EventCamera> {
 }
 
 // Export face recognition services
-export { simpleFaceDetectionService, SimpleFaceDetectionService } from './SimpleFaceDetectionService';
+export { faceRecognitionService, FaceRecognitionService } from './FaceRecognitionService';
 export { frameExtractionService, FrameExtractionService } from './FrameExtractionService';
 export { eventSchedulerService, EventSchedulerService } from './EventSchedulerService';
 

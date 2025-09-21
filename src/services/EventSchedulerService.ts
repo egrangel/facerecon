@@ -108,8 +108,6 @@ export class EventSchedulerService {
    */
   private async getActiveScheduledEvents(): Promise<Event[]> {
     try {
-      // This would use EventService to get scheduled events
-      // For now, I'll create a method to find scheduled events
       const events = await this.eventService.findAll();
       return events.filter(event =>
         event.isScheduled &&

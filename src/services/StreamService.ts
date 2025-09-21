@@ -34,7 +34,7 @@ export class StreamService {
     this.cleanupStreamDirectory();
 
     // Setup periodic cleanup
-    setInterval(() => this.cleanupInactiveSessions(), 30000); // Clean every 30 seconds
+    // setInterval(() => this.cleanupInactiveSessions(), 30000); // Clean every 30 seconds
   }
 
   public static getInstance(): StreamService {

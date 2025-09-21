@@ -1,10 +1,11 @@
-import * as tf from '@tensorflow/tfjs-node';
+import * as tf from '@tensorflow/tfjs';
+import '@tensorflow/tfjs-backend-cpu';
 import * as faceDetection from '@tensorflow-models/face-detection';
 import { createCanvas, loadImage, Canvas, CanvasRenderingContext2D } from 'canvas';
 import * as sharp from 'sharp';
 import * as path from 'path';
 import * as fs from 'fs';
-import { PersonService, EventService, DetectionService } from './index';
+import { PersonService, DetectionService } from './index';
 
 export interface FaceDetectionResult {
   faces: DetectedFace[];
@@ -34,14 +35,12 @@ export class FaceRecognitionService {
   private detector: faceDetection.FaceDetector | null = null;
   private isInitialized = false;
   private personService: PersonService;
-  private eventService: EventService;
   private detectionService: DetectionService;
-  private readonly faceThreshold = 0.7; // Minimum confidence for face detection
+  private readonly faceThreshold = 0.8; // Minimum confidence for face detection
   private readonly recognitionThreshold = 0.8; // Minimum confidence for face recognition
 
   constructor() {
     this.personService = new PersonService();
-    this.eventService = new EventService();
     this.detectionService = new DetectionService();
   }
 
@@ -54,7 +53,8 @@ export class FaceRecognitionService {
     try {
       console.log('Initializing TensorFlow.js face detection...');
 
-      // Set TensorFlow backend
+      // Set TensorFlow backend to CPU
+      await tf.setBackend('cpu');
       await tf.ready();
       console.log('TensorFlow.js backend:', tf.getBackend());
 
@@ -62,16 +62,17 @@ export class FaceRecognitionService {
       const model = faceDetection.SupportedModels.MediaPipeFaceDetector;
       const detectorConfig = {
         runtime: 'tfjs' as const,
-        modelType: 'short' as const,
+        modelType: 'full' as const,
         maxFaces: 10,
         minDetectionConfidence: this.faceThreshold,
       };
 
       this.detector = await faceDetection.createDetector(model, detectorConfig);
       this.isInitialized = true;
-      console.log('Face detection model initialized successfully');
+      console.log('✅ Face detection model initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize face detection:', error);
+      console.error('❌ CRITICAL: Failed to initialize face detection:', error);
+      console.error('💥 APPLICATION MUST EXIT - TensorFlow.js cannot be initialized');
       throw new Error(`Face detection initialization failed: ${error}`);
     }
   }
@@ -129,17 +130,6 @@ export class FaceRecognitionService {
 
       // Save the frame with detected faces
       const imageUrl = await this.saveDetectionImage(frameBuffer, detection.faces);
-
-      // Create an event for this detection session
-      const event = await this.eventService.create({
-        name: `Face Detection - Camera ${cameraId}`,
-        description: `Automatic face detection from camera stream`,
-        type: 'detection',
-        occurredAt: new Date(),
-        status: 'active',
-        organizationId,
-        coordinates: JSON.stringify(detection.faces.map(f => f.boundingBox)),
-      });
 
       // Process each detected face
       for (const face of detection.faces) {
@@ -296,7 +286,7 @@ export class FaceRecognitionService {
     try {
       // Resize image for processing (optimize performance)
       const processedBuffer = await sharp.default(buffer)
-        .resize(640, 480, { fit: 'inside', withoutEnlargement: true })
+        .resize(1280, 720, { fit: 'inside', withoutEnlargement: true })
         .jpeg({ quality: 80 })
         .toBuffer();
 

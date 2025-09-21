@@ -11,7 +11,6 @@ import PessoasPage from './pages/PessoasPage';
 import CamerasPage from './pages/CamerasPage';
 import EventosPage from './pages/EventosPage';
 import DeteccoesPage from './pages/DeteccoesPage';
-import CadastrosPage from './pages/CadastrosPage';
 import SettingsPage from './pages/SettingsPage';
 
 const queryClient = new QueryClient({
@@ -82,7 +81,6 @@ function App() {
                 <Route path="cameras" element={<CamerasPage />} />
                 <Route path="eventos" element={<EventosPage />} />
                 <Route path="deteccoes" element={<DeteccoesPage />} />
-                <Route path="cadastros" element={<CadastrosPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
 

@@ -10,9 +10,6 @@ import { Event, Camera } from '../types/api';
 interface EventFormData {
   name: string;
   description?: string;
-  type: string;
-  occurredAt?: string;
-  // Scheduling fields
   isScheduled: boolean;
   isActive: boolean;
   scheduledDate?: string;
@@ -20,7 +17,6 @@ interface EventFormData {
   endTime?: string;
   weekDays?: string[];
   recurrenceType: string;
-  status: string;
   selectedCameraIds?: number[];
 }
 
@@ -502,8 +498,6 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ event, onClose, onSubmi
     defaultValues: event ? {
       name: event.name,
       description: event.description || '',
-      type: 'deteccao',
-      occurredAt: event.occurredAt ? formatDateForInput(event.occurredAt) : '',
       isScheduled: event.isScheduled || false,
       isActive: event.isActive !== undefined ? event.isActive : true,
       scheduledDate: event.scheduledDate ? formatDateForInput(event.scheduledDate) : '',
@@ -511,12 +505,9 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ event, onClose, onSubmi
       endTime: formatTimeForInput(event.endTime),
       weekDays: parseWeekDays(event.weekDays),
       recurrenceType: event.recurrenceType || 'once',
-      status: event.status,
     } : {
       name: '',
       description: '',
-      type: 'scheduled',
-      occurredAt: '',
       isScheduled: true,
       isActive: true,
       scheduledDate: '',
@@ -524,7 +515,6 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ event, onClose, onSubmi
       endTime: '',
       weekDays: [],
       recurrenceType: 'once',
-      status: 'active',
     }
   });
 
@@ -542,7 +532,6 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ event, onClose, onSubmi
   const onFormSubmit = (data: EventFormData) => {
     const submitData = {
       ...data,
-      occurredAt: data.occurredAt ? new Date(data.occurredAt).toISOString() : undefined,
       selectedCameraIds,
     };
     onSubmit(submitData);
