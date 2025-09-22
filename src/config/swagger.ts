@@ -27,8 +27,54 @@ const options = {
           scheme: 'bearer',
           bearerFormat: 'JWT',
         },
+        basicAuth: {
+          type: 'http',
+          scheme: 'basic',
+          description: 'Basic authentication with username and password'
+        }
       },
       schemas: {
+        LoginRequest: {
+          type: 'object',
+          required: ['email', 'password'],
+          properties: {
+            email: {
+              type: 'string',
+              format: 'email',
+              example: 'user@example.com'
+            },
+            password: {
+              type: 'string',
+              format: 'password',
+              example: '********'
+            }
+          }
+        },
+        LoginResponse: {
+          type: 'object',
+          properties: {
+            success: {
+              type: 'boolean',
+              example: true
+            },
+            data: {
+              type: 'object',
+              properties: {
+                accessToken: {
+                  type: 'string',
+                  example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+                },
+                refreshToken: {
+                  type: 'string',
+                  example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+                },
+                user: {
+                  $ref: '#/components/schemas/User'
+                }
+              }
+            }
+          }
+        },
         User: {
           type: 'object',
           properties: {
@@ -211,6 +257,47 @@ const options = {
           },
         },
       },
+    },
+    paths: {
+      '/api/v1/auth/login': {
+        post: {
+          tags: ['Authentication'],
+          summary: 'Login to the system',
+          security: [], // No security for login endpoint
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/LoginRequest'
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: 'Successful login',
+              content: {
+                'application/json': {
+                  schema: {
+                    $ref: '#/components/schemas/LoginResponse'
+                  }
+                }
+              }
+            },
+            401: {
+              description: 'Invalid credentials',
+              content: {
+                'application/json': {
+                  schema: {
+                    $ref: '#/components/schemas/Error'
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     },
     security: [
       {

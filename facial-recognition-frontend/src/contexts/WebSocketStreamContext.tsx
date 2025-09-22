@@ -67,29 +67,19 @@ export const WebSocketStreamProvider: React.FC<WebSocketStreamProviderProps> = (
   }, []);
 
   const startStream = useCallback(async (cameraId: number) => {
-    let stream = streams.get(cameraId);
-
-    if (!stream) {
-      // Create new stream session
-      stream = {
-        sessionId: '',
-        cameraId,
-        streamUrl: '',
-        isPlaying: false,
-        isLoading: true,
-        hasError: false,
-        errorMessage: '',
-        lastAccessed: Date.now(),
-        streamType: 'websocket',
-      };
-      streams.set(cameraId, stream);
-    }
-
-    // Update stream state
-    stream.isLoading = true;
-    stream.hasError = false;
-    stream.errorMessage = '';
-    stream.lastAccessed = Date.now();
+    // Always create a fresh stream session to avoid stale sessionId issues
+    const stream = {
+      sessionId: '',
+      cameraId,
+      streamUrl: '',
+      isPlaying: false,
+      isLoading: true,
+      hasError: false,
+      errorMessage: '',
+      lastAccessed: Date.now(),
+      streamType: 'websocket' as const,
+    };
+    streams.set(cameraId, stream);
     triggerUpdate();
 
     try {

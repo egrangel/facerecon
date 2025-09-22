@@ -34,10 +34,10 @@ RUN touch /var/run/nginx.pid && \
 
 USER nginx
 
-EXPOSE 80
+EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:80/ || exit 1
+  CMD curl -f http://localhost:3000/ || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]

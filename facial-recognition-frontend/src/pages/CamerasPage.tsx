@@ -6,6 +6,7 @@ import Input from '../components/ui/Input';
 import { apiClient } from '../services/api';
 import { Camera } from '../types/api';
 import { StreamPlayer } from '../components/StreamPlayer';
+import { useWebSocketStream } from '../contexts/WebSocketStreamContext';
 
 interface CameraFormData {
   name: string;
@@ -29,10 +30,37 @@ interface LiveStreamContainerProps {
 
 const LiveStreamContainer: React.FC<LiveStreamContainerProps> = ({ camera, className = '' }) => {
   const [error, setError] = useState<string | null>(null);
+  const webSocketStream = useWebSocketStream();
+  const webSocketState = webSocketStream.getStreamState(camera.id);
+  const webSocketSession = webSocketStream.streams.get(camera.id);
 
   const handleError = (errorMessage: string) => {
     setError(errorMessage);
     console.error(`Camera ${camera.id} stream error:`, errorMessage);
+  };
+
+  const handleStartStream = async () => {
+    try {
+      await webSocketStream.startStream(camera.id);
+    } catch (error: any) {
+      handleError(error.message || 'Failed to start stream');
+    }
+  };
+
+  const handleStopStream = async () => {
+    try {
+      await webSocketStream.stopStream(camera.id);
+    } catch (error: any) {
+      console.error('Error stopping stream:', error);
+    }
+  };
+
+  const handleRefreshStream = async () => {
+    try {
+      await webSocketStream.refreshStream(camera.id);
+    } catch (error: any) {
+      handleError(error.message || 'Failed to refresh stream');
+    }
   };
 
   return (
@@ -59,17 +87,58 @@ const LiveStreamContainer: React.FC<LiveStreamContainerProps> = ({ camera, class
 
       {/* Stream Status */}
       <div className="p-3 bg-gray-800 flex items-center justify-between">
-        {/* <div className="flex items-center space-x-2 text-xs text-white">
-          <span>📡 WebSocket</span>
-          <span className="text-green-400">Ultra Low Latency (200-500ms)</span>
-        </div> */}
-
         <div className="flex items-center space-x-2 text-xs text-gray-300">
           <span className={`w-2 h-2 rounded-full ${
             camera.status === 'active' ? 'bg-green-400' :
             camera.status === 'inactive' ? 'bg-red-400' : 'bg-yellow-400'
           }`}></span>
           <span>{camera.status}</span>
+        </div>
+
+        {/* Stream Control Buttons */}
+        <div className="flex items-center space-x-2">
+          {webSocketSession && webSocketSession.sessionId ? (
+            <>
+              <button
+                onClick={webSocketState.isPlaying ? handleStopStream : handleStartStream}
+                disabled={webSocketState.isLoading}
+                className="px-3 py-1 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-50"
+              >
+                {webSocketState.isLoading ? (
+                  <span className="flex items-center">
+                    <div className="animate-spin rounded-full h-3 w-3 border border-white border-t-transparent mr-1"></div>
+                    Loading...
+                  </span>
+                ) : webSocketState.isPlaying ? (
+                  '⏹ Stop'
+                ) : (
+                  '▶ Play'
+                )}
+              </button>
+              <button
+                onClick={handleRefreshStream}
+                disabled={webSocketState.isLoading}
+                className="px-3 py-1 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-50"
+              >
+                🔄 Refresh
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={handleStartStream}
+              disabled={webSocketState.isLoading}
+              className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
+            >
+              {webSocketState.isLoading ? (
+                <span className="flex items-center">
+                  <div className="animate-spin rounded-full h-3 w-3 border border-white border-t-transparent mr-1"></div>
+                  Starting...
+                </span>
+              ) : (
+                '▶ Start Stream'
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>

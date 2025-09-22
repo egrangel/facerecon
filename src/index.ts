@@ -142,7 +142,7 @@ const startServer = async (): Promise<void> => {
       : 'Unknown error occurred';
     
     console.error('❌ Database connection failed:', errorMessage);
-    console.log('⚠️ Server will start without database connection (some features may be unavailable)');
+    console.log('⚠︝ Server will start without database connection (some features may be unavailable)');
   }
 
   // Start the server regardless of database connection status
@@ -156,27 +156,27 @@ const startServer = async (): Promise<void> => {
 
   server.listen(PORT, host, () => {
     console.log(`🚀 Server is running on port ${PORT}`);
-    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🌝 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🎥 HLS Streaming service initialized`);
     console.log(`📡 WebSocket streaming service initialized`);
 
     // Start the event scheduler for automatic facial recognition
     eventSchedulerService.start();
-    console.log(`⏰ Event scheduler started - facial recognition will activate automatically based on scheduled events`);
+    console.log(`❰ Event scheduler started - facial recognition will activate automatically based on scheduled events`);
 
     if (IS_PRODUCTION) {
       console.log(`📡 Production API running on port ${PORT}`);
       console.log(`🔒 Security features enabled`);
     } else {
       console.log(`📡 API base URL: http://localhost:${PORT}/api/${API_VERSION}`);
-      console.log(`🌍 Network API URL: http://192.168.1.2:${PORT}/api/${API_VERSION}`);
-      console.log(`🔍 Health check: http://localhost:${PORT}/api/${API_VERSION}/health`);
+      console.log(`🌝 Network API URL: http://192.168.1.2:${PORT}/api/${API_VERSION}`);
+      console.log(`🔝 Health check: http://localhost:${PORT}/api/${API_VERSION}/health`);
       console.log(`🎥 Streaming health: http://localhost:${PORT}/api/${API_VERSION}/streams/health`);
       console.log(`📡 WebSocket endpoint: ws://localhost:${PORT}/ws/stream`);
 
       if (process.env.SWAGGER_ENABLED === 'true') {
         console.log(`📚 API Documentation: http://localhost:${PORT}/api/docs`);
-        console.log(`🌍 Network Documentation: http://192.168.1.2:${PORT}/api/docs`);
+        console.log(`🌝 Network Documentation: http://192.168.1.2:${PORT}/api/docs`);
       }
     }
   });
@@ -187,7 +187,7 @@ process.on('SIGTERM', () => {
   console.log('SIGTERM received, shutting down gracefully...');
   console.log('🎥 Stopping all streams...');
   streamService.stopAllStreams();
-  console.log('⏰ Stopping event scheduler...');
+  console.log('❰ Stopping event scheduler...');
   eventSchedulerService.stop();
   process.exit(0);
 });
@@ -196,7 +196,7 @@ process.on('SIGINT', () => {
   console.log('SIGINT received, shutting down gracefully...');
   console.log('🎥 Stopping all streams...');
   streamService.stopAllStreams();
-  console.log('⏰ Stopping event scheduler...');
+  console.log('❰ Stopping event scheduler...');
   eventSchedulerService.stop();
   process.exit(0);
 });

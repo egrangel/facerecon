@@ -45,10 +45,10 @@ services:
     container_name: facial_recognition_api
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3001:3001"
     environment:
       NODE_ENV: production
-      PORT: 3000
+      PORT: 3001
       API_VERSION: v1
       
       # Database
@@ -73,7 +73,7 @@ services:
       SWAGGER_ENABLED: true
       
       # CORS
-      CORS_ORIGIN: http://localhost:3000,http://localhost:3001
+      CORS_ORIGIN: http://localhost:3000,http://localhost:3001,http://192.168.1.2:3000,http://192.168.1.2:3001,http://177.72.43.247:3000,http://177.72.43.247:3001
       CORS_CREDENTIALS: true
       
       # Logging

@@ -18,7 +18,6 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
   onError,
 }) => {
   const [error, setError] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
 
   // WebSocket streaming context
   const webSocketStream = useWebSocketStream();
@@ -30,23 +29,12 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
       console.log(`Starting WebSocket stream for camera ${cameraId}`);
       await webSocketStream.startStream(cameraId);
       console.log('WebSocket stream started, session:', webSocketSession);
-      setIsPlaying(true);
     } catch (error: any) {
       console.error('Error starting stream:', error);
       setError(error.message || 'Failed to start stream');
       onError?.(error.message || 'Failed to start stream');
     }
   }, [cameraId, webSocketStream, webSocketSession, onError]);
-
-  const stopStream = useCallback(async () => {
-    try {
-      await webSocketStream.stopStream(cameraId);
-      setIsPlaying(false);
-      setError(null);
-    } catch (error: any) {
-      console.error('Error stopping stream:', error);
-    }
-  }, [cameraId, webSocketStream]);
 
   const refreshStream = useCallback(async () => {
     await webSocketStream.refreshStream(cameraId);
@@ -77,17 +65,15 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
           sessionId={webSocketSession.sessionId}
           className="w-full h-full"
           onError={handleError}
-          onStreamStart={() => setIsPlaying(true)}
-          onStreamStop={() => setIsPlaying(false)}
         />
       )}
 
-      {/* Small error indicator (doesn't block video) */}
-      {(webSocketState.hasError || error) && webSocketSession?.sessionId && (
+      {/* Small error indicator (doesn't block video) - only show if it's an API/context error, not WebSocket errors */}
+      {webSocketState.hasError && webSocketSession?.sessionId && !error && (
         <div className="absolute top-2 right-2 z-10">
           <div className="bg-red-600 bg-opacity-90 text-white text-xs px-2 py-1 rounded flex items-center space-x-1">
             <span>⚠️</span>
-            <span>Connection issue</span>
+            <span>API issue</span>
             <button
               onClick={clearError}
               className="ml-1 text-red-200 hover:text-white"
@@ -150,23 +136,6 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
         </div>
       )}
 
-      {/* Control Buttons */}
-      {webSocketSession && webSocketSession.sessionId && !webSocketState.hasError && !error && (
-        <div className="absolute bottom-2 left-2 z-10 space-x-2">
-          <button
-            onClick={isPlaying ? stopStream : startStream}
-            className="px-3 py-1 bg-gray-800 bg-opacity-75 text-white text-xs rounded hover:bg-gray-700"
-          >
-            {isPlaying ? '❹︝ Stop' : '▶︝ Play'}
-          </button>
-          <button
-            onClick={refreshStream}
-            className="px-3 py-1 bg-gray-800 bg-opacity-75 text-white text-xs rounded hover:bg-gray-700"
-          >
-            🔄 Refresh
-          </button>
-        </div>
-      )}
     </div>
   );
 };

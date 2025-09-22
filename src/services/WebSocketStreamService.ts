@@ -229,7 +229,6 @@ export class WebSocketStreamService {
 
               // Only broadcast frames that are reasonable size (avoid corrupted frames)
               if (frameData.length > 1000 && frameData.length < 500000) { // 1KB to 500KB
-                console.log(`Broadcasting frame: ${frameData.length} bytes`);
                 this.broadcastFrame(sessionId!, frameData);
               } else {
                 console.warn(`Skipping invalid frame size: ${frameData.length} bytes`);
@@ -306,7 +305,6 @@ export class WebSocketStreamService {
     }
 
     if (session.clients.size === 0) {
-      console.log(`No clients connected to session ${sessionId}`);
       return;
     }
 
@@ -317,8 +315,6 @@ export class WebSocketStreamService {
       data: base64Frame,
       timestamp: Date.now()
     });
-
-    console.log(`Broadcasting frame to ${session.clients.size} clients: ${frameData.length} bytes -> ${message.length} chars`);
 
     // Broadcast to all connected clients
     let successCount = 0;
@@ -341,9 +337,6 @@ export class WebSocketStreamService {
       }
     });
 
-    if (successCount > 0) {
-      console.log(`Frame sent successfully to ${successCount} clients`);
-    }
     if (failCount > 0) {
       console.warn(`Failed to send frame to ${failCount} clients`);
     }

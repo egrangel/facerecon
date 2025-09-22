@@ -37,7 +37,7 @@ export const WebSocketStreamPlayer: React.FC<WebSocketStreamPlayerProps> = ({
     }
 
     // Use the same host as the API URL for WebSocket connection
-    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000/api/v1';
+    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001/api/v1';
     const apiHost = new URL(apiUrl).host; // Extract host:port from API URL
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${wsProtocol}//${apiHost}/ws/stream`;
@@ -177,9 +177,25 @@ export const WebSocketStreamPlayer: React.FC<WebSocketStreamPlayerProps> = ({
   // Connect when component mounts or sessionId changes
   useEffect(() => {
     if (sessionId) {
+      // Clear all states when sessionId changes (fresh start)
       setIsLoading(true);
       setError(null);
-      connectWebSocket();
+      setIsConnected(false);
+      setFrameCount(0);
+
+      // Disconnect any existing connection first
+      disconnect();
+
+      // Wait a moment for the backend session to be fully ready
+      // This prevents "stream session not found" errors when restarting streams
+      const connectTimer = setTimeout(() => {
+        connectWebSocket();
+      }, 500);
+
+      return () => {
+        clearTimeout(connectTimer);
+        disconnect();
+      };
     }
 
     return () => {
@@ -222,14 +238,6 @@ export const WebSocketStreamPlayer: React.FC<WebSocketStreamPlayerProps> = ({
               Retry
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Debug info */}
-      {process.env.NODE_ENV === 'development' && isConnected && (
-        <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
-          <div>WebSocket: {isConnected ? '🟢' : '🔴'}</div>
-          <div>Frames: {frameCount}</div>
         </div>
       )}
     </div>
