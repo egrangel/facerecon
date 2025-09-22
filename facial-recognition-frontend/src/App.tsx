@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './hooks/useAuth';
-import { StreamProvider } from './contexts/StreamContext';
+import { WebSocketStreamProvider } from './contexts/WebSocketStreamContext';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardLayout from './components/layout/DashboardLayout';
@@ -54,7 +54,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <StreamProvider>
+        <WebSocketStreamProvider>
           <Router>
           <div className="App">
             <Routes>
@@ -90,7 +90,7 @@ function App() {
             </Routes>
           </div>
         </Router>
-        </StreamProvider>
+        </WebSocketStreamProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

@@ -6,11 +6,7 @@ import { StreamController } from '@/controllers/StreamController';
 const router = Router();
 const streamController = new StreamController();
 
-// Public routes (no auth required for stream access) - MUST come before auth middleware
-router.get('/:sessionId/playlist.m3u8', streamController.getPlaylist);
-router.get('/:sessionId/segments/:segmentName', streamController.getSegment);
-// Also support direct segment access (for FFmpeg generated playlist URLs)
-router.get('/:sessionId/:segmentName', streamController.getSegment);
+// Note: HLS routes removed - all streaming now uses WebSocket for ultra-low latency
 
 // Protected routes (require authentication)
 router.use(authenticateToken);

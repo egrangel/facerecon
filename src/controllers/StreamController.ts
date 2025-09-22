@@ -1,6 +1,4 @@
 import { Request, Response } from 'express';
-import * as fs from 'fs';
-import * as path from 'path';
 import { streamService } from '../services/StreamService';
 import { asyncHandler, createError } from '../middlewares/errorHandler';
 import { CameraService } from '../services';
@@ -73,16 +71,16 @@ export class StreamController {
         enableFaceRecognition
       );
 
-      console.log(`Stream started successfully with session ID: ${sessionId}`);
+      console.log(`WebSocket stream started successfully with session ID: ${sessionId}`);
 
       res.status(200).json({
         success: true,
-        message: 'Stream started successfully',
+        message: 'WebSocket stream started successfully',
         data: {
           sessionId,
-          streamUrl: `/api/v1/streams/${sessionId}/playlist.m3u8`,
+          streamUrl: '/ws/stream',
           cameraId: cameraIdNum,
-          rtspUrl: rtspUrl,
+          streamType: 'websocket',
           faceRecognitionEnabled: enableFaceRecognition,
         },
       });
@@ -134,100 +132,7 @@ export class StreamController {
     });
   });
 
-  /**
-   * @swagger
-   * /api/v1/streams/{sessionId}/playlist.m3u8:
-   *   get:
-   *     summary: Get HLS playlist for a stream
-   *     tags: [Streams]
-   *     parameters:
-   *       - in: path
-   *         name: sessionId
-   *         required: true
-   *         schema:
-   *           type: string
-   *     responses:
-   *       200:
-   *         description: HLS playlist
-   *         content:
-   *           application/vnd.apple.mpegurl:
-   *             schema:
-   *               type: string
-   *       404:
-   *         description: Stream not found
-   */
-  getPlaylist = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const { sessionId } = req.params;
-
-    const playlistPath = streamService.getStreamPath(sessionId);
-    if (!playlistPath || !fs.existsSync(playlistPath)) {
-      throw createError('Stream not found or not ready', 404);
-    }
-
-    // Set appropriate headers for HLS
-    res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Range');
-
-    // Read and serve the playlist
-    const playlistContent = fs.readFileSync(playlistPath, 'utf8');
-    res.send(playlistContent);
-  });
-
-  /**
-   * @swagger
-   * /api/v1/streams/{sessionId}/segments/{segmentName}:
-   *   get:
-   *     summary: Get HLS segment for a stream
-   *     tags: [Streams]
-   *     parameters:
-   *       - in: path
-   *         name: sessionId
-   *         required: true
-   *         schema:
-   *           type: string
-   *       - in: path
-   *         name: segmentName
-   *         required: true
-   *         schema:
-   *           type: string
-   *     responses:
-   *       200:
-   *         description: HLS segment
-   *         content:
-   *           video/mp2t:
-   *             schema:
-   *               type: string
-   *               format: binary
-   *       404:
-   *         description: Segment not found
-   */
-  getSegment = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const { sessionId, segmentName } = req.params;
-
-    // Validate segment name format (security check)
-    const segmentPattern = new RegExp(`^${sessionId}_\\d{3}\\.ts$`);
-    if (!segmentPattern.test(segmentName)) {
-      throw createError('Invalid segment name', 400);
-    }
-
-    const segmentPath = streamService.getSegmentPath(sessionId, segmentName);
-    if (!segmentPath || !fs.existsSync(segmentPath)) {
-      throw createError('Segment not found', 404);
-    }
-
-    // Set appropriate headers for video segments
-    res.setHeader('Content-Type', 'video/mp2t');
-    res.setHeader('Cache-Control', 'public, max-age=3600');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-
-    // Stream the segment file
-    const stream = fs.createReadStream(segmentPath);
-    stream.pipe(res);
-  });
+  // HLS methods removed - all streaming now uses WebSocket for ultra-low latency
 
   /**
    * @swagger
@@ -335,6 +240,9 @@ export class StreamController {
       throw createError('Invalid camera ID', 400);
     }
 
+    // All streaming now uses WebSocket only
+    const streamType = 'websocket';
+
     // Check if there's already an active session for this camera
     const activeSessions = streamService.getActiveSessions();
     const existingSession = activeSessions.find(session => session.cameraId === cameraIdNum);
@@ -342,11 +250,12 @@ export class StreamController {
     if (existingSession) {
       res.status(200).json({
         success: true,
-        message: 'Stream already active',
+        message: 'WebSocket stream already active',
         data: {
           sessionId: existingSession.id,
-          streamUrl: streamService.getStreamUrl(existingSession.id),
+          streamUrl: '/ws/stream',
           cameraId: cameraIdNum,
+          streamType: 'websocket',
         },
       });
       return;
@@ -381,12 +290,12 @@ export class StreamController {
 
       res.status(200).json({
         success: true,
-        message: 'Stream started successfully',
+        message: 'WebSocket stream started successfully',
         data: {
           sessionId,
-          streamUrl: `/streams/${sessionId}/playlist.m3u8`,
+          streamUrl: '/ws/stream',
           cameraId: cameraIdNum,
-          rtspUrl: rtspUrl,
+          streamType: 'websocket',
           faceRecognitionEnabled: enableFaceRecognition,
         },
       });

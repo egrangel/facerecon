@@ -7,12 +7,14 @@ import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
+import { createServer } from 'http';
 
 import { initializeDatabase } from '@/config/database';
 import { setupSwagger } from '@/config/swagger';
 import { apiRoutes } from '@/routes';
 import { errorHandler, notFoundHandler } from '@/middlewares/errorHandler';
 import { streamService } from '@/services/StreamService';
+import { webSocketStreamService } from '@/services/WebSocketStreamService';
 import { eventSchedulerService } from '@/services/EventSchedulerService';
 
 // Load environment variables
@@ -146,10 +148,17 @@ const startServer = async (): Promise<void> => {
   // Start the server regardless of database connection status
   const host = '0.0.0.0';
 
-  app.listen(PORT, host, () => {
+  // Create HTTP server
+  const server = createServer(app);
+
+  // Initialize WebSocket streaming service
+  webSocketStreamService.initialize(server);
+
+  server.listen(PORT, host, () => {
     console.log(`🚀 Server is running on port ${PORT}`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🎥 Streaming service initialized`);
+    console.log(`🎥 HLS Streaming service initialized`);
+    console.log(`📡 WebSocket streaming service initialized`);
 
     // Start the event scheduler for automatic facial recognition
     eventSchedulerService.start();
@@ -163,6 +172,7 @@ const startServer = async (): Promise<void> => {
       console.log(`🌍 Network API URL: http://192.168.1.2:${PORT}/api/${API_VERSION}`);
       console.log(`🔍 Health check: http://localhost:${PORT}/api/${API_VERSION}/health`);
       console.log(`🎥 Streaming health: http://localhost:${PORT}/api/${API_VERSION}/streams/health`);
+      console.log(`📡 WebSocket endpoint: ws://localhost:${PORT}/ws/stream`);
 
       if (process.env.SWAGGER_ENABLED === 'true') {
         console.log(`📚 API Documentation: http://localhost:${PORT}/api/docs`);

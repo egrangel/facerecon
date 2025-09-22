@@ -331,6 +331,7 @@ class ApiClient {
   }
 
   async getCameraStreamUrl(cameraId: number): Promise<{ sessionId: string; streamUrl: string }> {
+    // All streaming now uses WebSocket for ultra-low latency
     const response: AxiosResponse<{ success: boolean; data: { sessionId: string; streamUrl: string; cameraId: number } }> =
       await this.client.get(`/streams/camera/${cameraId}/url`);
     return response.data.data;
