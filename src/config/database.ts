@@ -15,7 +15,7 @@ import {
   Detection,
   EventCamera,
   User
-} from '@/entities';
+} from '../entities';
 
 dotenv.config();
 

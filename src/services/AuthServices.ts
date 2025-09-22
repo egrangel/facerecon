@@ -1,8 +1,8 @@
 import jwt, { SignOptions } from 'jsonwebtoken';
-import { User } from '@/entities/User';
-import { Organization } from '@/entities/Organization';
-import { UserRepository, OrganizationRepository } from '@/repositories';
-import { createError } from '@/middlewares/errorHandler';
+import { User } from '../entities/User';
+import { Organization } from '../entities/Organization';
+import { UserRepository, OrganizationRepository } from '../repositories';
+import { createError } from '../middlewares/errorHandler';
 
 export interface LoginCredentials {
   email: string;

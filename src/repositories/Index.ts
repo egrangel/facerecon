@@ -1,10 +1,10 @@
-import { AppDataSource } from '@/config/database';
+import { AppDataSource } from '../config/database';
 import { BaseRepository } from './BaseRepository';
-import { Organization } from '@/entities/Organization';
-import { Person } from '@/entities/Person';
-import { PersonType, PersonFace, PersonContact, PersonAddress } from '@/entities';
-import { Event, Camera, Detection, EventCamera } from '@/entities/EventEntities';
-import { User } from '@/entities/User';
+import { Organization } from '../entities/Organization';
+import { Person } from '../entities/Person';
+import { PersonType, PersonFace, PersonContact, PersonAddress } from '../entities';
+import { Event, Camera, Detection, EventCamera } from '../entities/EventEntities';
+import { User } from '../entities/User';
 
 export class OrganizationRepository extends BaseRepository<Organization> {
   constructor() {

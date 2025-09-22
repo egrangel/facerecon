@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { authenticateToken, authorize } from '@/middlewares/auth';
-import { organizationAccess } from '@/middlewares/organizationAccess';
-import { AuthController } from '@/controllers/AuthController';
+import { authenticateToken, authorize } from '../middlewares/auth';
+import { organizationAccess } from '../middlewares/organizationAccess';
+import { AuthController } from '../controllers/AuthController';
 import {
   OrganizationController,
   PersonController,
@@ -9,7 +9,7 @@ import {
   CameraController,
   DetectionController,
   UserController,
-} from '@/controllers';
+} from '../controllers';
 import { settingsRoutes } from './settingsRoutes';
 import streamRoutes from './streamRoutes';
 import { dashboardRoutes } from './dashboardRoutes';

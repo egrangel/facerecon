@@ -1,6 +1,6 @@
 import { DeepPartial } from 'typeorm';
 import { BaseService } from './BaseService';
-import { createError } from '@/middlewares/errorHandler';
+import { createError } from '../middlewares/errorHandler';
 import {
   OrganizationRepository,
   PersonRepository,
@@ -13,7 +13,7 @@ import {
   DetectionRepository,
   UserRepository,
   EventCameraRepository,
-} from '@/repositories';
+} from '../repositories';
 import {
   Organization,
   Person,
@@ -22,8 +22,8 @@ import {
   PersonContact,
   PersonAddress,
   User,
-} from '@/entities';
-import { Event, Camera, Detection, EventCamera } from '@/entities/EventEntities';
+} from '../entities';
+import { Event, Camera, Detection, EventCamera } from '../entities/EventEntities';
 
 export class OrganizationService extends BaseService<Organization> {
   constructor() {
