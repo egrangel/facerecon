@@ -177,25 +177,42 @@ export const WebSocketStreamPlayer: React.FC<WebSocketStreamPlayerProps> = ({
   // Connect when component mounts or sessionId changes
   useEffect(() => {
     if (sessionId) {
-      // Clear all states when sessionId changes (fresh start)
-      setIsLoading(true);
+      // Only proceed if this is a valid sessionId (not empty string)
+      if (sessionId.length > 0) {
+        // Clear all states when sessionId changes (fresh start)
+        setIsLoading(true);
+        setError(null);
+        setIsConnected(false);
+        setFrameCount(0);
+
+        // Disconnect any existing connection first
+        disconnect();
+
+        // Wait a moment for the backend session to be fully ready
+        // This prevents "stream session not found" errors when restarting streams
+        const connectTimer = setTimeout(() => {
+          connectWebSocket();
+        }, 500);
+
+        return () => {
+          clearTimeout(connectTimer);
+          disconnect();
+        };
+      } else {
+        // If sessionId is empty, just clear states but don't try to connect
+        setIsLoading(false);
+        setError(null);
+        setIsConnected(false);
+        setFrameCount(0);
+        disconnect();
+      }
+    } else {
+      // No sessionId, clear everything
+      setIsLoading(false);
       setError(null);
       setIsConnected(false);
       setFrameCount(0);
-
-      // Disconnect any existing connection first
       disconnect();
-
-      // Wait a moment for the backend session to be fully ready
-      // This prevents "stream session not found" errors when restarting streams
-      const connectTimer = setTimeout(() => {
-        connectWebSocket();
-      }, 500);
-
-      return () => {
-        clearTimeout(connectTimer);
-        disconnect();
-      };
     }
 
     return () => {

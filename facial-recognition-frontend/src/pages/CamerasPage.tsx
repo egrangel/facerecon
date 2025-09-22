@@ -72,11 +72,6 @@ const LiveStreamContainer: React.FC<LiveStreamContainerProps> = ({ camera, class
           onError={handleError}
         />
 
-        {/* Camera Info Overlay */}
-        <div className="absolute bottom-2 left-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
-          {camera.name} • {camera.protocol.toUpperCase()}
-        </div>
-
         {/* Error Display */}
         {error && (
           <div className="absolute top-2 left-1/2 transform -translate-x-1/2 bg-red-600 bg-opacity-90 text-white text-xs px-2 py-1 rounded max-w-xs text-center">

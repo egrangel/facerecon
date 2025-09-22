@@ -160,9 +160,49 @@ export const WebSocketStreamProvider: React.FC<WebSocketStreamProviderProps> = (
   }, [streams]);
 
   const refreshStream = useCallback(async (cameraId: number) => {
-    await stopStream(cameraId);
-    setTimeout(() => startStream(cameraId), 1000);
-  }, [startStream, stopStream]);
+    // Create a completely fresh stream session to avoid any stale state issues
+    const oldSessionId = streams.get(cameraId)?.sessionId;
+
+    // Remove the old stream first to prevent conflicts
+    streams.delete(cameraId);
+    triggerUpdate();
+
+    try {
+      // Try to stop the old backend stream if it exists
+      if (oldSessionId) {
+        try {
+          await apiClient.stopStream(oldSessionId);
+        } catch (stopError: any) {
+          // Session might already be stopped, which is fine
+          console.log(`Old session ${oldSessionId} was already stopped or not found`);
+        }
+      }
+
+      // Wait a moment for cleanup
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Start completely fresh stream
+      await startStream(cameraId);
+    } catch (error: any) {
+      console.error('Error refreshing stream:', error);
+
+      // Create a fresh error state for this camera only
+      const errorStream = {
+        sessionId: '',
+        cameraId,
+        streamUrl: '',
+        isPlaying: false,
+        isLoading: false,
+        hasError: true,
+        errorMessage: 'Failed to refresh stream',
+        lastAccessed: Date.now(),
+        streamType: 'websocket' as const,
+      };
+
+      streams.set(cameraId, errorStream);
+      triggerUpdate();
+    }
+  }, [streams, startStream, triggerUpdate]);
 
   const value: WebSocketStreamContextValue = {
     streams,
