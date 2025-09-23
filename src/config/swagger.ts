@@ -16,7 +16,7 @@ const options = {
     },
     servers: [
       {
-        url: `http://localhost:${process.env.PORT || 3000}`,
+        url: process.env.REACT_APP_API_URL || 'http://192.168.1.2:3001/api/v1',
         description: 'Development server',
       },
     ],

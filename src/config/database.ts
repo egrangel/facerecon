@@ -24,7 +24,7 @@ const databaseConfig = process.env.DB_TYPE === 'sqlite' ? {
   database: process.env.DB_DATABASE || './data/facial_recognition.db',
 } : {
   type: 'postgres' as const,
-  host: process.env.DB_HOST || 'localhost',
+  host: process.env.DB_HOST || '192.168.1.2',
   port: parseInt(process.env.DB_PORT || '5432'),
   username: process.env.DB_USERNAME || 'postgres',
   password: process.env.DB_PASSWORD || 'password',

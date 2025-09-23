@@ -74,7 +74,7 @@ app.use(helmet({
 // CORS configuration
 const corsOptions = {
   origin: function (origin: string | undefined, callback: Function) {
-    const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'];
+    const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || ['http://192.168.1.2:3000'];
 
     // Allow requests with no origin (mobile apps, Postman, etc.) only in development
     if (!origin && !IS_PRODUCTION) return callback(null, true);
@@ -168,15 +168,15 @@ const startServer = async (): Promise<void> => {
       console.log(`📡 Production API running on port ${PORT}`);
       console.log(`🔒 Security features enabled`);
     } else {
-      console.log(`📡 API base URL: http://localhost:${PORT}/api/${API_VERSION}`);
-      console.log(`🌝 Network API URL: http://192.168.1.2:${PORT}/api/${API_VERSION}`);
-      console.log(`🔝 Health check: http://localhost:${PORT}/api/${API_VERSION}/health`);
-      console.log(`🎥 Streaming health: http://localhost:${PORT}/api/${API_VERSION}/streams/health`);
-      console.log(`📡 WebSocket endpoint: ws://localhost:${PORT}/ws/stream`);
+      console.log(`📡 API base URL: ${process.env.REACT_APP_API_URL || `http://192.168.1.2:${PORT}/api/${API_VERSION}`}`);
+      console.log(`🌝 Network API URL: ${process.env.REACT_APP_API_URL || `http://192.168.1.2:${PORT}/api/${API_VERSION}`}`);
+      console.log(`🔝 Health check: ${process.env.REACT_APP_API_URL || `http://192.168.1.2:${PORT}/api/${API_VERSION}/health`}`);
+      console.log(`🎥 Streaming health: ${process.env.REACT_APP_API_URL || `http://192.168.1.2:${PORT}/api/${API_VERSION}/streams/health`}`);
+      console.log(`📡 WebSocket endpoint: ${process.env.REACT_APP_API_URL || `ws://192.168.1.2:${PORT}/ws/stream`}`);
 
       if (process.env.SWAGGER_ENABLED === 'true') {
-        console.log(`📚 API Documentation: http://localhost:${PORT}/api/docs`);
-        console.log(`🌝 Network Documentation: http://192.168.1.2:${PORT}/api/docs`);
+        console.log(`📚 API Documentation: ${process.env.REACT_APP_API_URL || `http://192.168.1.2:${PORT}/api/docs`}`);
+        console.log(`🌝 Network Documentation: ${process.env.REACT_APP_API_URL || `http://192.168.1.2:${PORT}/api/docs`}`);
       }
     }
   });

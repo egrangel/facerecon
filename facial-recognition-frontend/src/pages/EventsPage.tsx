@@ -492,8 +492,6 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ event, onClose, onSubmi
     handleSubmit,
     formState: { errors },
     watch,
-    setValue,
-    reset,
   } = useForm<EventFormData>({
     defaultValues: event ? {
       name: event.name,
@@ -762,21 +760,6 @@ interface EventoModalProps {
 }
 
 const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose }) => {
-  const getSeveridadeColor = (severidade: string) => {
-    switch (severidade) {
-      case 'critica':
-        return 'bg-red-100 text-red-800';
-      case 'alta':
-        return 'bg-orange-100 text-orange-800';
-      case 'media':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'baixa':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'novo':

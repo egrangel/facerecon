@@ -37,7 +37,7 @@ export const WebSocketStreamPlayer: React.FC<WebSocketStreamPlayerProps> = ({
     }
 
     // Use the same host as the API URL for WebSocket connection
-    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001/api/v1';
+    const apiUrl = process.env.REACT_APP_API_URL || 'http://192.168.1.2:3001/api/v1';
     const apiHost = new URL(apiUrl).host; // Extract host:port from API URL
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${wsProtocol}//${apiHost}/ws/stream`;

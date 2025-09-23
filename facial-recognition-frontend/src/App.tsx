@@ -7,10 +7,10 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardLayout from './components/layout/DashboardLayout';
 import DashboardHome from './pages/DashboardHome';
-import PessoasPage from './pages/PessoasPage';
+import PeoplePage from './pages/PeoplePage';
 import CamerasPage from './pages/CamerasPage';
-import EventosPage from './pages/EventosPage';
-import DeteccoesPage from './pages/DeteccoesPage';
+import EventsPage from './pages/EventsPage';
+import DetectionsPage from './pages/DetectionsPage';
 import SettingsPage from './pages/SettingsPage';
 
 const queryClient = new QueryClient({
@@ -77,10 +77,10 @@ function App() {
                 </ProtectedRoute>
               }>
                 <Route index element={<DashboardHome />} />
-                <Route path="pessoas" element={<PessoasPage />} />
+                <Route path="pessoas" element={<PeoplePage />} />
                 <Route path="cameras" element={<CamerasPage />} />
-                <Route path="eventos" element={<EventosPage />} />
-                <Route path="deteccoes" element={<DeteccoesPage />} />
+                <Route path="eventos" element={<EventsPage />} />
+                <Route path="deteccoes" element={<DetectionsPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
 

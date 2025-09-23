@@ -38,7 +38,7 @@ app.use(helmet({
 
 // CORS configuration
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'],
+  origin: process.env.CORS_ORIGIN?.split(',') || ['http://192.168.1.2:3000'],
   credentials: process.env.CORS_CREDENTIALS === 'true',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -90,11 +90,11 @@ const startServer = async (): Promise<void> => {
     // Start the server
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on port ${PORT}`);
-      console.log(`📝 API base URL: http://localhost:${PORT}/api/${API_VERSION}`);
-      console.log(`📚 Health check: http://localhost:${PORT}/api/${API_VERSION}/health`);
-      
+      console.log(`📝 API base URL: ${process.env.REACT_APP_API_URL || `http://192.168.1.2:${PORT}/api/${API_VERSION}`}`);
+      console.log(`📚 Health check: ${process.env.REACT_APP_API_URL || `http://192.168.1.2:${PORT}/api/${API_VERSION}/health`}`);
+
       if (process.env.SWAGGER_ENABLED === 'true') {
-        console.log(`📖 API Documentation: http://localhost:${PORT}/api/docs`);
+        console.log(`📖 API Documentation: ${process.env.REACT_APP_API_URL || `http://192.168.1.2:${PORT}/api/docs`}`);
       }
       
       console.log(`🌝 Environment: ${process.env.NODE_ENV || 'development'}`);
