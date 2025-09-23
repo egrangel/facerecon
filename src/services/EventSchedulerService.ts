@@ -183,8 +183,8 @@ export class EventSchedulerService {
     try {
       console.log(`Starting event execution: ${event.name} (ID: ${event.id})`);
 
-      // Get cameras associated with this event
-      const eventCameras = await this.getEventCameras(event.id);
+      // Get cameras associated with this event (with organization filtering)
+      const eventCameras = await this.getEventCameras(event.id, event.organizationId);
       console.log(`📋 Found ${eventCameras.length} event-camera associations for event ${event.id}:`);
       eventCameras.forEach(ec => {
         console.log(`  Camera ${ec.cameraId} - Active: ${ec.isActive}`);
@@ -227,30 +227,40 @@ export class EventSchedulerService {
    * Start a camera for an event
    */
   private async startCameraForEvent(event: Event, cameraId: number): Promise<void> {
+    console.log(`🎬 Starting camera ${cameraId} for event "${event.name}" (ID: ${event.id})`);
+
     try {
       const camera = await this.cameraService.findById(cameraId);
       if (!camera) {
-        console.error(`Camera ${cameraId} not found`);
+        console.error(`❌ Camera ${cameraId} not found`);
         return;
       }
 
+      console.log(`📹 Found camera: ${camera.name}, streamUrl: ${camera.streamUrl}`);
+
       if (!camera.streamUrl) {
-        console.error(`Camera ${cameraId} does not have a valid stream URL`);
+        console.error(`❌ Camera ${cameraId} does not have a valid stream URL`);
         return;
       }
 
       // Use the configured stream URL
       const rtspUrl = camera.streamUrl;
+      console.log(`🔗 Using RTSP URL: ${rtspUrl}`);
 
       // Start video stream for the event
+      console.log(`🎥 Starting video stream for camera ${cameraId}...`);
       const sessionId = await streamService.startStream(
         cameraId,
         rtspUrl,
         event.organizationId
       );
+      console.log(`✅ Video stream started with session ID: ${sessionId}`);
 
       // Start independent facial recognition for the event
       const faceRecSessionId = `event-${event.id}-camera-${cameraId}-${Date.now()}`;
+      console.log(`🧠 Starting facial recognition with session ID: ${faceRecSessionId}`);
+      console.log(`🧠 Parameters: cameraId=${cameraId}, organizationId=${event.organizationId}, rtspUrl=${rtspUrl}, frameInterval=10`);
+
       await frameExtractionService.startFrameExtraction(
         faceRecSessionId,
         cameraId,
@@ -258,6 +268,7 @@ export class EventSchedulerService {
         rtspUrl,
         10 // frameInterval in seconds - increased for better performance
       );
+      console.log(`✅ Facial recognition started successfully!`);
 
       // Track the active session
       const sessionKey = `${event.id}-${cameraId}`;
@@ -299,11 +310,24 @@ export class EventSchedulerService {
   }
 
   /**
-   * Get cameras associated with an event
+   * Get cameras associated with an event (with organization filtering)
    */
-  private async getEventCameras(eventId: number): Promise<EventCamera[]> {
+  private async getEventCameras(eventId: number, organizationId: number): Promise<EventCamera[]> {
     try {
-      return await this.eventCameraRepository.findActiveByEventId(eventId);
+      console.log(`🔍 Getting cameras for event ${eventId} in organization ${organizationId}`);
+
+      // Get event-camera associations with organization filtering
+      const eventCameras = await this.eventCameraRepository.getRepository().find({
+        where: {
+          eventId,
+          isActive: true,
+          event: { organizationId }  // Filter by organization through the event relation
+        },
+        relations: ['camera', 'event'],
+      });
+
+      console.log(`📋 Found ${eventCameras.length} active event-camera associations for event ${eventId}`);
+      return eventCameras;
     } catch (error) {
       console.error(`Error getting cameras for event ${eventId}:`, error);
       return [];

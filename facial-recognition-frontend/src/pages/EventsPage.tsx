@@ -166,8 +166,7 @@ const EventosPage: React.FC = () => {
 
   const filteredEvents = events.filter((event: Event) => {
     const matchesSearch = event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         event.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         event.location?.toLowerCase().includes(searchTerm.toLowerCase());
+                         event.description?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesType = !typeFilter || event.type === typeFilter;
     const matchesStatus = !statusFilter || event.status === statusFilter;
@@ -342,12 +341,6 @@ const EventosPage: React.FC = () => {
                       <p className="text-sm text-gray-700 mb-2">
                         {event.description}
                       </p>
-
-                      {event.location && (
-                        <div className="flex items-center space-x-4 text-xs text-gray-500">
-                          <span>Local: {event.location}</span>
-                        </div>
-                      )}
                     </div>
 
                     <div className="flex-shrink-0 flex space-x-2">

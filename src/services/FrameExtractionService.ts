@@ -80,16 +80,19 @@ export class FrameExtractionService {
       const frameOutputPattern = path.join(this.frameDir, `${sessionId}_%03d.jpg`);
 
       const ffmpegArgs = [
-        // Input options
+        // Enhanced input options for better camera compatibility
         '-rtsp_transport', 'tcp',
-        '-analyzeduration', '1000000',
-        '-probesize', '1000000',
+        '-analyzeduration', '2000000', // Increased analysis time
+        '-probesize', '2000000', // Increased probe size
+        '-fflags', '+genpts', // Generate presentation timestamps
+        '-max_delay', '5000000', // Max delay for real-time streams
         '-i', rtspUrl,
 
-        // Frame extraction options
-        '-vf', `fps=1/${extractionInterval}`, // Extract 1 frame every N seconds
+        // Enhanced frame extraction options
+        '-vf', `fps=1/${extractionInterval},scale=1280:720:force_original_aspect_ratio=decrease`, // Better resolution
         '-f', 'image2',
-        '-q:v', '2', // High quality JPEG
+        '-q:v', '3', // Good quality JPEG (balance of quality/size)
+        '-pix_fmt', 'yuvj420p', // Better color format compatibility
         '-start_number', '1', // Start numbering from 1
         '-y', // Overwrite output files
 
@@ -97,7 +100,7 @@ export class FrameExtractionService {
         frameOutputPattern
       ];
 
-      console.log(`Starting frame extraction for camera ${cameraId}: ffmpeg ${ffmpegArgs.join(' ')}`);
+      // console.log(`Starting frame extraction for camera ${cameraId}: ffmpeg ${ffmpegArgs.join(' ')}`);
 
       const ffmpegProcess = spawn('ffmpeg', ffmpegArgs, {
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -111,16 +114,31 @@ export class FrameExtractionService {
       // Handle process events
       ffmpegProcess.stdout?.on('data', (data) => {
         // Log stdout if needed
-        console.log(`FFmpeg stdout (${sessionId}): ${data}`);
+        // console.log(`FFmpeg stdout (${sessionId}): ${data}`);
       });
 
       ffmpegProcess.stderr?.on('data', (data) => {
         const output = data.toString();
-        console.log(`FFmpeg stderr (${sessionId}): ${output}`);
+
+        // Log important information, filter noise
+        if (output.includes('frame=') || output.includes('fps=') ||
+            output.includes('error') || output.includes('failed') ||
+            output.includes('Connection') || output.includes('timeout')) {
+          console.log(`FFmpeg (${sessionId}): ${output.trim()}`);
+        }
 
         // Check for frame generation indicators
         if (output.includes('frame=') || output.includes('fps=')) {
           session.lastFrameTime = new Date();
+        }
+
+        // Check for connection errors
+        if (output.includes('Connection refused') ||
+            output.includes('No route to host') ||
+            output.includes('Invalid data found') ||
+            output.includes('Server returned 404') ||
+            output.includes('Connection timed out')) {
+          console.error(`🚨 CAMERA ERROR (${sessionId}): ${output.trim()}`);
         }
       });
 
@@ -131,7 +149,7 @@ export class FrameExtractionService {
       });
 
       ffmpegProcess.on('exit', (code, signal) => {
-        console.log(`Frame extraction exited for session ${sessionId} with code ${code} and signal ${signal}`);
+        // console.log(`Frame extraction exited for session ${sessionId} with code ${code} and signal ${signal}`);
         session.isActive = false;
         this.cleanup(sessionId);
       });

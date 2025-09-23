@@ -84,8 +84,6 @@ export interface Event extends BaseEntity {
   weekDays?: string;
   recurrenceType: string;
   status: string;
-  location?: string;
-  coordinates?: string;
   notes?: string;
   metadata?: string;
   organizationId: number;

@@ -106,22 +106,6 @@ class Event extends BaseEntity {
   status!: string;
 
   @Column({
-    type: 'varchar',
-    length: 255,
-    nullable: true
-  })
-  @IsOptional()
-  @IsString()
-  location?: string;
-
-  @Column({
-    type: 'text',
-    nullable: true
-  })
-  @IsOptional()
-  coordinates?: string; // JSON string: x, y, width, height of detected face
-
-  @Column({
     type: 'text',
     nullable: true
   })

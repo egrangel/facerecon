@@ -187,6 +187,39 @@ export class PersonController extends BaseController<any> {
       data,
     });
   });
+
+  // Override update to filter out fields that don't belong to Person entity
+  update = asyncHandler(async (req: OrganizationRequest, res: Response): Promise<void> => {
+    const { id } = req.params;
+
+    // Filter out fields that are not valid Person entity properties
+    // Exclude foreign key fields and relation fields that should be handled separately
+    const {
+      personId,        // This doesn't exist on Person entity
+      types,           // Relation - handled separately
+      faces,           // Relation - handled separately
+      contacts,        // Relation - handled separately
+      addresses,       // Relation - handled separately
+      organization,    // Relation - handled separately
+      ...filteredBody
+    } = req.body;
+
+    const data = await this.personService.updateByOrganization(parseInt(id), req.organizationId, filteredBody);
+
+    if (!data) {
+      res.status(404).json({
+        success: false,
+        message: 'Pessoa não encontrada ou acesso negado',
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Pessoa atualizada com sucesso',
+      data,
+    });
+  });
 }
 
 export class EventController extends BaseController<any> {
