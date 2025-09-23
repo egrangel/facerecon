@@ -709,7 +709,6 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ event, onClose, onSubmi
                       />
                       <div className="flex-1">
                         <div className="text-sm font-medium text-gray-900">{camera.name}</div>
-                        <div className="text-xs text-gray-500">{camera.ip}:{camera.port}</div>
                         {camera.description && (
                           <div className="text-xs text-gray-500">{camera.description}</div>
                         )}

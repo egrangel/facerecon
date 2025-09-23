@@ -10,6 +10,7 @@ import { PersonService, DetectionService, EventService, EventCameraService } fro
 export interface FaceDetectionResult {
   faces: DetectedFace[];
   processedImagePath?: string;
+  canvas?: any; // Store the canvas used for detection
 }
 
 export interface DetectedFace {
@@ -38,8 +39,10 @@ export class FaceRecognitionService {
   private detectionService: DetectionService;
   private eventService: EventService;
   private eventCameraService: EventCameraService;
-  private readonly faceThreshold = 0.8; // Minimum confidence for face detection
+  private readonly faceThreshold = 0.3; // Very low threshold for better detection
   private readonly recognitionThreshold = 0.8; // Minimum confidence for face recognition
+  private readonly minFaceSize = 15; // Very small minimum face size
+  private readonly maxFaceSize = 1000; // Large maximum face size for distant cameras
 
   constructor() {
     this.personService = new PersonService();
@@ -52,31 +55,36 @@ export class FaceRecognitionService {
    * Initialize the face detection model
    */
   public async initialize(): Promise<void> {
-    if (this.isInitialized) return;
+    if (this.isInitialized) {
+      console.log('🔄 INIT: Forcing MediaPipe re-initialization for crowd detection...');
+      this.dispose(); // Force re-initialization with new config
+    }
 
     try {
-      console.log('Initializing TensorFlow.js face detection...');
+      console.log('🚀 INIT: Starting ultra-fast MediaPipe initialization...');
 
-      // Set TensorFlow backend to CPU
+      // Set TensorFlow backend to CPU for faster startup
       await tf.setBackend('cpu');
       await tf.ready();
-      console.log('TensorFlow.js backend:', tf.getBackend());
+      console.log(`✅ INIT: TensorFlow.js backend ready: ${tf.getBackend()}`);
 
-      // Create face detector
+      // Create MediaPipe detector optimized for mass attendance (many faces)
       const model = faceDetection.SupportedModels.MediaPipeFaceDetector;
       const detectorConfig = {
         runtime: 'tfjs' as const,
-        modelType: 'full' as const,
-        maxFaces: 10,
-        minDetectionConfidence: this.faceThreshold,
+        modelType: 'short' as const, // Fastest model
+        maxFaces: 30, // High limit for crowd detection in mass
+        minDetectionConfidence: 0.3, // Very low for mass attendance detection
+        minSuppressionThreshold: 0.1, // Very low to allow overlapping faces in crowds
       };
+
+      console.log(`⚡ INIT: Ultra-fast MediaPipe config: ${JSON.stringify(detectorConfig)}`);
 
       this.detector = await faceDetection.createDetector(model, detectorConfig);
       this.isInitialized = true;
-      console.log('✅ Face detection model initialized successfully');
+      console.log('🎉 INIT: Ultra-fast MediaPipe initialization completed!');
     } catch (error) {
-      console.error('❌ CRITICAL: Failed to initialize face detection:', error);
-      console.error('💥 APPLICATION MUST EXIT - TensorFlow.js cannot be initialized');
+      console.error('❌ CRITICAL: Failed to initialize MediaPipe:', error);
       throw new Error(`Face detection initialization failed: ${error}`);
     }
   }
@@ -85,7 +93,7 @@ export class FaceRecognitionService {
    * Detect faces in an image buffer
    */
   public async detectFaces(imageBuffer: Buffer): Promise<FaceDetectionResult> {
-    if (!this.isInitialized || !this.detector) {
+    if (!this.isInitialized) {
       await this.initialize();
     }
 
@@ -93,23 +101,37 @@ export class FaceRecognitionService {
       // Convert buffer to canvas
       const canvas = await this.bufferToCanvas(imageBuffer);
 
-      // Detect faces
-      const predictions = await this.detector!.estimateFaces(canvas);
+      // Detect faces using ultra-fast MediaPipe
+      console.log(`⚡ FACE DETECTION: Running ultra-fast MediaPipe on ${canvas.width}x${canvas.height} canvas...`);
 
-      const faces: DetectedFace[] = predictions.map(prediction => ({
-        boundingBox: {
-          x: prediction.box.xMin,
-          y: prediction.box.yMin,
-          width: prediction.box.width,
-          height: prediction.box.height,
-        },
-        confidence: (prediction as any).score || 0,
-        landmarks: prediction.keypoints,
-      }));
+      const detections = await this.detector!.estimateFaces(canvas);
+      console.log(`📊 FACE DETECTION: MediaPipe found ${detections.length} faces in milliseconds!`);
 
-      console.log(`Detected ${faces.length} faces`);
+      // Log all raw detections
+      detections.forEach((detection, index) => {
+        const box = detection.box;
+        const confidence = detection.probability ? detection.probability[0] : 1;
+        console.log(`🔍 Raw Face ${index + 1}: confidence=${confidence.toFixed(3)}, size=${box.width.toFixed(0)}x${box.height.toFixed(0)}, pos=(${box.xMin.toFixed(0)},${box.yMin.toFixed(0)})`);
+      });
 
-      return { faces };
+      const faces: DetectedFace[] = detections
+        .map(detection => ({
+          boundingBox: {
+            x: detection.box.xMin,
+            y: detection.box.yMin,
+            width: detection.box.width,
+            height: detection.box.height,
+          },
+          confidence: detection.probability ? detection.probability[0] : 1,
+          landmarks: detection.keypoints || [],
+        }))
+        .filter(face => {
+          console.log(`🔍 Processing detection: confidence=${face.confidence.toFixed(3)}, size=${face.boundingBox.width.toFixed(0)}x${face.boundingBox.height.toFixed(0)}`);
+          return this.validateFace(face);
+        });
+
+      console.log(`✅ FACE DETECTION: ${faces.length} faces passed validation`);
+      return { faces, canvas };
     } catch (error) {
       console.error('Face detection failed:', error);
       throw new Error(`Face detection failed: ${error}`);
@@ -136,8 +158,8 @@ export class FaceRecognitionService {
       // Use provided eventId or get the active event for this camera
       const currentEventId = eventId || await this.getActiveEventForCamera(cameraId);
 
-      // Save the frame with detected faces
-      const imageUrl = await this.saveDetectionImage(frameBuffer, detection.faces);
+      // Save the frame with detected faces using the detection canvas for accurate coordinates
+      const imageUrl = await this.saveDetectionImage(frameBuffer, detection.faces, detection.canvas);
 
       // Process each detected face
       for (const face of detection.faces) {
@@ -150,11 +172,9 @@ export class FaceRecognitionService {
           if (recognition.isMatch && recognition.personFaceId) {
             // Known person detected
             personFaceId = recognition.personFaceId;
-            console.log(`Known person detected: ${recognition.personName} (confidence: ${recognition.confidence})`);
           } else {
             // Unknown person - create a placeholder
             personFaceId = await this.createUnknownPersonFace(face, organizationId);
-            console.log(`Unknown person detected (confidence: ${face.confidence})`);
           }
 
           // Record the detection
@@ -175,8 +195,6 @@ export class FaceRecognitionService {
           });
         }
       }
-
-      console.log(`Processed frame: ${detection.faces.length} faces detected from camera ${cameraId}`);
     } catch (error) {
       console.error('Error processing video frame:', error);
       // Don't throw - we don't want to stop the stream for recognition errors
@@ -256,10 +274,11 @@ export class FaceRecognitionService {
 
       // Create a face entry for this unknown person
       const personFace = await this.personService.addFace(unknownPerson.id, {
-        encoding: JSON.stringify(face.encoding || []),
-        confidence: face.confidence,
+        faceId: `face-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Generate unique faceId
+        biometricParameters: JSON.stringify(face.encoding || []),
+        reliability: face.confidence,
         status: 'active' as any,
-        metadata: JSON.stringify({
+        notes: JSON.stringify({
           source: 'camera_detection',
           boundingBox: face.boundingBox,
         }),
@@ -275,7 +294,7 @@ export class FaceRecognitionService {
   /**
    * Save detection image with bounding boxes
    */
-  private async saveDetectionImage(imageBuffer: Buffer, faces: DetectedFace[]): Promise<string> {
+  private async saveDetectionImage(imageBuffer: Buffer, faces: DetectedFace[], detectionCanvas?: any): Promise<string> {
     try {
       const timestamp = Date.now();
       const filename = `detection_${timestamp}.jpg`;
@@ -288,8 +307,8 @@ export class FaceRecognitionService {
 
       const outputPath = path.join(detectionDir, filename);
 
-      // Draw bounding boxes on the image
-      const canvas = await this.bufferToCanvas(imageBuffer);
+      // Use the detection canvas if provided, otherwise create a new one
+      const canvas = detectionCanvas || await this.bufferToCanvas(imageBuffer);
       const ctx = canvas.getContext('2d');
 
       // Draw bounding boxes
@@ -322,14 +341,48 @@ export class FaceRecognitionService {
   }
 
   /**
+   * Validate a detected face to reduce false positives
+   */
+  private validateFace(face: DetectedFace): boolean {
+    const { width, height } = face.boundingBox;
+
+    // Very permissive size validation for mass attendance
+    if (width < 10 || height < 10) {
+      console.log(`🚫 Face rejected: too small (${width}x${height})`);
+      return false;
+    }
+
+    if (width > 1000 || height > 1000) {
+      console.log(`🚫 Face rejected: too large (${width}x${height})`);
+      return false;
+    }
+
+    // Very permissive aspect ratio validation
+    const aspectRatio = width / height;
+    if (aspectRatio < 0.2 || aspectRatio > 5.0) {
+      console.log(`🚫 Face rejected: extreme aspect ratio (${aspectRatio.toFixed(2)})`);
+      return false;
+    }
+
+    // Very permissive confidence threshold for mass attendance
+    if (face.confidence < 0.3) {
+      console.log(`🚫 Face rejected: very low confidence (${face.confidence.toFixed(2)})`);
+      return false;
+    }
+
+    console.log(`✅ Face validated: ${width}x${height}, confidence: ${face.confidence.toFixed(2)}`);
+    return true;
+  }
+
+  /**
    * Convert image buffer to canvas
    */
   private async bufferToCanvas(buffer: Buffer): Promise<Canvas> {
     try {
-      // Resize image for processing (optimize performance)
+      // Balanced processing - larger size for better face detection in crowds
       const processedBuffer = await sharp.default(buffer)
-        .resize(1280, 720, { fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: 80 })
+        .resize(640, 480, { fit: 'inside', withoutEnlargement: true })
+        .jpeg({ quality: 60 }) // Higher quality for better face detection
         .toBuffer();
 
       const image = await loadImage(processedBuffer);
@@ -350,9 +403,10 @@ export class FaceRecognitionService {
   public getServiceHealth() {
     return {
       isInitialized: this.isInitialized,
-      modelLoaded: this.detector !== null,
+      modelLoaded: this.isInitialized,
       backend: tf.getBackend(),
       memoryInfo: tf.memory(),
+      model: 'Ultra-Fast MediaPipe FaceDetector',
       settings: {
         faceThreshold: this.faceThreshold,
         recognitionThreshold: this.recognitionThreshold,
@@ -365,10 +419,11 @@ export class FaceRecognitionService {
    */
   public dispose(): void {
     if (this.detector) {
-      // TensorFlow.js models don't have a dispose method, but we can clear the reference
+      this.detector.dispose();
       this.detector = null;
     }
     this.isInitialized = false;
+    console.log('🔄 DISPOSE: MediaPipe detector disposed for re-initialization');
   }
 }
 

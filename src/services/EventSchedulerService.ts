@@ -16,7 +16,8 @@ export interface ActiveEventSession {
   eventId: number;
   eventName: string;
   cameraId: number;
-  sessionId: string;
+  videoSessionId: string;
+  faceRecognitionSessionId: string;
   startedAt: Date;
   organizationId: number;
 }
@@ -184,10 +185,17 @@ export class EventSchedulerService {
 
       // Get cameras associated with this event
       const eventCameras = await this.getEventCameras(event.id);
+      console.log(`📋 Found ${eventCameras.length} event-camera associations for event ${event.id}:`);
+      eventCameras.forEach(ec => {
+        console.log(`  Camera ${ec.cameraId} - Active: ${ec.isActive}`);
+      });
 
       for (const eventCamera of eventCameras) {
         if (eventCamera.isActive) {
+          console.log(`🎬 Starting camera ${eventCamera.cameraId} for event "${event.name}"`);
           await this.startCameraForEvent(event, eventCamera.cameraId);
+        } else {
+          console.log(`⏸️ Skipping inactive camera ${eventCamera.cameraId} for event "${event.name}"`);
         }
       }
     } catch (error) {
@@ -232,12 +240,21 @@ export class EventSchedulerService {
         rtspUrl = `rtsp://${camera.ip}:${camera.port || 554}/stream`;
       }
 
-      // Start stream with face recognition enabled
+      // Start video stream for the event
       const sessionId = await streamService.startStream(
         cameraId,
         rtspUrl,
+        event.organizationId
+      );
+
+      // Start independent facial recognition for the event
+      const faceRecSessionId = `event-${event.id}-camera-${cameraId}-${Date.now()}`;
+      await frameExtractionService.startFrameExtraction(
+        faceRecSessionId,
+        cameraId,
         event.organizationId,
-        true // Enable face recognition
+        rtspUrl,
+        10 // frameInterval in seconds - increased for better performance
       );
 
       // Track the active session
@@ -246,26 +263,36 @@ export class EventSchedulerService {
         eventId: event.id,
         eventName: event.name,
         cameraId,
-        sessionId,
+        videoSessionId: sessionId,
+        faceRecognitionSessionId: faceRecSessionId,
         startedAt: new Date(),
         organizationId: event.organizationId,
       });
 
-      console.log(`Started camera ${cameraId} for event "${event.name}" (session: ${sessionId})`);
+      console.log(`Started camera ${cameraId} for event "${event.name}" (video: ${sessionId}, face-rec: ${faceRecSessionId})`);
     } catch (error) {
       console.error(`Error starting camera ${cameraId} for event ${event.id}:`, error);
     }
   }
 
   /**
-   * Stop a camera session
+   * Stop a camera session (both video and facial recognition)
    */
   private async stopCameraSession(session: ActiveEventSession): Promise<void> {
     try {
-      streamService.stopStream(session.sessionId);
-      console.log(`Stopped camera ${session.cameraId} for event "${session.eventName}"`);
+      // Stop video stream
+      streamService.stopStream(session.videoSessionId);
+      console.log(`Stopped video stream for camera ${session.cameraId} for event "${session.eventName}"`);
     } catch (error) {
-      console.error(`Error stopping camera session ${session.sessionId}:`, error);
+      console.error(`Error stopping video session ${session.videoSessionId}:`, error);
+    }
+
+    try {
+      // Stop facial recognition independently
+      frameExtractionService.stopFrameExtraction(session.faceRecognitionSessionId);
+      console.log(`Stopped facial recognition for camera ${session.cameraId} for event "${session.eventName}"`);
+    } catch (error) {
+      console.error(`Error stopping facial recognition session ${session.faceRecognitionSessionId}:`, error);
     }
   }
 

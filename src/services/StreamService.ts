@@ -31,16 +31,15 @@ export class StreamService {
   }
 
   /**
-   * Start WebSocket stream for a camera
+   * Start WebSocket stream for a camera (video display only, no facial recognition)
    */
   public async startStream(
     cameraId: number,
     rtspUrl: string,
-    organizationId?: number,
-    enableFaceRecognition: boolean = false
+    organizationId?: number
   ): Promise<string> {
-    // All streaming now uses WebSocket for ultra-low latency
-    return await webSocketStreamService.startStream(cameraId, rtspUrl, organizationId, enableFaceRecognition);
+    // All streaming now uses WebSocket for ultra-low latency video display
+    return await webSocketStreamService.startStream(cameraId, rtspUrl, organizationId);
   }
 
   /**

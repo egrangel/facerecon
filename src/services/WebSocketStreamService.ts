@@ -136,8 +136,7 @@ export class WebSocketStreamService {
   public async startStream(
     cameraId: number,
     rtspUrl: string,
-    organizationId?: number,
-    enableFaceRecognition: boolean = false
+    organizationId?: number
   ): Promise<string> {
     let sessionId: string | null = null;
     try {
@@ -159,7 +158,7 @@ export class WebSocketStreamService {
         createdAt: new Date(),
         lastAccessed: new Date(),
         clients: new Set(),
-        faceRecognitionEnabled: enableFaceRecognition,
+        faceRecognitionEnabled: false, // Video streaming doesn't include face recognition
       };
 
       // Store session early so we can clean up on error
@@ -279,6 +278,7 @@ export class WebSocketStreamService {
       // Mark as active
       session.isActive = true;
 
+      console.log(`WebSocket video stream started successfully for camera ${cameraId}`);
       return sessionId;
     } catch (error: any) {
       console.error('Error starting WebSocket stream:', error);
@@ -429,6 +429,7 @@ export class WebSocketStreamService {
       session.clients.clear();
 
       this.sessions.delete(sessionId);
+      console.log(`WebSocket video stream session ${sessionId} cleaned up`);
     }
   }
 

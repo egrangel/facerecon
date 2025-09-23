@@ -11,16 +11,12 @@ import { useWebSocketStream } from '../contexts/WebSocketStreamContext';
 interface CameraFormData {
   name: string;
   description?: string;
-  ip: string;
-  port: number;
-  username?: string;
-  password?: string;
   streamUrl?: string;
   protocol: string;
-  location?: string;
   status: string;
   settings?: string;
   organizationId: number;
+  isActive: boolean;
 }
 
 interface LiveStreamContainerProps {
@@ -82,14 +78,6 @@ const LiveStreamContainer: React.FC<LiveStreamContainerProps> = ({ camera, class
 
       {/* Stream Status */}
       <div className="p-3 bg-gray-800 flex items-center justify-between">
-        <div className="flex items-center space-x-2 text-xs text-gray-300">
-          <span className={`w-2 h-2 rounded-full ${
-            camera.status === 'active' ? 'bg-green-400' :
-            camera.status === 'inactive' ? 'bg-red-400' : 'bg-yellow-400'
-          }`}></span>
-          <span>{camera.status}</span>
-        </div>
-
         {/* Stream Control Buttons */}
         <div className="flex items-center space-x-2">
           {webSocketSession && webSocketSession.sessionId ? (
@@ -105,7 +93,7 @@ const LiveStreamContainer: React.FC<LiveStreamContainerProps> = ({ camera, class
                     Loading...
                   </span>
                 ) : webSocketState.isPlaying ? (
-                  '⏹ Stop'
+                  '❹ Stop'
                 ) : (
                   '▶ Play'
                 )}
@@ -153,8 +141,7 @@ const CamerasPage: React.FC = () => {
 
   const cameras = camerasResponse?.data || [];
   const filteredCameras = cameras.filter(camera =>
-    camera.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    camera.location?.toLowerCase().includes(searchTerm.toLowerCase())
+    camera.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const createCameraMutation = useMutation({
@@ -229,7 +216,7 @@ const CamerasPage: React.FC = () => {
         <div className="flex-1">
           <Input
             type="text"
-            placeholder="Buscar por nome ou localização..."
+            placeholder="Buscar por nome..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -273,19 +260,15 @@ const CamerasPage: React.FC = () => {
                 </div>
 
                 <div className="text-sm text-gray-600 space-y-1">
-                  {camera.location && (
-                    <div className="flex items-center">
-                      <span className="font-medium">Local:</span>
-                      <span className="ml-1">{camera.location}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center">
-                    <span className="font-medium">IP:</span>
-                    <span className="ml-1">{camera.ip}:{camera.port}</span>
-                  </div>
                   <div className="flex items-center">
                     <span className="font-medium">Protocolo:</span>
                     <span className="ml-1">{camera.protocol.toUpperCase()}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="font-medium">Ativo:</span>
+                    <span className={`ml-1 ${camera.isActive ? 'text-green-600' : 'text-red-600'}`}>
+                      {camera.isActive ? 'Sim' : 'Não'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -332,16 +315,12 @@ const CameraFormModal: React.FC<CameraFormModalProps> = ({
   const [formData, setFormData] = useState<CameraFormData>({
     name: camera?.name || '',
     description: camera?.description || '',
-    ip: camera?.ip || '',
-    port: camera?.port || 554,
-    username: camera?.username || '',
-    password: camera?.password || '',
     streamUrl: camera?.streamUrl || '',
     protocol: camera?.protocol || 'rtsp',
-    location: camera?.location || '',
     status: camera?.status || 'inactive',
     settings: camera?.settings || '',
     organizationId: camera?.organizationId || 1,
+    isActive: camera?.isActive || false,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -385,29 +364,6 @@ const CameraFormModal: React.FC<CameraFormModalProps> = ({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  IP *
-                </label>
-                <Input
-                  type="text"
-                  value={formData.ip}
-                  onChange={(e) => handleChange('ip', e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Porta
-                </label>
-                <Input
-                  type="number"
-                  value={formData.port}
-                  onChange={(e) => handleChange('port', parseInt(e.target.value))}
-                />
-              </div>
-            </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -421,38 +377,20 @@ const CameraFormModal: React.FC<CameraFormModalProps> = ({
               />
             </div>
 
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Local
+                Ativo
               </label>
-              <Input
-                type="text"
-                value={formData.location}
-                onChange={(e) => handleChange('location', e.target.value)}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Usuário
-                </label>
-                <Input
-                  type="text"
-                  value={formData.username}
-                  onChange={(e) => handleChange('username', e.target.value)}
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.isActive}
+                  onChange={(e) => handleChange('isActive', e.target.checked)}
+                  className="mr-2"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Senha
-                </label>
-                <Input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => handleChange('password', e.target.value)}
-                />
-              </div>
+                <span className="text-sm text-gray-700">Câmera ativa</span>
+              </label>
             </div>
 
             <div className="flex justify-end space-x-3 pt-4">

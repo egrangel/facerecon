@@ -22,7 +22,12 @@ router.get('/camera/:cameraId/url', streamController.getCameraStreamUrl);
 router.get('/active', authorize(['admin', 'operator']), streamController.getActiveStreams);
 router.get('/health', authorize(['admin']), streamController.getServiceHealth);
 
-// Face recognition routes
+// Face recognition routes (independent of video streaming)
+router.post('/face-recognition/camera/:cameraId/start', authorize(['admin', 'operator']), streamController.startCameraFaceRecognition);
+router.post('/face-recognition/camera/:cameraId/stop', authorize(['admin', 'operator']), streamController.stopCameraFaceRecognition);
+router.get('/face-recognition/camera/:cameraId/status', authorize(['admin', 'operator']), streamController.getCameraFaceRecognitionStatus);
+
+// Legacy face recognition routes (for existing video streams)
 router.get('/face-recognition/health', authorize(['admin']), streamController.getFaceRecognitionHealth);
 router.get('/face-recognition/sessions', authorize(['admin', 'operator']), streamController.getActiveFaceRecognitionSessions);
 router.post('/face-recognition/enable/:sessionId', authorize(['admin', 'operator']), streamController.enableFaceRecognition);

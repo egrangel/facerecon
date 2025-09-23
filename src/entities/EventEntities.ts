@@ -184,41 +184,6 @@ class Camera extends BaseEntity {
 
   @Column({
     type: 'varchar',
-    length: 255,
-    nullable: false
-  })
-  @IsString()
-  @Length(1, 255)
-  ip!: string;
-
-  @Column({
-    type: 'integer',
-    nullable: false,
-    default: 80
-  })
-  @IsNumber()
-  port!: number;
-
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: true
-  })
-  @IsOptional()
-  @IsString()
-  username?: string;
-
-  @Column({
-    type: 'varchar',
-    length: 255,
-    nullable: true
-  })
-  @IsOptional()
-  @IsString()
-  password?: string;
-
-  @Column({
-    type: 'varchar',
     length: 500,
     nullable: true
   })
@@ -237,21 +202,19 @@ class Camera extends BaseEntity {
 
   @Column({
     type: 'varchar',
-    length: 255,
-    nullable: true
-  })
-  @IsOptional()
-  @IsString()
-  location?: string;
-
-  @Column({
-    type: 'varchar',
     length: 50,
     nullable: false,
     default: 'active'
   })
   @IsString()
   status!: string;
+
+  @Column({
+    type: 'boolean',
+    nullable: false,
+    default: true
+  })
+  isActive!: boolean;
 
   @Column({
     type: 'text',

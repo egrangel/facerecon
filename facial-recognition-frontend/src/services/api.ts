@@ -331,9 +331,30 @@ class ApiClient {
   }
 
   async getCameraStreamUrl(cameraId: number): Promise<{ sessionId: string; streamUrl: string }> {
-    // All streaming now uses WebSocket for ultra-low latency
+    // Get WebSocket stream URL for video display only (no facial recognition)
     const response: AxiosResponse<{ success: boolean; data: { sessionId: string; streamUrl: string; cameraId: number } }> =
       await this.client.get(`/streams/camera/${cameraId}/url`);
+    return response.data.data;
+  }
+
+  async startFaceRecognition(cameraId: number): Promise<{ success: boolean; message: string }> {
+    // Start background facial recognition independently of video streaming
+    const response: AxiosResponse<{ success: boolean; message: string }> =
+      await this.client.post(`/face-recognition/camera/${cameraId}/start`);
+    return response.data;
+  }
+
+  async stopFaceRecognition(cameraId: number): Promise<{ success: boolean; message: string }> {
+    // Stop background facial recognition
+    const response: AxiosResponse<{ success: boolean; message: string }> =
+      await this.client.post(`/face-recognition/camera/${cameraId}/stop`);
+    return response.data;
+  }
+
+  async getFaceRecognitionStatus(cameraId: number): Promise<{ isActive: boolean; sessionId?: string }> {
+    // Get facial recognition status for a camera
+    const response: AxiosResponse<{ success: boolean; data: { isActive: boolean; sessionId?: string } }> =
+      await this.client.get(`/face-recognition/camera/${cameraId}/status`);
     return response.data.data;
   }
 

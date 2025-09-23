@@ -105,17 +105,13 @@ export interface EventCamera extends BaseEntity {
 export interface Camera extends BaseEntity {
   name: string;
   description?: string;
-  ip: string;
-  port: number;
-  username?: string;
-  password?: string;
   streamUrl?: string;
   protocol: string;
-  location?: string;
   status: string;
   settings?: string;
   organizationId: number;
   organization?: Organization;
+  isActive: boolean;
 }
 
 export interface Detection extends BaseEntity {

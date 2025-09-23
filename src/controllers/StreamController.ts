@@ -58,30 +58,26 @@ export class StreamController {
     }
 
     try {
-      // Check for face recognition parameter
-      const enableFaceRecognition = req.query.faceRecognition === 'true' || req.body.faceRecognition === true;
       const organizationId = camera.organizationId;
 
-      console.log(`Starting stream for camera ${cameraIdNum}, RTSP: ${rtspUrl}, Face Recognition: ${enableFaceRecognition}`);
+      console.log(`Starting video stream for camera ${cameraIdNum}, RTSP: ${rtspUrl}`);
 
       const sessionId = await streamService.startStream(
         cameraIdNum,
         rtspUrl,
-        organizationId,
-        enableFaceRecognition
+        organizationId
       );
 
-      console.log(`WebSocket stream started successfully with session ID: ${sessionId}`);
+      console.log(`WebSocket video stream started successfully with session ID: ${sessionId}`);
 
       res.status(200).json({
         success: true,
-        message: 'WebSocket stream started successfully',
+        message: 'WebSocket video stream started successfully',
         data: {
           sessionId,
           streamUrl: '/ws/stream',
           cameraId: cameraIdNum,
           streamType: 'websocket',
-          faceRecognitionEnabled: enableFaceRecognition,
         },
       });
     } catch (error: any) {
@@ -277,26 +273,22 @@ export class StreamController {
     }
 
     try {
-      // Check for face recognition parameter
-      const enableFaceRecognition = req.query.faceRecognition === 'true';
       const organizationId = camera.organizationId;
 
       const sessionId = await streamService.startStream(
         cameraIdNum,
         rtspUrl,
-        organizationId,
-        enableFaceRecognition
+        organizationId
       );
 
       res.status(200).json({
         success: true,
-        message: 'WebSocket stream started successfully',
+        message: 'WebSocket video stream started successfully',
         data: {
           sessionId,
           streamUrl: '/ws/stream',
           cameraId: cameraIdNum,
           streamType: 'websocket',
-          faceRecognitionEnabled: enableFaceRecognition,
         },
       });
     } catch (error: any) {
@@ -345,6 +337,180 @@ export class StreamController {
       message: 'Active face recognition sessions',
       data: sessions,
     });
+  });
+
+  /**
+   * @swagger
+   * /api/v1/face-recognition/camera/{cameraId}/start:
+   *   post:
+   *     summary: Start facial recognition for a camera (independent of video streaming)
+   *     tags: [Face Recognition]
+   *     parameters:
+   *       - in: path
+   *         name: cameraId
+   *         required: true
+   *         schema:
+   *           type: integer
+   *     responses:
+   *       200:
+   *         description: Facial recognition started successfully
+   *       404:
+   *         description: Camera not found
+   */
+  startCameraFaceRecognition = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { cameraId } = req.params;
+    const cameraIdNum = parseInt(cameraId);
+
+    if (isNaN(cameraIdNum)) {
+      throw createError('Invalid camera ID', 400);
+    }
+
+    // Get camera details
+    const camera = await this.cameraService.findById(cameraIdNum);
+    if (!camera) {
+      throw createError('Camera not found', 404);
+    }
+
+    if (!camera.organizationId) {
+      throw createError('Organization ID required for face recognition', 400);
+    }
+
+    // Construct RTSP URL
+    let rtspUrl = camera.streamUrl;
+    if (!rtspUrl) {
+      rtspUrl = `rtsp://${camera.ip}:${camera.port || 554}/stream`;
+    }
+
+    try {
+      // Start face recognition with a unique session ID for background processing
+      const sessionId = `face-rec-${cameraIdNum}-${Date.now()}`;
+
+      await frameExtractionService.startFrameExtraction(
+        sessionId,
+        cameraIdNum,
+        camera.organizationId,
+        rtspUrl,
+        5 // frameInterval in seconds
+      );
+
+      res.status(200).json({
+        success: true,
+        message: 'Facial recognition started successfully for camera',
+        data: {
+          cameraId: cameraIdNum,
+          sessionId,
+          isActive: true,
+        },
+      });
+    } catch (error: any) {
+      throw createError(`Failed to start facial recognition: ${error.message}`, 500);
+    }
+  });
+
+  /**
+   * @swagger
+   * /api/v1/face-recognition/camera/{cameraId}/stop:
+   *   post:
+   *     summary: Stop facial recognition for a camera
+   *     tags: [Face Recognition]
+   *     parameters:
+   *       - in: path
+   *         name: cameraId
+   *         required: true
+   *         schema:
+   *           type: integer
+   *     responses:
+   *       200:
+   *         description: Facial recognition stopped successfully
+   */
+  stopCameraFaceRecognition = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { cameraId } = req.params;
+    const cameraIdNum = parseInt(cameraId);
+
+    if (isNaN(cameraIdNum)) {
+      throw createError('Invalid camera ID', 400);
+    }
+
+    try {
+      // Find and stop all face recognition sessions for this camera
+      const activeSessions = frameExtractionService.getActiveSessions();
+      const cameraSessions = activeSessions.filter(session => session.cameraId === cameraIdNum);
+
+      if (cameraSessions.length === 0) {
+        res.status(200).json({
+          success: true,
+          message: 'No active facial recognition sessions found for camera',
+          data: {
+            cameraId: cameraIdNum,
+            isActive: false,
+          },
+        });
+        return;
+      }
+
+      // Stop all face recognition sessions for this camera
+      cameraSessions.forEach(session => {
+        frameExtractionService.stopFrameExtraction(session.sessionId);
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Facial recognition stopped successfully for camera',
+        data: {
+          cameraId: cameraIdNum,
+          isActive: false,
+          stoppedSessions: cameraSessions.length,
+        },
+      });
+    } catch (error: any) {
+      throw createError(`Failed to stop facial recognition: ${error.message}`, 500);
+    }
+  });
+
+  /**
+   * @swagger
+   * /api/v1/face-recognition/camera/{cameraId}/status:
+   *   get:
+   *     summary: Get facial recognition status for a camera
+   *     tags: [Face Recognition]
+   *     parameters:
+   *       - in: path
+   *         name: cameraId
+   *         required: true
+   *         schema:
+   *           type: integer
+   *     responses:
+   *       200:
+   *         description: Facial recognition status
+   */
+  getCameraFaceRecognitionStatus = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { cameraId } = req.params;
+    const cameraIdNum = parseInt(cameraId);
+
+    if (isNaN(cameraIdNum)) {
+      throw createError('Invalid camera ID', 400);
+    }
+
+    try {
+      // Check for active face recognition sessions for this camera
+      const activeSessions = frameExtractionService.getActiveSessions();
+      const cameraSessions = activeSessions.filter(session => session.cameraId === cameraIdNum);
+
+      const isActive = cameraSessions.length > 0;
+      const sessionId = isActive ? cameraSessions[0].sessionId : undefined;
+
+      res.status(200).json({
+        success: true,
+        data: {
+          cameraId: cameraIdNum,
+          isActive,
+          sessionId,
+          activeSessions: cameraSessions.length,
+        },
+      });
+    } catch (error: any) {
+      throw createError(`Failed to get facial recognition status: ${error.message}`, 500);
+    }
   });
 
   /**

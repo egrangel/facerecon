@@ -209,14 +209,23 @@ export class FrameExtractionService {
       // Read frame buffer
       const frameBuffer = fs.readFileSync(framePath);
 
+      // Extract event ID from session ID (format: event-{eventId}-camera-{cameraId}-{timestamp})
+      let eventId: number | undefined;
+      const eventMatch = session.sessionId.match(/^event-(\d+)-camera-\d+-\d+$/);
+      if (eventMatch) {
+        eventId = parseInt(eventMatch[1]);
+      } else {
+        console.warn(`⚠︝ FRAME EXTRACT: Could not extract event ID from session ${session.sessionId}`);
+      }
+
       // Process frame with face detection
       await faceRecognitionService.processVideoFrame(
         frameBuffer,
         session.cameraId,
-        session.organizationId
+        session.organizationId,
+        eventId // Pass the extracted event ID
       );
 
-      console.log(`Processed frame for camera ${session.cameraId}, session ${session.sessionId}`);
     } catch (error) {
       console.error(`Failed to process frame ${framePath}:`, error);
     }

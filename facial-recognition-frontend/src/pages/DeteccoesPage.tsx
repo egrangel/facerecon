@@ -23,8 +23,7 @@ const DeteccoesPage: React.FC = () => {
 
   const filteredDetections = detections.filter((detection: Detection) => {
     const matchesSearch = detection.personFace?.person?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         detection.camera?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         detection.camera?.location?.toLowerCase().includes(searchTerm.toLowerCase());
+                         detection.camera?.name?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus = !statusFilter || detection.status === statusFilter;
 
@@ -141,13 +140,9 @@ const DeteccoesPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Localização:</span>
-                    <span className="font-medium text-gray-900">{detection.camera?.location || 'N/A'}</span>
-                  </div>
 
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Confiança:</span>
+                    <span className="text-gray-500">Confianï¿½a:</span>
                     <span className={`font-medium ${getConfidenceColor(detection.confidence)}`}>
                       {detection.confidence.toFixed(1)}%
                     </span>
@@ -258,7 +253,7 @@ const DeteccaoModal: React.FC<DeteccaoModalProps> = ({ deteccao, onClose }) => {
                 <h5 className="text-sm font-medium text-gray-700 mb-2">DetecÃ§Ã£o</h5>
                 <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Confiança:</span>
+                    <span className="text-sm text-gray-600">Confianï¿½a:</span>
                     <span className={`text-sm font-medium ${getConfidenceColor(deteccao.confidence)}`}>
                       {deteccao.confidence.toFixed(2)}%
                     </span>
@@ -270,7 +265,7 @@ const DeteccaoModal: React.FC<DeteccaoModalProps> = ({ deteccao, onClose }) => {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">ID Detecção:</span>
+                    <span className="text-sm text-gray-600">ID Detecï¿½ï¿½o:</span>
                     <span className="text-sm font-medium text-gray-900">#{deteccao.id}</span>
                   </div>
                 </div>
@@ -279,7 +274,7 @@ const DeteccaoModal: React.FC<DeteccaoModalProps> = ({ deteccao, onClose }) => {
 
             <div className="space-y-4">
               <div>
-                <h5 className="text-sm font-medium text-gray-700 mb-2">Informações da Câmera</h5>
+                <h5 className="text-sm font-medium text-gray-700 mb-2">Informaï¿½ï¿½es da Cï¿½mera</h5>
                 <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                   <div className="flex items-center space-x-3">
                     <div className="p-2 bg-primary-100 rounded-lg">
@@ -289,7 +284,6 @@ const DeteccaoModal: React.FC<DeteccaoModalProps> = ({ deteccao, onClose }) => {
                     </div>
                     <div>
                       <p className="font-medium text-gray-900">{deteccao.camera?.name || 'N/A'}</p>
-                      <p className="text-sm text-gray-500">{deteccao.camera?.location || 'N/A'}</p>
                     </div>
                   </div>
                   <div className="flex justify-between">

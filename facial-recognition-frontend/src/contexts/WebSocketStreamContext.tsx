@@ -83,7 +83,7 @@ export const WebSocketStreamProvider: React.FC<WebSocketStreamProviderProps> = (
     triggerUpdate();
 
     try {
-      // Get or create backend WebSocket stream session
+      // Get or create backend WebSocket stream session for video display only
       const response = await apiClient.getCameraStreamUrl(cameraId);
       stream.sessionId = response.sessionId;
       stream.streamUrl = response.streamUrl;
