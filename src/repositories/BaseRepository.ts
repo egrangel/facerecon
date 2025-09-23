@@ -89,6 +89,14 @@ export abstract class BaseRepository<T extends BaseEntity> {
     return this.repository.count({ where });
   }
 
+  async countWhere(where: FindOptionsWhere<T>): Promise<number> {
+    return this.repository.count({ where });
+  }
+
+  async findOne(options: FindManyOptions<T>): Promise<T | null> {
+    return this.repository.findOne(options);
+  }
+
   getRepository(): Repository<T> {
     return this.repository;
   }

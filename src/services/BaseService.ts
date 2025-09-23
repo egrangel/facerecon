@@ -98,6 +98,54 @@ export abstract class BaseService<T extends BaseEntity> {
     return this.repository.count();
   }
 
+  // Organization-specific methods
+  async findAllByOrganization(organizationId: number, relations?: string[]): Promise<T[]> {
+    return this.repository.findAll({
+      where: { organizationId } as any,
+      relations
+    });
+  }
+
+  async findByIdAndOrganization(id: number, organizationId: number, relations?: string[]): Promise<T | null> {
+    return this.repository.findOne({
+      where: { id, organizationId } as any,
+      relations
+    });
+  }
+
+  async updateByOrganization(id: number, organizationId: number, entityData: DeepPartial<T>): Promise<T | null> {
+    const existingEntity = await this.findByIdAndOrganization(id, organizationId);
+    if (!existingEntity) {
+      return null;
+    }
+
+    try {
+      const updatedEntity = await this.repository.update(id, entityData);
+      return updatedEntity;
+    } catch (error: any) {
+      if (error.code === '23505') {
+        throw createError('Unique data already exists', 409);
+      }
+      if (error.code === '23503') {
+        throw createError('Invalid reference in the provided data', 400);
+      }
+      throw error;
+    }
+  }
+
+  async deleteByOrganization(id: number, organizationId: number): Promise<boolean> {
+    const existingEntity = await this.findByIdAndOrganization(id, organizationId);
+    if (!existingEntity) {
+      return false;
+    }
+
+    return await this.repository.delete(id);
+  }
+
+  async countByOrganization(organizationId: number): Promise<number> {
+    return this.repository.countWhere({ organizationId } as any);
+  }
+
   protected validateRequiredField(value: any, fieldName: string): void {
     if (!value) {
       throw createError(`Campo ${fieldName} é obrigatório`, 400);

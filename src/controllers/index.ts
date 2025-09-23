@@ -508,6 +508,22 @@ export class DetectionController extends BaseController<any> {
     this.detectionService = service;
   }
 
+  // Override create to automatically set organizationId
+  create = asyncHandler(async (req: OrganizationRequest, res: Response): Promise<void> => {
+    const detectionData = {
+      ...req.body,
+      organizationId: req.organizationId,
+    };
+
+    const data = await this.detectionService.create(detectionData);
+
+    res.status(201).json({
+      success: true,
+      message: 'Detecção criada com sucesso',
+      data,
+    });
+  });
+
   findByEventId = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { eventId } = req.params;
 

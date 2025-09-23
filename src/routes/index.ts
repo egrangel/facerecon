@@ -53,17 +53,15 @@ organizationRoutes.delete('/:id/hard', authorize(['admin']), organizationControl
 // Person Routes
 export const personRoutes = Router();
 
-// Public routes
-personRoutes.get('/', personController.findAll);
-personRoutes.get('/count', personController.count);
-personRoutes.get('/document/:document', personController.findByDocument);
-personRoutes.get('/organization/:organizationId', personController.findByOrganizationId);
-personRoutes.get('/:id', personController.findById);
-personRoutes.get('/:id/full', personController.findWithFullRelations);
-
-// Protected routes
+// All person routes require authentication and organization access
 personRoutes.use(authenticateToken);
 personRoutes.use(organizationAccess);
+
+// Organization-filtered routes
+personRoutes.get('/', personController.findAll);
+personRoutes.get('/count', personController.count);
+personRoutes.get('/:id', personController.findById);
+personRoutes.get('/:id/full', personController.findWithFullRelations);
 personRoutes.post('/', authorize(['admin', 'operator']), personController.create);
 personRoutes.put('/:id', authorize(['admin', 'operator']), personController.update);
 personRoutes.delete('/:id', authorize(['admin']), personController.delete);
@@ -77,16 +75,15 @@ personRoutes.post('/:id/addresses', authorize(['admin', 'operator']), personCont
 // Event Routes
 export const eventRoutes = Router();
 
-// Public routes
-eventRoutes.get('/', eventController.findAll);
-eventRoutes.get('/count', eventController.count);
-eventRoutes.get('/organization/:organizationId', eventController.findByOrganizationId);
-eventRoutes.get('/date-range', eventController.findByDateRange);
-eventRoutes.get('/:id', eventController.findById);
-
-// Protected routes
+// All event routes require authentication and organization access
 eventRoutes.use(authenticateToken);
 eventRoutes.use(organizationAccess);
+
+// Organization-filtered routes
+eventRoutes.get('/', eventController.findAll);
+eventRoutes.get('/count', eventController.count);
+eventRoutes.get('/date-range', eventController.findByDateRange);
+eventRoutes.get('/:id', eventController.findById);
 eventRoutes.post('/', authorize(['admin', 'operator']), eventController.create);
 eventRoutes.put('/:id', authorize(['admin', 'operator']), eventController.update);
 eventRoutes.delete('/:id', authorize(['admin']), eventController.delete);
@@ -109,16 +106,14 @@ eventRoutes.patch('/:eventId/toggle-status', authorize(['admin', 'operator']), e
 // Camera Routes
 export const cameraRoutes = Router();
 
-// Public routes
-cameraRoutes.get('/', cameraController.findAll);
-cameraRoutes.get('/count', cameraController.count);
-cameraRoutes.get('/organization/:organizationId', cameraController.findByOrganizationId);
-cameraRoutes.get('/status/:status', cameraController.findByStatus);
-cameraRoutes.get('/:id', cameraController.findById);
-
-// Protected routes
+// All camera routes require authentication and organization access
 cameraRoutes.use(authenticateToken);
 cameraRoutes.use(organizationAccess);
+
+// Organization-filtered routes
+cameraRoutes.get('/', cameraController.findAll);
+cameraRoutes.get('/count', cameraController.count);
+cameraRoutes.get('/:id', cameraController.findById);
 cameraRoutes.post('/', authorize(['admin', 'operator']), cameraController.create);
 cameraRoutes.put('/:id', authorize(['admin', 'operator']), cameraController.update);
 cameraRoutes.delete('/:id', authorize(['admin']), cameraController.delete);
@@ -127,7 +122,11 @@ cameraRoutes.post('/:id/test-connection', authorize(['admin', 'operator']), came
 // Detection Routes
 export const detectionRoutes = Router();
 
-// Public routes
+// All detection routes require authentication and organization access
+detectionRoutes.use(authenticateToken);
+detectionRoutes.use(organizationAccess);
+
+// Organization-filtered routes
 detectionRoutes.get('/', detectionController.findAll);
 detectionRoutes.get('/count', detectionController.count);
 detectionRoutes.get('/stats', detectionController.getStats);
@@ -135,9 +134,6 @@ detectionRoutes.get('/recent', detectionController.findRecentDetections);
 detectionRoutes.get('/event/:eventId', detectionController.findByEventId);
 detectionRoutes.get('/person-face/:personFaceId', detectionController.findByPersonFaceId);
 detectionRoutes.get('/:id', detectionController.findById);
-
-// Protected routes
-detectionRoutes.use(authenticateToken);
 detectionRoutes.post('/', authorize(['admin', 'operator']), detectionController.create);
 detectionRoutes.put('/:id', authorize(['admin', 'operator']), detectionController.update);
 detectionRoutes.delete('/:id', authorize(['admin']), detectionController.delete);

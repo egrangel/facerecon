@@ -47,15 +47,12 @@ export class StreamController {
     }
 
     // Validate camera has RTSP URL
-    if (!camera.streamUrl && !camera.ip) {
-      throw createError('Camera does not have a valid stream URL or IP', 400);
+    if (!camera.streamUrl) {
+      throw createError('Camera does not have a valid stream URL', 400);
     }
 
-    // Construct RTSP URL
-    let rtspUrl = camera.streamUrl;
-    if (!rtspUrl) {
-      rtspUrl = `rtsp://${camera.ip}:${camera.port || 554}/stream`;
-    }
+    // Use the configured stream URL
+    const rtspUrl = camera.streamUrl;
 
     try {
       const organizationId = camera.organizationId;
@@ -263,14 +260,11 @@ export class StreamController {
       throw createError('Camera not found', 404);
     }
 
-    if (!camera.streamUrl && !camera.ip) {
-      throw createError('Camera does not have a valid stream URL or IP', 400);
+    if (!camera.streamUrl) {
+      throw createError('Camera does not have a valid stream URL', 400);
     }
 
-    let rtspUrl = camera.streamUrl;
-    if (!rtspUrl) {
-      rtspUrl = `rtsp://${camera.ip}:${camera.port || 554}/stream`;
-    }
+    const rtspUrl = camera.streamUrl;
 
     try {
       const organizationId = camera.organizationId;
@@ -375,11 +369,12 @@ export class StreamController {
       throw createError('Organization ID required for face recognition', 400);
     }
 
-    // Construct RTSP URL
-    let rtspUrl = camera.streamUrl;
-    if (!rtspUrl) {
-      rtspUrl = `rtsp://${camera.ip}:${camera.port || 554}/stream`;
+    if (!camera.streamUrl) {
+      throw createError('Camera does not have a valid stream URL', 400);
     }
+
+    // Use the configured stream URL
+    const rtspUrl = camera.streamUrl;
 
     try {
       // Start face recognition with a unique session ID for background processing

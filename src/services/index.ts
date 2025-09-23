@@ -236,6 +236,7 @@ export class DetectionService extends BaseService<Detection> {
     this.validateRequiredField(data.personFaceId, 'personFaceId');
     this.validateRequiredField(data.detectedAt, 'detectedAt');
     this.validateNumericField(data.confidence, 'confidence');
+    this.validateRequiredField(data.organizationId, 'organizationId');
 
     return super.create(data);
   }

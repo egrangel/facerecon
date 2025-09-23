@@ -70,10 +70,10 @@ export class DashboardController {
       detectionsToday,
       eventsToday
     ] = await Promise.all([
-      this.personService.repository.count({ organizationId }),
-      this.cameraService.repository.count({ organizationId }),
-      this.eventService.repository.count({ organizationId }),
-      this.detectionService.repository.count({ organizationId }),
+      this.personService.countByOrganization(organizationId),
+      this.cameraService.countByOrganization(organizationId),
+      this.eventService.countByOrganization(organizationId),
+      this.detectionService.countByOrganization(organizationId),
       this.getActiveCamerasCount(organizationId),
       this.getDetectionsToday(organizationId),
       this.getEventsToday(organizationId)
@@ -184,7 +184,7 @@ export class DashboardController {
         status: 'active',
         organizationId
       };
-      return await this.cameraService.repository.count(whereCondition);
+      return await this.cameraService.repository.countWhere(whereCondition as any);
     } catch (error) {
       return 0;
     }
@@ -193,8 +193,7 @@ export class DashboardController {
   private async getDetectionsToday(organizationId: number): Promise<number> {
     try {
       // ALWAYS filter by organizationId - this is mandatory
-      const whereCondition = { organizationId };
-      return await this.detectionService.repository.count(whereCondition);
+      return await this.detectionService.countByOrganization(organizationId);
     } catch (error) {
       return 0;
     }
@@ -203,8 +202,7 @@ export class DashboardController {
   private async getEventsToday(organizationId: number): Promise<number> {
     try {
       // ALWAYS filter by organizationId - this is mandatory
-      const whereCondition = { organizationId };
-      return await this.eventService.repository.count(whereCondition);
+      return await this.eventService.countByOrganization(organizationId);
     } catch (error) {
       return 0;
     }
@@ -213,7 +211,7 @@ export class DashboardController {
   private async getPreviousPeriodPeopleCount(organizationId: number): Promise<number> {
     try {
       // ALWAYS filter by organizationId - this is mandatory
-      const currentCount = await this.personService.repository.count({ organizationId });
+      const currentCount = await this.personService.countByOrganization(organizationId);
       return Math.floor(currentCount * 0.8);
     } catch (error) {
       return 0;
@@ -286,18 +284,18 @@ export class DashboardController {
 
       const [recentPeople, recentDetections, recentEvents] = await Promise.all([
         this.personService.repository.findAll({
-          where: whereCondition,
+          where: { organizationId } as any,
           order: { createdAt: 'DESC' },
           take: 2
         }),
         this.detectionService.repository.findAll({
-          where: whereCondition,
+          where: { organizationId } as any,
           order: { createdAt: 'DESC' },
           take: 2,
           relations: ['personFace', 'personFace.person']
         }),
         this.eventService.repository.findAll({
-          where: whereCondition,
+          where: { organizationId } as any,
           order: { createdAt: 'DESC' },
           take: 2
         })
@@ -358,8 +356,11 @@ export class DashboardController {
     try {
       // Perform a simple query to check database connectivity
       // Use organizationId if provided to ensure we can access the organization's data
-      const whereCondition = organizationId ? { organizationId } : {};
-      await this.personService.repository.count(whereCondition);
+      if (organizationId) {
+        await this.personService.countByOrganization(organizationId);
+      } else {
+        await this.personService.count();
+      }
       return { status: 'connected', message: 'Conectado' };
     } catch (error) {
       return { status: 'disconnected', message: 'Falha na conexão' };

@@ -110,7 +110,7 @@ export class FaceRecognitionService {
       // Log all raw detections
       detections.forEach((detection, index) => {
         const box = detection.box;
-        const confidence = detection.probability ? detection.probability[0] : 1;
+        const confidence = (detection as any).score || 1;
         console.log(`🔍 Raw Face ${index + 1}: confidence=${confidence.toFixed(3)}, size=${box.width.toFixed(0)}x${box.height.toFixed(0)}, pos=(${box.xMin.toFixed(0)},${box.yMin.toFixed(0)})`);
       });
 
@@ -122,7 +122,7 @@ export class FaceRecognitionService {
             width: detection.box.width,
             height: detection.box.height,
           },
-          confidence: detection.probability ? detection.probability[0] : 1,
+          confidence: (detection as any).score || 1,
           landmarks: detection.keypoints || [],
         }))
         .filter(face => {

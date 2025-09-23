@@ -234,11 +234,13 @@ export class EventSchedulerService {
         return;
       }
 
-      // Build RTSP URL
-      let rtspUrl = camera.streamUrl;
-      if (!rtspUrl) {
-        rtspUrl = `rtsp://${camera.ip}:${camera.port || 554}/stream`;
+      if (!camera.streamUrl) {
+        console.error(`Camera ${cameraId} does not have a valid stream URL`);
+        return;
       }
+
+      // Use the configured stream URL
+      const rtspUrl = camera.streamUrl;
 
       // Start video stream for the event
       const sessionId = await streamService.startStream(

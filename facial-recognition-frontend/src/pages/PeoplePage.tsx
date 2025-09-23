@@ -10,13 +10,14 @@ interface PersonFormData {
   name: string;
   personType: string;
   documentNumber?: string;
+  nationalId?: string;
   birthDate?: string;
   gender?: string;
   status: string;
   notes?: string;
   metadata?: string;
   organizationId: number;
-  cadastroId: number;
+  personId: number;
   email?: string;
   telefone?: string;
 }
@@ -249,7 +250,7 @@ const PersonModal: React.FC<PersonModalProps> = ({ person, onClose, onSave, isLo
     notes: person?.notes || '',
     metadata: person?.metadata || '',
     organizationId: person?.organizationId || 1,
-    cadastroId: person?.id || 1,
+    personId: person?.id || 1,
     email: '',
     telefone: '',
   });
