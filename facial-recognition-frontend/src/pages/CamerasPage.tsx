@@ -60,7 +60,7 @@ const LiveStreamContainer: React.FC<LiveStreamContainerProps> = ({ camera, class
   };
 
   return (
-    <div className={`bg-black rounded-lg overflow-hidden ${className}`}>
+    <div className={`bg-black rounded-lg overflow-hidden mt-3 ${className}`}>
       <div className="relative aspect-video">
         <StreamPlayer
           cameraId={camera.id}
@@ -80,46 +80,29 @@ const LiveStreamContainer: React.FC<LiveStreamContainerProps> = ({ camera, class
       <div className="p-3 bg-gray-800 flex items-center justify-between">
         {/* Stream Control Buttons */}
         <div className="flex items-center space-x-2">
-          {webSocketSession && webSocketSession.sessionId ? (
-            <>
-              <button
-                onClick={webSocketState.isPlaying ? handleStopStream : handleStartStream}
-                disabled={webSocketState.isLoading}
-                className="px-3 py-1 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-50"
-              >
-                {webSocketState.isLoading ? (
-                  <span className="flex items-center">
-                    <div className="animate-spin rounded-full h-3 w-3 border border-white border-t-transparent mr-1"></div>
-                    Loading...
-                  </span>
-                ) : webSocketState.isPlaying ? (
-                  '❹ Stop'
-                ) : (
-                  '▶ Play'
-                )}
-              </button>
-              <button
-                onClick={handleRefreshStream}
-                disabled={webSocketState.isLoading}
-                className="px-3 py-1 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-50"
-              >
-                🔄 Refresh
-              </button>
-            </>
-          ) : (
+          <button
+            onClick={webSocketState.isPlaying ? handleStopStream : handleStartStream}
+            disabled={webSocketState.isLoading}
+            className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
+          >
+            {webSocketState.isLoading ? (
+              <span className="flex items-center">
+                <div className="animate-spin rounded-full h-3 w-3 border border-white border-t-transparent mr-1"></div>
+                {webSocketState.isPlaying ? 'Stopping...' : 'Starting...'}
+              </span>
+            ) : webSocketState.isPlaying ? (
+              '⏹ Stop'
+            ) : (
+              '▶ Start Stream'
+            )}
+          </button>
+          {webSocketSession && webSocketSession.sessionId && (
             <button
-              onClick={handleStartStream}
+              onClick={handleRefreshStream}
               disabled={webSocketState.isLoading}
-              className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
+              className="px-3 py-1 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-50"
             >
-              {webSocketState.isLoading ? (
-                <span className="flex items-center">
-                  <div className="animate-spin rounded-full h-3 w-3 border border-white border-t-transparent mr-1"></div>
-                  Starting...
-                </span>
-              ) : (
-                '▶ Start Stream'
-              )}
+              🔄 Refresh
             </button>
           )}
         </div>
