@@ -161,6 +161,85 @@ DetectionResult FaceDetector::detectFaces(const cv::Mat& frame) {
             }
         }
 
+        // Multi-scale detection: if we found few faces or low confidence faces, try with zoomed regions
+        if (result.faces.size() < 3 || (result.faces.size() > 0 && result.faces[0].confidence < 0.3)) {
+            // thread-safe counter to prevent infinite recursion
+            static thread_local int recursionCount = 0;
+            static thread_local auto lastMultiScaleTime = std::chrono::high_resolution_clock::now();
+
+            auto currentTime = std::chrono::high_resolution_clock::now();
+            auto timeSinceLastMultiScale = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - lastMultiScaleTime);
+
+            if (recursionCount >= 1) {
+                std::cout << "Skipping multi-scale detection due to recursion (depth: " << recursionCount << ")" << std::endl;
+                return result;
+            }
+
+            // Limit multi-scale detection frequency (minimum 100ms between attempts)
+            if (timeSinceLastMultiScale.count() < 100) {
+                std::cout << "Skipping multi-scale detection due to frequency limit (last attempt " << timeSinceLastMultiScale.count() << "ms ago)" << std::endl;
+                return result;
+            }
+
+            lastMultiScaleTime = currentTime;
+
+            recursionCount++;
+            std::cout << "Attempting multi-scale detection with zoom regions (depth: " << recursionCount << ")..." << std::endl;
+
+            try {
+                // Try detection on different regions of the image
+                std::vector<cv::Rect> zoomRegions = {
+                    // Top-left quadrant (zoomed 2x)
+                    cv::Rect(0, 0, frame.cols/2, frame.rows/2),
+                    // Top-right quadrant
+                    cv::Rect(frame.cols/2, 0, frame.cols/2, frame.rows/2),
+                    // Bottom-left quadrant
+                    cv::Rect(0, frame.rows/2, frame.cols/2, frame.rows/2),
+                    // Bottom-right quadrant
+                    cv::Rect(frame.cols/2, frame.rows/2, frame.cols/2, frame.rows/2),
+                    // Center region (1.5x zoom)
+                    cv::Rect(frame.cols/4, frame.rows/4, frame.cols/2, frame.rows/2)
+                };
+
+                for (const auto& region : zoomRegions) {
+                    try {
+                        cv::Mat zoomedRegion = frame(region);
+
+                        // Scale up the region for better detection
+                        cv::Mat scaledRegion;
+                        cv::resize(zoomedRegion, scaledRegion, cv::Size(zoomedRegion.cols * 2, zoomedRegion.rows * 2));
+
+                        // Detect faces in scaled region
+                        DetectionResult zoomResult = detectFacesInRegion(scaledRegion);
+
+                        // Adjust coordinates back to original image space
+                        for (auto& face : zoomResult.faces) {
+                            // Scale coordinates back down
+                            face.boundingBox.x = (face.boundingBox.x / 2) + region.x;
+                            face.boundingBox.y = (face.boundingBox.y / 2) + region.y;
+                            face.boundingBox.width /= 2;
+                            face.boundingBox.height /= 2;
+
+                            // Only add if it's a good detection and not already found
+                            if (face.confidence > 0.4 && !isOverlapping(face, result.faces)) {
+                                std::cout << "Found additional face in zoom region: " << face.confidence << std::endl;
+                                result.faces.push_back(face);
+                            }
+                        }
+                    } catch (const std::exception& e) {
+                        // Continue with next region if this one fails
+                        continue;
+                    }
+                }
+            } catch (...) {
+                // Ensure recursion counter is always decremented
+                recursionCount--;
+                throw;
+            }
+
+            recursionCount--;
+        }
+
         result.success = true;
     } catch (const std::exception& e) {
         result.success = false;
@@ -171,6 +250,149 @@ DetectionResult FaceDetector::detectFaces(const cv::Mat& frame) {
     result.processingTimeMs = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
 
     return result;
+}
+
+DetectionResult FaceDetector::detectFacesInRegion(const cv::Mat& region) {
+    DetectionResult result;
+    auto startTime = std::chrono::high_resolution_clock::now();
+
+    if (!initialized) {
+        result.success = false;
+        result.error = "Detector not initialized";
+        return result;
+    }
+
+    // Add depth tracking for debugging
+    static thread_local int regionDetectionDepth = 0;
+    regionDetectionDepth++;
+    std::cout << "Detecting faces in region (depth: " << regionDetectionDepth << ", size: " << region.cols << "x" << region.rows << ")" << std::endl;
+
+    try {
+        if (useDeepLearning && !faceNet.empty()) {
+            // DNN-based detection
+            cv::Mat blob;
+            cv::Size inputSize(416, 416);
+            cv::dnn::blobFromImage(region, blob, 1.0, inputSize, cv::Scalar(104.0, 177.0, 123.0));
+            faceNet.setInput(blob);
+            cv::Mat detections = faceNet.forward();
+
+            for (int i = 0; i < detections.size[2]; i++) {
+                float* data = detections.ptr<float>(0, 0, i);
+                float confidence = data[2];
+
+                // Use a slightly lower threshold for zoomed regions
+                float regionThreshold = confidenceThreshold * 0.8f;
+
+                if (confidence > regionThreshold) {
+                    int x1 = static_cast<int>(data[3] * region.cols);
+                    int y1 = static_cast<int>(data[4] * region.rows);
+                    int x2 = static_cast<int>(data[5] * region.cols);
+                    int y2 = static_cast<int>(data[6] * region.rows);
+
+                    // Ensure coordinates are within bounds
+                    x1 = std::max(0, std::min(x1, region.cols));
+                    y1 = std::max(0, std::min(y1, region.rows));
+                    x2 = std::max(0, std::min(x2, region.cols));
+                    y2 = std::max(0, std::min(y2, region.rows));
+
+                    if (x2 > x1 && y2 > y1) {
+                        int width = x2 - x1;
+                        int height = y2 - y1;
+
+                        if (validateFaceRegion(cv::Rect(x1, y1, width, height), region)) {
+                            DetectedFace face;
+                            face.boundingBox = cv::Rect(x1, y1, width, height);
+                            face.confidence = confidence;
+
+                            // Extract face region and compute encoding
+                            cv::Mat faceRegion = region(face.boundingBox);
+                            face.encoding = extractFaceEncoding(faceRegion);
+
+                            result.faces.push_back(face);
+                        }
+                    }
+                }
+            }
+        } else {
+            // Haar cascade detection
+            std::vector<cv::Rect> faces;
+            cv::Mat grayRegion;
+            cv::cvtColor(region, grayRegion, cv::COLOR_BGR2GRAY);
+            cv::equalizeHist(grayRegion, grayRegion);
+
+            faceCascade.detectMultiScale(
+                grayRegion,
+                faces,
+                1.05,   // More sensitive scaleFactor for zoomed regions
+                2,      // Lower minNeighbors for better detection
+                0 | cv::CASCADE_SCALE_IMAGE,
+                cv::Size(20, 20),
+                cv::Size(region.cols, region.rows)
+            );
+
+            for (const auto& faceRect : faces) {
+                if (validateFaceRegion(faceRect, region)) {
+                    DetectedFace face;
+                    face.boundingBox = faceRect;
+                    face.confidence = 0.7;
+
+                    // Extract face region and compute encoding
+                    cv::Mat faceRegion = region(face.boundingBox);
+                    face.encoding = extractFaceEncoding(faceRegion);
+
+                    result.faces.push_back(face);
+                }
+            }
+        }
+
+        result.success = true;
+    } catch (const std::exception& e) {
+        result.success = false;
+        result.error = e.what();
+    }
+
+    regionDetectionDepth--;
+    std::cout << "Finished region detection (depth: " << regionDetectionDepth << ", found " << result.faces.size() << " faces)" << std::endl;
+
+    auto endTime = std::chrono::high_resolution_clock::now();
+    result.processingTimeMs = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+
+    return result;
+}
+
+bool FaceDetector::isOverlapping(const DetectedFace& newFace, const std::vector<DetectedFace>& existingFaces) {
+    // Calculate IoU (Intersection over Union) threshold
+    const float iouThreshold = 0.3f; // Adjust this value to control overlap sensitivity
+
+    for (const auto& existingFace : existingFaces) {
+        // Get intersection rectangle
+        cv::Rect intersection = newFace.boundingBox & existingFace.boundingBox;
+        
+        // If there's no intersection, continue to next face
+        if (intersection.empty()) {
+            continue;
+        }
+
+        // Calculate areas
+        float intersectionArea = intersection.area();
+        float newArea = newFace.boundingBox.area();
+        float existingArea = existingFace.boundingBox.area();
+        float unionArea = newArea + existingArea - intersectionArea;
+
+        // Calculate IoU
+        float iou = intersectionArea / unionArea;
+
+        // Check if overlap is significant
+        if (iou > iouThreshold) {
+            // If new detection has higher confidence, caller should replace the existing one
+            if (newFace.confidence > existingFace.confidence) {
+                return false;
+            }
+            return true;
+        }
+    }
+
+    return false;
 }
 
 DetectionResult FaceDetector::detectFacesFromBuffer(const uint8_t* buffer, size_t length) {
@@ -360,7 +582,11 @@ bool FaceDetector::isElectronicDisplay(const cv::Mat& faceRegion, const cv::Mat&
 }
 
 std::vector<float> FaceDetector::extractFaceEncoding(const cv::Mat& face) {
+    const int ENCODING_SIZE = 128; // Standard size for face encodings
     try {
+        std::vector<float> encoding;
+        encoding.reserve(ENCODING_SIZE); // Pre-allocate for efficiency
+
         // Normalize face to standard size for consistent encoding
         cv::Mat normalizedFace;
         cv::Size targetSize(96, 96); // Standard face recognition size
@@ -380,9 +606,6 @@ std::vector<float> FaceDetector::extractFaceEncoding(const cv::Mat& face) {
         cv::equalizeHist(normalizedFace, equalizedFace);
         equalizedFace.convertTo(floatFace, CV_32FC1, 1.0/255.0);
 
-        // Compute simple feature descriptors as face encoding
-        std::vector<float> encoding;
-
         // Extract statistical features
         cv::Scalar meanVal, stdDevVal;
         cv::meanStdDev(floatFace, meanVal, stdDevVal);
@@ -398,8 +621,13 @@ std::vector<float> FaceDetector::extractFaceEncoding(const cv::Mat& face) {
         encoding.push_back(static_cast<float>(moments.m11 / moments.m00)); // Second moment XY
 
         // Extract texture features using Local Binary Pattern (simplified)
-        for (int y = 1; y < floatFace.rows - 1; y += 8) {
-            for (int x = 1; x < floatFace.cols - 1; x += 8) {
+        int step = 16; // Increase step size to reduce features
+        for (int y = 1; y < floatFace.rows - 1; y += step) {
+            for (int x = 1; x < floatFace.cols - 1; x += step) {
+                if (encoding.size() >= ENCODING_SIZE - 10) { // Leave room for final features
+                    break;
+                }
+
                 float center = floatFace.at<float>(y, x);
                 int pattern = 0;
 
@@ -415,26 +643,25 @@ std::vector<float> FaceDetector::extractFaceEncoding(const cv::Mat& face) {
 
                 encoding.push_back(static_cast<float>(pattern / 255.0)); // Normalize to [0,1]
             }
+
+            if (encoding.size() >= ENCODING_SIZE - 10) {
+                break;
+            }
         }
 
-        // Add gradients as additional features
-        cv::Mat gradX, gradY;
-        cv::Sobel(floatFace, gradX, CV_32F, 1, 0, 3);
-        cv::Sobel(floatFace, gradY, CV_32F, 0, 1, 3);
+        // Pad or truncate to ensure exact size
+        while (encoding.size() < ENCODING_SIZE) {
+            encoding.push_back(0.0f);
+        }
+        if (encoding.size() > ENCODING_SIZE) {
+            encoding.resize(ENCODING_SIZE);
+        }
 
-        cv::Scalar gradXMean, gradYMean;
-        cv::meanStdDev(gradX, gradXMean, cv::noArray());
-        cv::meanStdDev(gradY, gradYMean, cv::noArray());
-
-        encoding.push_back(static_cast<float>(gradXMean[0])); // Mean gradient X
-        encoding.push_back(static_cast<float>(gradYMean[0])); // Mean gradient Y
-
-        std::cout << "Extracted " << encoding.size() << " dimensional face encoding" << std::endl;
         return encoding;
 
     } catch (const std::exception& e) {
         std::cerr << "Error extracting face encoding: " << e.what() << std::endl;
         // Return a minimal default encoding on error
-        return std::vector<float>(128, 0.0f); // 128-dimensional zero vector
+        return std::vector<float>(ENCODING_SIZE, 0.0f); // 128-dimensional zero vector
     }
 }

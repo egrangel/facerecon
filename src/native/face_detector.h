@@ -41,4 +41,6 @@ public:
 private:
     bool validateFaceRegion(const cv::Rect& faceRect, const cv::Mat& frame);
     bool isElectronicDisplay(const cv::Mat& faceRegion, const cv::Mat& faceGray);
+     bool isOverlapping(const DetectedFace& newFace, const std::vector<DetectedFace>& existingFaces);
+    DetectionResult detectFacesInRegion(const cv::Mat& region);
 };

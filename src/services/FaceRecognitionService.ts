@@ -90,7 +90,7 @@ export class FaceRecognitionService {
 
       // Convert native result to our format
       const candidateFaces: DetectedFace[] = nativeResult.faces
-        .map(face => ({
+        .map((face: any) => ({
           boundingBox: face.boundingBox,
           confidence: face.confidence,
           landmarks: face.landmarks || [],
@@ -154,7 +154,8 @@ export class FaceRecognitionService {
       }
 
       // Process each detected face
-      for (const face of detection.faces) {
+      for (let index = 0; index < detection.faces.length; index++) {
+        const face = detection.faces[index];
         if (face.confidence >= this.faceThreshold) {
           // Try to recognize the face
           const recognition = await this.recognizeFace(face, organizationId);
@@ -169,12 +170,15 @@ export class FaceRecognitionService {
             personFaceId = await this.createUnknownPersonFace(face, organizationId);
           }
 
+          // Save individual face crop
+          const faceImageUrl = await this.saveFaceCrop(frameBuffer, face, index);
+
           // Record the detection with enhanced metadata
           await this.detectionService.create({
             detectedAt: new Date(),
             confidence: face.confidence,
             status: recognition.isMatch ? 'recognized' : 'detected',
-            imageUrl,
+            imageUrl: faceImageUrl, // Use face crop URL instead of full detection image
             metadata: JSON.stringify({
               boundingBox: face.boundingBox,
               isKnown: recognition.isMatch,
@@ -183,6 +187,8 @@ export class FaceRecognitionService {
               encodingLength: face.encoding?.length || 0,
               faceDetectionConfidence: face.confidence,
               processingTimestamp: new Date().toISOString(),
+              fullDetectionImageUrl: imageUrl, // Store full image URL in metadata
+              faceIndex: index,
             }),
             eventId: currentEventId,
             personFaceId,
@@ -258,8 +264,8 @@ export class FaceRecognitionService {
         // Get person faces with biometric data
         const fullPerson = await this.personService.findWithFullRelations(person.id);
 
-        if (fullPerson.personFaces && fullPerson.personFaces.length > 0) {
-          for (const personFace of fullPerson.personFaces) {
+        if (fullPerson.faces && fullPerson.faces.length > 0) {
+          for (const personFace of fullPerson.faces) {
             if (personFace.biometricParameters) {
               try {
                 const storedEncoding = JSON.parse(personFace.biometricParameters);
@@ -336,6 +342,63 @@ export class FaceRecognitionService {
     } catch (error) {
       console.error('Failed to create unknown person face:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Save individual face crop from detection
+   */
+  private async saveFaceCrop(imageBuffer: Buffer, face: DetectedFace, index: number = 0): Promise<string> {
+    try {
+      const timestamp = Date.now();
+      const filename = `face_${timestamp}_${index}.jpg`;
+      const faceDir = path.join(process.cwd(), 'uploads', 'faces');
+
+      // Ensure directory exists
+      if (!fs.existsSync(faceDir)) {
+        fs.mkdirSync(faceDir, { recursive: true });
+      }
+
+      const outputPath = path.join(faceDir, filename);
+
+      // Load image
+      const image = await loadImage(imageBuffer);
+
+      // Extract bounding box with padding
+      const padding = 0.15; // Add 15% padding around the face
+      const { x, y, width, height } = face.boundingBox;
+
+      // Calculate padded coordinates
+      const paddedWidth = width * (1 + 2 * padding);
+      const paddedHeight = height * (1 + 2 * padding);
+      const paddedX = Math.max(0, x - width * padding);
+      const paddedY = Math.max(0, y - height * padding);
+
+      // Ensure we don't go beyond image boundaries
+      const cropX = Math.max(0, Math.min(paddedX, image.width - paddedWidth));
+      const cropY = Math.max(0, Math.min(paddedY, image.height - paddedHeight));
+      const cropWidth = Math.min(paddedWidth, image.width - cropX);
+      const cropHeight = Math.min(paddedHeight, image.height - cropY);
+
+      // Create canvas for the face crop
+      const canvas = createCanvas(cropWidth, cropHeight);
+      const ctx = canvas.getContext('2d');
+
+      // Draw the cropped face region
+      ctx.drawImage(
+        image,
+        cropX, cropY, cropWidth, cropHeight,  // Source rectangle
+        0, 0, cropWidth, cropHeight           // Destination rectangle
+      );
+
+      // Convert canvas to buffer and save
+      const buffer = canvas.toBuffer('image/jpeg', { quality: 0.9 });
+      fs.writeFileSync(outputPath, buffer);
+
+      return `/uploads/faces/${filename}`;
+    } catch (error) {
+      console.error('Failed to save face crop:', error);
+      return '';
     }
   }
 
@@ -580,7 +643,7 @@ export class FaceRecognitionService {
     const { width, height } = face.boundingBox;
 
     // Much stricter confidence threshold - faces should be very clear
-    if (face.confidence < 0.85) {
+    if (face.confidence < 0.18) {
       console.log(`🚫 Face rejected: confidence too low (${face.confidence.toFixed(2)})`);
       return false;
     }

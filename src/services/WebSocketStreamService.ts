@@ -258,7 +258,7 @@ export class WebSocketStreamService {
 
       ffmpegProcess.stderr?.on('data', (data) => {
         const output = data.toString();
-        console.log(`FFmpeg stderr: ${output}`);
+        // console.log(`FFmpeg stderr: ${output}`);
 
         // Check for successful stream start indicators
         if (output.includes('Stream mapping') || output.includes('Press [q] to stop')) {

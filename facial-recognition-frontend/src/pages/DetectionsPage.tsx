@@ -3,34 +3,70 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
+import Pagination from '../components/ui/Pagination';
 import { apiClient } from '../services/api';
-import { Detection } from '../types/api';
+import { Detection, QueryParams } from '../types/api';
 
 const DeteccoesPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [dateFilter, setDateFilter] = useState<string>('');
   const [selectedDetection, setSelectedDetection] = useState<Detection | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
+
+  // Build query parameters
+  const queryParams: QueryParams = {
+    page: currentPage,
+    limit: pageSize,
+    sortBy: 'detectedAt',
+    sortOrder: 'desc',
+  };
+
+  // Add filters to query params if they exist
+  if (searchTerm) {
+    queryParams.search = searchTerm;
+  }
+  if (statusFilter) {
+    queryParams.status = statusFilter;
+  }
+  if (dateFilter) {
+    queryParams.date = dateFilter;
+  }
 
   const { data: detectionsResponse, isLoading } = useQuery({
-    queryKey: ['detections'],
+    queryKey: ['detections', queryParams],
     queryFn: async () => {
-      return await apiClient.getDetections();
+      return await apiClient.getDetections(queryParams);
     },
   });
 
   const detections = detectionsResponse?.data || [];
+  const pagination = {
+    total: detectionsResponse?.total || 0,
+    page: detectionsResponse?.page || 1,
+    limit: detectionsResponse?.limit || pageSize,
+    totalPages: detectionsResponse?.totalPages || 0,
+  };
 
-  const filteredDetections = detections.filter((detection: Detection) => {
-    const matchesSearch = detection.personFace?.person?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         detection.camera?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+  // Handle page changes
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
 
-    const matchesStatus = !statusFilter || detection.status === statusFilter;
+  // Handle page size change
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setCurrentPage(1);
+  };
 
-    const matchesDate = !dateFilter || new Date(detection.detectedAt).toDateString() === new Date(dateFilter).toDateString();
-
-    return matchesSearch && matchesStatus && matchesDate;
-  });
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('');
+    setDateFilter('');
+    setCurrentPage(1);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -73,12 +109,18 @@ const DeteccoesPage: React.FC = () => {
             <Input
               placeholder="Buscar por pessoa ou câmera..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
             />
 
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setCurrentPage(1);
+              }}
               className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             >
               <option value="">Todos os status</option>
@@ -90,17 +132,16 @@ const DeteccoesPage: React.FC = () => {
             <Input
               type="date"
               value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
+              onChange={(e) => {
+                setDateFilter(e.target.value);
+                setCurrentPage(1);
+              }}
               placeholder="Filtrar por data"
             />
 
             <Button
               variant="outline"
-              onClick={() => {
-                setSearchTerm('');
-                setStatusFilter('');
-                setDateFilter('');
-              }}
+              onClick={clearFilters}
             >
               Limpar filtros
             </Button>
@@ -108,18 +149,40 @@ const DeteccoesPage: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Results Summary */}
+      {!isLoading && (
+        <div className="flex justify-between items-center text-sm text-gray-600 mb-4">
+          <div>
+            Mostrando {detections.length} de {pagination.total} detecções
+          </div>
+          <div className="flex items-center space-x-2">
+            <span>Itens por página:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => handlePageSizeChange(parseInt(e.target.value))}
+              className="px-2 py-1 border border-gray-300 rounded text-sm"
+            >
+              <option value={6}>6</option>
+              <option value={12}>12</option>
+              <option value={24}>24</option>
+              <option value={48}>48</option>
+            </select>
+          </div>
+        </div>
+      )}
+
       {/* Detections Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         {isLoading ? (
           <div className="col-span-full flex justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
           </div>
-        ) : filteredDetections.length === 0 ? (
+        ) : detections.length === 0 ? (
           <div className="col-span-full text-center py-12 text-gray-500">
-            No detections found.
+            Nenhuma detecção encontrada.
           </div>
         ) : (
-          filteredDetections.map((detection: Detection) => (
+          detections.map((detection: Detection) => (
             <Card key={detection.id} className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setSelectedDetection(detection)}>
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
@@ -142,7 +205,7 @@ const DeteccoesPage: React.FC = () => {
                 <div className="space-y-2">
 
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Confian�a:</span>
+                    <span className="text-gray-500">Confiança:</span>
                     <span className={`font-medium ${getConfidenceColor(detection.confidence)}`}>
                       {detection.confidence.toFixed(1)}%
                     </span>
@@ -164,6 +227,18 @@ const DeteccoesPage: React.FC = () => {
           ))
         )}
       </div>
+
+      {/* Pagination */}
+      {!isLoading && pagination.totalPages > 1 && (
+        <div className="mt-8">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={pagination.totalPages}
+            onPageChange={handlePageChange}
+            className="justify-center"
+          />
+        </div>
+      )}
 
       {/* Modal de detalhes */}
       {selectedDetection && (
@@ -229,6 +304,43 @@ const DeteccaoModal: React.FC<DeteccaoModalProps> = ({ deteccao, onClose }) => {
             </span>
           </div>
 
+          {/* Face Image Section */}
+          <div className="mb-6">
+            <h5 className="text-sm font-medium text-gray-700 mb-3">Imagem da Face Detectada</h5>
+            <div className="flex justify-center">
+              <div className="relative">
+                {deteccao.imageUrl ? (
+                  <img
+                    src={`${process.env.REACT_APP_API_URL?.replace('/api/v1', '')}${deteccao.imageUrl}`}
+                    alt="Face detectada"
+                    className="max-w-xs max-h-48 object-contain rounded-lg shadow-md border-2 border-gray-200"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      const container = target.parentElement;
+                      if (container) {
+                        container.innerHTML = `
+                          <div class="w-48 h-48 bg-gray-200 rounded-lg flex items-center justify-center">
+                            <span class="text-gray-500 text-sm">Imagem não disponível</span>
+                          </div>
+                        `;
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="w-48 h-48 bg-gray-200 rounded-lg flex items-center justify-center">
+                    <span className="text-gray-500 text-sm">Nenhuma imagem disponível</span>
+                  </div>
+                )}
+                {deteccao.imageUrl && (
+                  <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
+                    {deteccao.confidence.toFixed(1)}%
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Informações principais */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
@@ -253,7 +365,7 @@ const DeteccaoModal: React.FC<DeteccaoModalProps> = ({ deteccao, onClose }) => {
                 <h5 className="text-sm font-medium text-gray-700 mb-2">Detecção</h5>
                 <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Confian�a:</span>
+                    <span className="text-sm text-gray-600">Confiança:</span>
                     <span className={`text-sm font-medium ${getConfidenceColor(deteccao.confidence)}`}>
                       {deteccao.confidence.toFixed(2)}%
                     </span>
@@ -265,7 +377,7 @@ const DeteccaoModal: React.FC<DeteccaoModalProps> = ({ deteccao, onClose }) => {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">ID Detec��o:</span>
+                    <span className="text-sm text-gray-600">ID Detecção:</span>
                     <span className="text-sm font-medium text-gray-900">#{deteccao.id}</span>
                   </div>
                 </div>
@@ -274,7 +386,7 @@ const DeteccaoModal: React.FC<DeteccaoModalProps> = ({ deteccao, onClose }) => {
 
             <div className="space-y-4">
               <div>
-                <h5 className="text-sm font-medium text-gray-700 mb-2">Informa��es da C�mera</h5>
+                <h5 className="text-sm font-medium text-gray-700 mb-2">Informações da Câmera</h5>
                 <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                   <div className="flex items-center space-x-3">
                     <div className="p-2 bg-primary-100 rounded-lg">
@@ -296,15 +408,50 @@ const DeteccaoModal: React.FC<DeteccaoModalProps> = ({ deteccao, onClose }) => {
               {deteccao.metadata && (
                 <div>
                   <h5 className="text-sm font-medium text-gray-700 mb-2">Metadados</h5>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <pre className="text-xs text-gray-600 whitespace-pre-wrap">
-                      {JSON.stringify(deteccao.metadata, null, 2)}
+                  <div className="bg-gray-50 rounded-lg p-4 max-h-40 overflow-auto">
+                    <pre className="text-xs text-gray-600 whitespace-pre-wrap break-words">
+                      {typeof deteccao.metadata === 'string'
+                        ? deteccao.metadata
+                        : JSON.stringify(deteccao.metadata, null, 2)}
                     </pre>
                   </div>
                 </div>
               )}
             </div>
           </div>
+
+          {/* Person Association Actions */}
+          {deteccao.personFace?.person?.name?.includes('Unknown Person') && (
+            <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <h5 className="text-sm font-medium text-yellow-800 mb-3">
+                🔍 Pessoa não identificada
+              </h5>
+              <p className="text-sm text-yellow-700 mb-4">
+                Esta face não foi associada a uma pessoa conhecida. Você pode:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    // TODO: Open person selector modal
+                    console.log('Associate with existing person');
+                  }}
+                >
+                  Associar a pessoa existente
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    // TODO: Open create person modal
+                    console.log('Create new person');
+                  }}
+                >
+                  Criar nova pessoa
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Ações */}
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
