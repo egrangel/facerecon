@@ -95,6 +95,47 @@ export const WebSocketStreamProvider: React.FC<WebSocketStreamProviderProps> = (
     triggerGlobalUpdate(); // Only use global update for initialization
   }, [triggerGlobalUpdate]);
 
+  // Add page visibility handling to detect navigation back to cameras page
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        console.log('Page became visible - validating stream sessions');
+
+        // Check all existing stream sessions for validity
+        const streamEntries = Array.from(streams.entries());
+        for (const [cameraId, stream] of streamEntries) {
+          if (stream.isPlaying && stream.sessionId) {
+            try {
+              // Quick validation by checking if session still exists
+              const response = await apiClient.getCameraStreamUrl(cameraId);
+              if (response.sessionId !== stream.sessionId) {
+                console.log(`📱 SESSION: Session mismatch for camera ${cameraId} (frontend: ${stream.sessionId}, backend: ${response.sessionId})`);
+                stream.hasError = true;
+                stream.errorMessage = 'Stream session expired - click refresh to restart';
+                stream.isPlaying = false;
+                triggerCameraUpdate(cameraId);
+              } else {
+                console.log(`✅ SESSION: Session ${stream.sessionId} for camera ${cameraId} is still valid`);
+              }
+            } catch (error: any) {
+              console.log(`❌ SESSION: Session validation failed for camera ${cameraId}:`, error.message || error);
+              stream.hasError = true;
+              stream.errorMessage = 'Stream session not found - click refresh to restart';
+              stream.isPlaying = false;
+              triggerCameraUpdate(cameraId);
+            }
+          }
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [streams, triggerCameraUpdate]);
+
   // Cleanup live streams when browser/tab is closed (keep facial recognition running)
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -179,7 +220,34 @@ export const WebSocketStreamProvider: React.FC<WebSocketStreamProviderProps> = (
   }, []);
 
   const startStream = useCallback(async (cameraId: number) => {
-    // Always create a fresh stream session to avoid stale sessionId issues
+    // Check if we have an existing stream that might be stale
+    const existingStream = streams.get(cameraId);
+    if (existingStream && existingStream.sessionId) {
+      console.log(`Checking existing session ${existingStream.sessionId} for camera ${cameraId}`);
+
+      try {
+        // Validate the existing session
+        const response = await apiClient.getCameraStreamUrl(cameraId);
+        if (response.sessionId === existingStream.sessionId && existingStream.isPlaying) {
+          // Session is still valid, just update access time
+          existingStream.lastAccessed = Date.now();
+          console.log(`Reusing valid session ${existingStream.sessionId} for camera ${cameraId}`);
+          return;
+        } else {
+          // Session is stale, clean it up
+          console.log(`Cleaning up stale session ${existingStream.sessionId} for camera ${cameraId}`);
+          try {
+            await apiClient.stopStream(existingStream.sessionId);
+          } catch (cleanupError) {
+            console.log('Stale session already cleaned up on backend');
+          }
+        }
+      } catch (error) {
+        console.log('Session validation failed, creating fresh session');
+      }
+    }
+
+    // Create a fresh stream session
     const stream = {
       sessionId: '',
       cameraId,

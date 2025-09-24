@@ -31,6 +31,17 @@ const LiveStreamContainer: React.FC<LiveStreamContainerProps> = ({ camera, class
   const cameraStream = useCameraStream(camera.id);
   const { stream: webSocketSession, state: webSocketState } = cameraStream;
 
+  // Clear local error when WebSocket state changes to loading or playing
+  React.useEffect(() => {
+    if (webSocketState.isLoading || webSocketState.isPlaying) {
+      setError(null);
+    }
+    // Show WebSocket context errors
+    if (webSocketState.hasError && webSocketState.errorMessage) {
+      setError(webSocketState.errorMessage);
+    }
+  }, [webSocketState.isLoading, webSocketState.isPlaying, webSocketState.hasError, webSocketState.errorMessage]);
+
   const handleError = (errorMessage: string) => {
     setError(errorMessage);
     console.error(`Camera ${camera.id} stream error:`, errorMessage);
@@ -38,6 +49,7 @@ const LiveStreamContainer: React.FC<LiveStreamContainerProps> = ({ camera, class
 
   const handleStartStream = async () => {
     try {
+      setError(null); // Clear error on user action
       await cameraStream.startStream();
     } catch (error: any) {
       handleError(error.message || 'Failed to start stream');
@@ -54,6 +66,7 @@ const LiveStreamContainer: React.FC<LiveStreamContainerProps> = ({ camera, class
 
   const handleRefreshStream = async () => {
     try {
+      setError(null); // Clear error on user action
       await cameraStream.refreshStream();
     } catch (error: any) {
       handleError(error.message || 'Failed to refresh stream');

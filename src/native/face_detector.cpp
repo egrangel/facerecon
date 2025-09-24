@@ -116,8 +116,12 @@ DetectionResult FaceDetector::detectFaces(const cv::Mat& frame) {
                             DetectedFace face;
                             face.boundingBox = cv::Rect(x1, y1, width, height);
                             face.confidence = confidence;
-                            result.faces.push_back(face);
 
+                            // Extract face region and compute encoding
+                            cv::Mat faceRegion = frame(face.boundingBox);
+                            face.encoding = extractFaceEncoding(faceRegion);
+
+                            result.faces.push_back(face);
                         }
                     }
                 }
@@ -147,8 +151,12 @@ DetectionResult FaceDetector::detectFaces(const cv::Mat& frame) {
                     DetectedFace face;
                     face.boundingBox = faceRect;
                     face.confidence = 0.7; // Standard confidence for Haar cascade
-                    result.faces.push_back(face);
 
+                    // Extract face region and compute encoding
+                    cv::Mat faceRegion = frame(face.boundingBox);
+                    face.encoding = extractFaceEncoding(faceRegion);
+
+                    result.faces.push_back(face);
                 }
             }
         }
@@ -349,4 +357,84 @@ bool FaceDetector::isElectronicDisplay(const cv::Mat& faceRegion, const cv::Mat&
     }
 
     return false; // Not detected as electronic display
+}
+
+std::vector<float> FaceDetector::extractFaceEncoding(const cv::Mat& face) {
+    try {
+        // Normalize face to standard size for consistent encoding
+        cv::Mat normalizedFace;
+        cv::Size targetSize(96, 96); // Standard face recognition size
+        cv::resize(face, normalizedFace, targetSize);
+
+        // Convert to grayscale if needed
+        if (normalizedFace.channels() == 3) {
+            cv::cvtColor(normalizedFace, normalizedFace, cv::COLOR_BGR2GRAY);
+        }
+
+        // Normalize pixel values to improve recognition accuracy
+        cv::Mat floatFace;
+        normalizedFace.convertTo(floatFace, CV_32FC1, 1.0/255.0);
+
+        // Apply histogram equalization for better feature extraction
+        cv::Mat equalizedFace;
+        cv::equalizeHist(normalizedFace, equalizedFace);
+        equalizedFace.convertTo(floatFace, CV_32FC1, 1.0/255.0);
+
+        // Compute simple feature descriptors as face encoding
+        std::vector<float> encoding;
+
+        // Extract statistical features
+        cv::Scalar meanVal, stdDevVal;
+        cv::meanStdDev(floatFace, meanVal, stdDevVal);
+        encoding.push_back(static_cast<float>(meanVal[0])); // Mean intensity
+        encoding.push_back(static_cast<float>(stdDevVal[0])); // Standard deviation
+
+        // Extract spatial features using image moments
+        cv::Moments moments = cv::moments(floatFace);
+        encoding.push_back(static_cast<float>(moments.m10 / moments.m00)); // Centroid X
+        encoding.push_back(static_cast<float>(moments.m01 / moments.m00)); // Centroid Y
+        encoding.push_back(static_cast<float>(moments.m20 / moments.m00)); // Second moment X
+        encoding.push_back(static_cast<float>(moments.m02 / moments.m00)); // Second moment Y
+        encoding.push_back(static_cast<float>(moments.m11 / moments.m00)); // Second moment XY
+
+        // Extract texture features using Local Binary Pattern (simplified)
+        for (int y = 1; y < floatFace.rows - 1; y += 8) {
+            for (int x = 1; x < floatFace.cols - 1; x += 8) {
+                float center = floatFace.at<float>(y, x);
+                int pattern = 0;
+
+                // 8-neighbor LBP pattern
+                if (floatFace.at<float>(y-1, x-1) >= center) pattern |= (1 << 0);
+                if (floatFace.at<float>(y-1, x  ) >= center) pattern |= (1 << 1);
+                if (floatFace.at<float>(y-1, x+1) >= center) pattern |= (1 << 2);
+                if (floatFace.at<float>(y,   x+1) >= center) pattern |= (1 << 3);
+                if (floatFace.at<float>(y+1, x+1) >= center) pattern |= (1 << 4);
+                if (floatFace.at<float>(y+1, x  ) >= center) pattern |= (1 << 5);
+                if (floatFace.at<float>(y+1, x-1) >= center) pattern |= (1 << 6);
+                if (floatFace.at<float>(y,   x-1) >= center) pattern |= (1 << 7);
+
+                encoding.push_back(static_cast<float>(pattern / 255.0)); // Normalize to [0,1]
+            }
+        }
+
+        // Add gradients as additional features
+        cv::Mat gradX, gradY;
+        cv::Sobel(floatFace, gradX, CV_32F, 1, 0, 3);
+        cv::Sobel(floatFace, gradY, CV_32F, 0, 1, 3);
+
+        cv::Scalar gradXMean, gradYMean;
+        cv::meanStdDev(gradX, gradXMean, cv::noArray());
+        cv::meanStdDev(gradY, gradYMean, cv::noArray());
+
+        encoding.push_back(static_cast<float>(gradXMean[0])); // Mean gradient X
+        encoding.push_back(static_cast<float>(gradYMean[0])); // Mean gradient Y
+
+        std::cout << "Extracted " << encoding.size() << " dimensional face encoding" << std::endl;
+        return encoding;
+
+    } catch (const std::exception& e) {
+        std::cerr << "Error extracting face encoding: " << e.what() << std::endl;
+        // Return a minimal default encoding on error
+        return std::vector<float>(128, 0.0f); // 128-dimensional zero vector
+    }
 }

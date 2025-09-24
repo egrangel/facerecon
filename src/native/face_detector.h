@@ -7,6 +7,7 @@ struct DetectedFace {
     cv::Rect boundingBox;
     double confidence;
     std::vector<cv::Point2f> landmarks;
+    std::vector<float> encoding; // Face encoding for recognition
 };
 
 struct DetectionResult {
@@ -35,6 +36,7 @@ public:
     void setConfidenceThreshold(float threshold);
     void setNMSThreshold(float threshold);
     bool isInitialized() const { return initialized; }
+    std::vector<float> extractFaceEncoding(const cv::Mat& face);
 
 private:
     bool validateFaceRegion(const cv::Rect& faceRect, const cv::Mat& frame);

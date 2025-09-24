@@ -140,14 +140,21 @@ export class WebSocketStreamService {
   ): Promise<string> {
     let sessionId: string | null = null;
     try {
-      // Check if stream already exists for this camera
+      // Check if stream already exists for this camera with active clients (live viewing)
       const existingSession = this.findSessionByCameraId(cameraId);
       if (existingSession && existingSession.isActive) {
-        existingSession.lastAccessed = new Date();
-        return existingSession.id;
+        if (existingSession.clients.size > 0) {
+          // Only reuse sessions that have active WebSocket clients (live viewing)
+          existingSession.lastAccessed = new Date();
+          console.log(`🔄 REUSE: Reusing existing live viewing session ${existingSession.id} for camera ${cameraId} (${existingSession.clients.size} clients)`);
+          return existingSession.id;
+        } else {
+          // Session exists but has no clients - this is likely a face recognition session
+          console.log(`🧠 FACE: Face recognition session ${existingSession.id} exists for camera ${cameraId}, creating separate live viewing session`);
+        }
       }
 
-      // Create new session
+      // Create new session for live viewing
       sessionId = uuidv4();
       const session: WebSocketStreamSession = {
         id: sessionId,
@@ -160,6 +167,8 @@ export class WebSocketStreamService {
         clients: new Set(),
         faceRecognitionEnabled: false, // Video streaming doesn't include face recognition
       };
+
+      console.log(`📺 NEW: Creating new live viewing session ${sessionId} for camera ${cameraId}`);
 
       // Store session early so we can clean up on error
       this.sessions.set(sessionId, session);

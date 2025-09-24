@@ -19,6 +19,7 @@ interface NativeDetectionResult {
       height: number;
     };
     confidence: number;
+    encoding: number[]; // Face encoding for recognition
   }>;
   processingTimeMs: number;
   error?: string;

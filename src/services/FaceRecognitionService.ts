@@ -94,6 +94,7 @@ export class FaceRecognitionService {
           boundingBox: face.boundingBox,
           confidence: face.confidence,
           landmarks: face.landmarks || [],
+          encoding: face.encoding || [], // Include face encoding from C++
         }))
         .filter(face => {
           console.log(`🔍 NATIVE: Processing detection: confidence=${face.confidence.toFixed(3)}, size=${face.boundingBox.width.toFixed(0)}x${face.boundingBox.height.toFixed(0)}`);
@@ -133,7 +134,15 @@ export class FaceRecognitionService {
       }
 
       // Use provided eventId or get the active event for this camera
-      const currentEventId = eventId || await this.getActiveEventForCamera(cameraId);
+      let currentEventId = eventId;
+      if (!currentEventId) {
+        try {
+          currentEventId = await this.getActiveEventForCamera(cameraId);
+        } catch (error) {
+          console.log(`No active event for camera ${cameraId}, skipping detection recording (faces detected but not saved)`);
+          return; // Skip detection recording when no active event
+        }
+      }
 
       // Only save detection images periodically to avoid too many duplicates
       let imageUrl = '';
@@ -160,16 +169,20 @@ export class FaceRecognitionService {
             personFaceId = await this.createUnknownPersonFace(face, organizationId);
           }
 
-          // Record the detection
+          // Record the detection with enhanced metadata
           await this.detectionService.create({
             detectedAt: new Date(),
             confidence: face.confidence,
-            status: 'detected',
+            status: recognition.isMatch ? 'recognized' : 'detected',
             imageUrl,
             metadata: JSON.stringify({
               boundingBox: face.boundingBox,
               isKnown: recognition.isMatch,
               recognitionConfidence: recognition.confidence,
+              personName: recognition.personName || 'Unknown',
+              encodingLength: face.encoding?.length || 0,
+              faceDetectionConfidence: face.confidence,
+              processingTimestamp: new Date().toISOString(),
             }),
             eventId: currentEventId,
             personFaceId,
@@ -183,6 +196,7 @@ export class FaceRecognitionService {
       // Don't throw - we don't want to stop the stream for recognition errors
     }
   }
+
 
   /**
    * Get the active event for a specific camera
@@ -222,17 +236,64 @@ export class FaceRecognitionService {
    */
   private async recognizeFace(face: DetectedFace, organizationId: number): Promise<RecognitionResult> {
     try {
-      // For now, return unknown - face encoding/matching would require more complex ML
-      // This is a placeholder for face recognition logic
-      // In a real implementation, you would:
-      // 1. Extract face encoding from the detected face
-      // 2. Compare against stored face encodings in the database
-      // 3. Return the best match if confidence is above threshold
+      // Check if we have encoding data for the detected face
+      if (!face.encoding || face.encoding.length === 0) {
+        console.log('🔍 RECOGNITION: No encoding data available for face recognition');
+        return {
+          confidence: 0,
+          isMatch: false,
+        };
+      }
 
-      return {
+      // Get all known faces for this organization that have biometric parameters
+      const knownPersons = await this.personService.findByOrganizationId(organizationId);
+      let bestMatch: RecognitionResult = {
         confidence: 0,
         isMatch: false,
       };
+
+      console.log(`🔍 RECOGNITION: Comparing against ${knownPersons.length} known persons`);
+
+      for (const person of knownPersons) {
+        // Get person faces with biometric data
+        const fullPerson = await this.personService.findWithFullRelations(person.id);
+
+        if (fullPerson.personFaces && fullPerson.personFaces.length > 0) {
+          for (const personFace of fullPerson.personFaces) {
+            if (personFace.biometricParameters) {
+              try {
+                const storedEncoding = JSON.parse(personFace.biometricParameters);
+
+                if (storedEncoding && Array.isArray(storedEncoding) && storedEncoding.length > 0) {
+                  // Compute similarity between encodings
+                  const similarity = this.computeFaceSimilarity(face.encoding, storedEncoding);
+
+                  console.log(`🔍 RECOGNITION: Person ${person.name} (face ${personFace.id}): similarity=${similarity.toFixed(3)}`);
+
+                  if (similarity > bestMatch.confidence && similarity > this.recognitionThreshold) {
+                    bestMatch = {
+                      personFaceId: personFace.id,
+                      personName: person.name,
+                      confidence: similarity,
+                      isMatch: true,
+                    };
+                  }
+                }
+              } catch (parseError) {
+                console.warn(`Failed to parse biometric data for person face ${personFace.id}:`, parseError);
+              }
+            }
+          }
+        }
+      }
+
+      if (bestMatch.isMatch) {
+        console.log(`✅ RECOGNITION: Match found! Person: ${bestMatch.personName}, confidence: ${bestMatch.confidence.toFixed(3)}`);
+      } else {
+        console.log('❓ RECOGNITION: No matching face found in database');
+      }
+
+      return bestMatch;
     } catch (error) {
       console.error('Face recognition failed:', error);
       return {
@@ -255,15 +316,19 @@ export class FaceRecognitionService {
         organizationId,
       });
 
-      // Create a face entry for this unknown person
+      // Create a face entry for this unknown person with biometric data
+      const encodingData = face.encoding || [];
+      console.log(`💾 BIOMETRIC: Storing ${encodingData.length}-dimensional face encoding for unknown person ${unknownPerson.id}`);
+
       const personFace = await this.personService.addFace(unknownPerson.id, {
         faceId: `face-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Generate unique faceId
-        biometricParameters: JSON.stringify(face.encoding || []),
+        biometricParameters: JSON.stringify(encodingData),
         reliability: face.confidence,
         status: 'active' as any,
         notes: JSON.stringify({
           source: 'camera_detection',
           boundingBox: face.boundingBox,
+          encodingLength: encodingData.length,
         }),
       } as any);
 
@@ -549,7 +614,50 @@ export class FaceRecognitionService {
     return true;
   }
 
+  /**
+   * Compute similarity between two face encodings using cosine similarity
+   */
+  private computeFaceSimilarity(encoding1: number[], encoding2: number[]): number {
+    try {
+      // Ensure encodings have the same length
+      if (encoding1.length !== encoding2.length) {
+        console.warn(`Encoding length mismatch: ${encoding1.length} vs ${encoding2.length}`);
+        return 0;
+      }
 
+      if (encoding1.length === 0 || encoding2.length === 0) {
+        return 0;
+      }
+
+      // Compute cosine similarity
+      let dotProduct = 0;
+      let magnitude1 = 0;
+      let magnitude2 = 0;
+
+      for (let i = 0; i < encoding1.length; i++) {
+        dotProduct += encoding1[i] * encoding2[i];
+        magnitude1 += encoding1[i] * encoding1[i];
+        magnitude2 += encoding2[i] * encoding2[i];
+      }
+
+      magnitude1 = Math.sqrt(magnitude1);
+      magnitude2 = Math.sqrt(magnitude2);
+
+      if (magnitude1 === 0 || magnitude2 === 0) {
+        return 0;
+      }
+
+      // Cosine similarity ranges from -1 to 1
+      // Convert to 0-1 range where 1 is perfect match
+      const cosineSimilarity = dotProduct / (magnitude1 * magnitude2);
+      const normalizedSimilarity = (cosineSimilarity + 1) / 2;
+
+      return normalizedSimilarity;
+    } catch (error) {
+      console.error('Error computing face similarity:', error);
+      return 0;
+    }
+  }
 
   /**
    * Get service health and statistics
