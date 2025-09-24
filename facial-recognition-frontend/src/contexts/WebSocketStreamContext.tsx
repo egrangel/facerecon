@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { apiClient } from '../services/api';
 
 interface StreamSession {
@@ -23,7 +23,9 @@ interface WebSocketStreamContextValue {
     hasError: boolean;
     errorMessage: string;
   };
+  updateStream: (cameraId: number, updates: Partial<StreamSession>) => void;
   refreshStream: (cameraId: number) => Promise<void>;
+  subscribeToCamera: (cameraId: number, callback: () => void) => () => void;
 }
 
 const WebSocketStreamContext = createContext<WebSocketStreamContextValue | undefined>(undefined);
@@ -36,25 +38,128 @@ export const useWebSocketStream = () => {
   return context;
 };
 
+// Custom hook for camera-specific state that doesn't cause global re-renders
+export const useCameraStream = (cameraId: number) => {
+  const context = useWebSocketStream();
+  const [, forceUpdate] = useState({});
+
+  // Subscribe to this specific camera's updates only
+  useEffect(() => {
+    const unsubscribe = context.subscribeToCamera(cameraId, () => {
+      forceUpdate({});
+    });
+
+    return unsubscribe;
+  }, [context, cameraId]);
+
+  // Return camera-specific methods and state
+  return {
+    stream: context.streams.get(cameraId),
+    state: context.getStreamState(cameraId),
+    startStream: () => context.startStream(cameraId),
+    stopStream: () => context.stopStream(cameraId),
+    refreshStream: () => context.refreshStream(cameraId),
+  };
+};
+
 interface WebSocketStreamProviderProps {
   children: React.ReactNode;
 }
 
 export const WebSocketStreamProvider: React.FC<WebSocketStreamProviderProps> = ({ children }) => {
   const [streams] = useState<Map<number, StreamSession>>(new Map());
-  const [, forceUpdate] = useState({});
+  const [updateCounter, setUpdateCounter] = useState(0);
+  const cameraSubscriptions = useRef<Map<number, Set<() => void>>>(new Map());
 
-  // Force re-render when streams change
-  const triggerUpdate = useCallback(() => {
-    forceUpdate({});
+  // Targeted update for specific cameras only
+  const triggerCameraUpdate = useCallback((cameraId: number) => {
+    const callbacks = cameraSubscriptions.current.get(cameraId);
+    if (callbacks) {
+      callbacks.forEach(callback => {
+        requestAnimationFrame(callback);
+      });
+    }
+  }, []);
+
+  // Global update only when absolutely necessary (like clearing all streams)
+  const triggerGlobalUpdate = useCallback(() => {
+    requestAnimationFrame(() => {
+      setUpdateCounter(prev => prev + 1);
+    });
   }, []);
 
   // Clear all streams on app startup to prevent stale session issues
   useEffect(() => {
     console.log('WebSocketStreamProvider initialized - clearing any existing streams');
     streams.clear();
-    triggerUpdate();
-  }, []);
+    triggerGlobalUpdate(); // Only use global update for initialization
+  }, [triggerGlobalUpdate]);
+
+  // Cleanup live streams when browser/tab is closed (keep facial recognition running)
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      console.log('Browser closing - cleaning up live viewing streams only');
+
+      // Get all active live viewing streams
+      const liveStreams = Array.from(streams.values()).filter(stream =>
+        stream.isPlaying && stream.sessionId
+      );
+
+      if (liveStreams.length > 0) {
+        console.log(`Stopping ${liveStreams.length} live viewing streams before browser close`);
+
+        // Use optimized bulk cleanup endpoint
+        const apiUrl = process.env.REACT_APP_API_URL || 'http://192.168.1.2:3001/api/v1';
+        const cleanupUrl = `${apiUrl}/streams/cleanup`;
+        const sessionIds = liveStreams.map(stream => stream.sessionId);
+
+        try {
+          // Try sendBeacon first (most reliable for browser close)
+          if (navigator.sendBeacon) {
+            const formData = new FormData();
+            formData.append('sessionIds', sessionIds.join(','));
+            const sent = navigator.sendBeacon(cleanupUrl, formData);
+            console.log(`Cleanup beacon sent: ${sent}, sessions: ${sessionIds.join(', ')}`);
+          } else {
+            // Fallback to synchronous fetch for older browsers
+            fetch(cleanupUrl, {
+              method: 'POST',
+              keepalive: true,
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ sessionIds }),
+            }).catch(error => {
+              console.warn('Cleanup fallback failed:', error);
+            });
+          }
+        } catch (error) {
+          console.warn('Failed to send cleanup request:', error);
+        }
+      }
+    };
+
+    // Add beforeunload listener
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Add pagehide listener as backup (more reliable on mobile/modern browsers)
+    window.addEventListener('pagehide', handleBeforeUnload);
+
+    // Add visibilitychange listener for additional coverage
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        handleBeforeUnload(new Event('visibilitychange') as any);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Cleanup listeners on unmount
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [streams]);
 
   // Cleanup inactive streams periodically
   useEffect(() => {
@@ -87,7 +192,8 @@ export const WebSocketStreamProvider: React.FC<WebSocketStreamProviderProps> = (
       streamType: 'websocket' as const,
     };
     streams.set(cameraId, stream);
-    triggerUpdate();
+    // Only update this specific camera
+    triggerCameraUpdate(cameraId);
 
     try {
       // Get or create backend WebSocket stream session for video display only
@@ -95,12 +201,13 @@ export const WebSocketStreamProvider: React.FC<WebSocketStreamProviderProps> = (
       stream.sessionId = response.sessionId;
       stream.streamUrl = response.streamUrl;
 
-      console.log(`WebSocket stream started for camera ${cameraId}, session: ${stream.sessionId}`);
+      // WebSocket stream started successfully
 
       // The WebSocketStreamPlayer component will handle the actual connection
       stream.isLoading = false;
       stream.isPlaying = true;
-      triggerUpdate();
+      // Only update this specific camera
+      triggerCameraUpdate(cameraId);
 
     } catch (error: any) {
       console.error('Error starting WebSocket stream:', error);
@@ -125,9 +232,9 @@ export const WebSocketStreamProvider: React.FC<WebSocketStreamProviderProps> = (
         stream.errorMessage = 'Failed to start WebSocket stream';
       }
 
-      triggerUpdate();
+      triggerCameraUpdate(cameraId);
     }
-  }, [streams, triggerUpdate]);
+  }, [streams, triggerGlobalUpdate]);
 
   const stopStream = useCallback(async (cameraId: number) => {
     const stream = streams.get(cameraId);
@@ -141,15 +248,15 @@ export const WebSocketStreamProvider: React.FC<WebSocketStreamProviderProps> = (
 
       // Remove stream from state
       streams.delete(cameraId);
-      triggerUpdate();
+      triggerCameraUpdate(cameraId);
 
     } catch (error) {
       console.error('Error stopping WebSocket stream:', error);
       // Remove from state even if backend call fails
       streams.delete(cameraId);
-      triggerUpdate();
+      triggerCameraUpdate(cameraId);
     }
-  }, [streams, triggerUpdate]);
+  }, [streams, triggerGlobalUpdate]);
 
   const getStreamState = useCallback((cameraId: number) => {
     const stream = streams.get(cameraId);
@@ -176,7 +283,7 @@ export const WebSocketStreamProvider: React.FC<WebSocketStreamProviderProps> = (
 
     // Remove the old stream first to prevent conflicts
     streams.delete(cameraId);
-    triggerUpdate();
+    triggerCameraUpdate(cameraId);
 
     try {
       // Try to stop the old backend stream if it exists
@@ -211,16 +318,46 @@ export const WebSocketStreamProvider: React.FC<WebSocketStreamProviderProps> = (
       };
 
       streams.set(cameraId, errorStream);
-      triggerUpdate();
+      triggerCameraUpdate(cameraId);
     }
-  }, [streams, startStream, triggerUpdate]);
+  }, [streams, startStream, triggerGlobalUpdate]);
+
+  const updateStream = useCallback((cameraId: number, updates: Partial<StreamSession>) => {
+    const stream = streams.get(cameraId);
+    if (stream) {
+      Object.assign(stream, updates);
+      // Minimal update - only trigger re-render for state changes
+      triggerCameraUpdate(cameraId);
+    }
+  }, [streams, triggerCameraUpdate]);
+
+  const subscribeToCamera = useCallback((cameraId: number, callback: () => void) => {
+    if (!cameraSubscriptions.current.has(cameraId)) {
+      cameraSubscriptions.current.set(cameraId, new Set());
+    }
+
+    cameraSubscriptions.current.get(cameraId)!.add(callback);
+
+    // Return unsubscribe function
+    return () => {
+      const callbacks = cameraSubscriptions.current.get(cameraId);
+      if (callbacks) {
+        callbacks.delete(callback);
+        if (callbacks.size === 0) {
+          cameraSubscriptions.current.delete(cameraId);
+        }
+      }
+    };
+  }, []);
 
   const value: WebSocketStreamContextValue = {
     streams,
     startStream,
     stopStream,
     getStreamState,
+    updateStream,
     refreshStream,
+    subscribeToCamera,
   };
 
   return (

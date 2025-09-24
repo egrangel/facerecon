@@ -6,7 +6,7 @@ import Input from '../components/ui/Input';
 import { apiClient } from '../services/api';
 import { Camera } from '../types/api';
 import { StreamPlayer } from '../components/StreamPlayer';
-import { useWebSocketStream } from '../contexts/WebSocketStreamContext';
+import { useCameraStream } from '../contexts/WebSocketStreamContext';
 
 interface CameraFormData {
   name: string;
@@ -28,9 +28,8 @@ interface LiveStreamContainerProps {
 
 const LiveStreamContainer: React.FC<LiveStreamContainerProps> = ({ camera, className = '' }) => {
   const [error, setError] = useState<string | null>(null);
-  const webSocketStream = useWebSocketStream();
-  const webSocketState = webSocketStream.getStreamState(camera.id);
-  const webSocketSession = webSocketStream.streams.get(camera.id);
+  const cameraStream = useCameraStream(camera.id);
+  const { stream: webSocketSession, state: webSocketState } = cameraStream;
 
   const handleError = (errorMessage: string) => {
     setError(errorMessage);
@@ -39,7 +38,7 @@ const LiveStreamContainer: React.FC<LiveStreamContainerProps> = ({ camera, class
 
   const handleStartStream = async () => {
     try {
-      await webSocketStream.startStream(camera.id);
+      await cameraStream.startStream();
     } catch (error: any) {
       handleError(error.message || 'Failed to start stream');
     }
@@ -47,7 +46,7 @@ const LiveStreamContainer: React.FC<LiveStreamContainerProps> = ({ camera, class
 
   const handleStopStream = async () => {
     try {
-      await webSocketStream.stopStream(camera.id);
+      await cameraStream.stopStream();
     } catch (error: any) {
       console.error('Error stopping stream:', error);
     }
@@ -55,7 +54,7 @@ const LiveStreamContainer: React.FC<LiveStreamContainerProps> = ({ camera, class
 
   const handleRefreshStream = async () => {
     try {
-      await webSocketStream.refreshStream(camera.id);
+      await cameraStream.refreshStream();
     } catch (error: any) {
       handleError(error.message || 'Failed to refresh stream');
     }

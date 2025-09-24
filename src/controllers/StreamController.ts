@@ -208,6 +208,63 @@ export class StreamController {
 
   /**
    * @swagger
+   * /api/v1/streams/cleanup:
+   *   post:
+   *     summary: Cleanup multiple live viewing streams (for browser close)
+   *     tags: [Streams]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               sessionIds:
+   *                 type: array
+   *                 items:
+   *                   type: string
+   *         application/x-www-form-urlencoded:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               sessionIds:
+   *                 type: string
+   *     responses:
+   *       200:
+   *         description: Cleanup completed
+   */
+  cleanupStreams = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    let sessionIds: string[] = [];
+
+    // Handle both JSON and form data (for sendBeacon)
+    if (req.body.sessionIds) {
+      if (Array.isArray(req.body.sessionIds)) {
+        sessionIds = req.body.sessionIds;
+      } else {
+        // Handle comma-separated string from form data
+        sessionIds = req.body.sessionIds.split(',').map((id: string) => id.trim());
+      }
+    }
+
+    console.log(`Browser cleanup request for ${sessionIds.length} live viewing streams`);
+
+    const results = sessionIds.map(sessionId => {
+      const success = streamService.stopStream(sessionId);
+      console.log(`Cleanup stream ${sessionId}: ${success ? 'success' : 'not found'}`);
+      return { sessionId, success };
+    });
+
+    const successCount = results.filter(r => r.success).length;
+
+    res.status(200).json({
+      success: true,
+      message: `Cleaned up ${successCount}/${sessionIds.length} live viewing streams`,
+      results,
+    });
+  });
+
+  /**
+   * @swagger
    * /api/v1/streams/health:
    *   get:
    *     summary: Get streaming service health

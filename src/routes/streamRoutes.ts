@@ -21,6 +21,7 @@ router.get('/camera/:cameraId/url', streamController.getCameraStreamUrl);
 // Administrative routes
 router.get('/active', authorize(['admin', 'operator']), streamController.getActiveStreams);
 router.get('/health', authorize(['admin']), streamController.getServiceHealth);
+router.post('/cleanup', streamController.cleanupStreams); // Browser close cleanup - no auth needed for reliability
 
 // Face recognition routes (independent of video streaming)
 router.post('/face-recognition/camera/:cameraId/start', authorize(['admin', 'operator']), streamController.startCameraFaceRecognition);

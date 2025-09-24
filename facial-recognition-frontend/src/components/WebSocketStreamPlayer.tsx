@@ -141,8 +141,6 @@ export const WebSocketStreamPlayer: React.FC<WebSocketStreamPlayerProps> = ({
   }, [sessionId, onError, onStreamStart, onStreamStop]);
 
   const drawFrame = useCallback((base64Data: string) => {
-    console.log('drawFrame called with data length:', base64Data.length);
-
     const canvas = canvasRef.current;
     if (!canvas) {
       console.error('Canvas not available');

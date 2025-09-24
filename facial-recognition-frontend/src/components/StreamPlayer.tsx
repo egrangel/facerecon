@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { WebSocketStreamPlayer } from './WebSocketStreamPlayer';
-import { useWebSocketStream } from '../contexts/WebSocketStreamContext';
+import { useCameraStream } from '../contexts/WebSocketStreamContext';
 
 interface StreamPlayerProps {
   cameraId: number;
@@ -19,27 +19,24 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
 }) => {
   const [error, setError] = useState<string | null>(null);
 
-  // WebSocket streaming context
-  const webSocketStream = useWebSocketStream();
-  const webSocketState = webSocketStream.getStreamState(cameraId);
-  const webSocketSession = webSocketStream.streams.get(cameraId);
+  // Camera-specific streaming hook (no global re-renders)
+  const cameraStream = useCameraStream(cameraId);
+  const { stream: webSocketSession, state: webSocketState } = cameraStream;
 
   const startStream = useCallback(async () => {
     try {
-      console.log(`Starting WebSocket stream for camera ${cameraId}`);
-      await webSocketStream.startStream(cameraId);
-      console.log('WebSocket stream started, session:', webSocketSession);
+      await cameraStream.startStream();
     } catch (error: any) {
       console.error('Error starting stream:', error);
       setError(error.message || 'Failed to start stream');
       onError?.(error.message || 'Failed to start stream');
     }
-  }, [cameraId, webSocketStream, webSocketSession, onError]);
+  }, [cameraStream, onError]);
 
   const refreshStream = useCallback(async () => {
-    await webSocketStream.refreshStream(cameraId);
+    await cameraStream.refreshStream();
     setError(null);
-  }, [cameraId, webSocketStream]);
+  }, [cameraStream]);
 
   const handleError = useCallback((errorMessage: string) => {
     setError(errorMessage);
@@ -88,7 +85,7 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
       {(!webSocketSession || !webSocketSession.sessionId) && (
         <div className="w-full h-full bg-gray-900 flex items-center justify-center">
           <div className="text-center">
-            {webSocketSession && !webSocketSession.sessionId ? (
+            {webSocketSession && !webSocketSession.sessionId && webSocketSession.isLoading && webSocketSession.cameraId === cameraId ? (
               <div className="text-white">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mx-auto mb-2"></div>
                 <p className="text-sm">Connecting to stream...</p>
