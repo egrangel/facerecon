@@ -8,24 +8,42 @@
       ],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")",
-        "C:\\opencv\\build\\include"
+        "C:\\opencv\\build\\include",
+        "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.0\\include"
       ],
       "library_dirs": [
-        "C:\\opencv\\build\\x64\\vc16\\lib"
+        "C:\\opencv\\build\\x64\\vc16\\lib",
+        "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.0\\lib\\x64"
       ],
       "libraries": [
-        "opencv_world4120.lib"
+        "opencv_world4120.lib",
+        "cuda.lib",
+        "cudart.lib",
+        "cublas.lib",
+        "curand.lib",
+        "cufft.lib"
       ],
       "defines": [
-        "NAPI_DISABLE_CPP_EXCEPTIONS"
+        "NAPI_DISABLE_CPP_EXCEPTIONS",
+        "HAVE_CUDA=1"
+      ],
+      "conditions": [
+        ["OS=='win'", {
+          "msvs_settings": {
+            "VCCLCompilerTool": {
+              "ExceptionHandling": 1,
+              "AdditionalOptions": ["/bigobj"]
+            }
+          },
+          "libraries": [
+            "cuda.lib",
+            "cudart.lib",
+            "cublas.lib"
+          ]
+        }]
       ],
       "cflags!": ["-fno-exceptions"],
       "cflags_cc!": ["-fno-exceptions"],
-      "msvs_settings": {
-        "VCCLCompilerTool": {
-          "ExceptionHandling": 1
-        }
-      },
       "copies": [
         {
           "destination": "<(PRODUCT_DIR)",

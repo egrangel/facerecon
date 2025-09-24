@@ -4,7 +4,7 @@
   "description": "Backend application for facial recognition system with client management",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && tsc-alias",
     "build:native": "node-gyp rebuild",
     "install:deps": "node scripts/install-deps.js",
     "install:native": "node scripts/install-native.js",
@@ -87,6 +87,7 @@
     "supertest": "^6.3.3",
     "ts-jest": "^29.1.1",
     "ts-node-dev": "^2.0.0",
+    "tsc-alias": "^1.8.16",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.1.6"
   },

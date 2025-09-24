@@ -28,13 +28,14 @@ interface NativeDetectionResult {
 export class NativeFaceDetectionService {
   private detector: NativeFaceDetector | null = null;
   private isInitialized = false;
-  private detectionQueue: Promise<any> = Promise.resolve();
+  // Remove queue system - use true parallel processing instead
   private performanceStats = {
     totalDetections: 0,
     totalProcessingTime: 0,
     averageProcessingTime: 0,
     maxProcessingTime: 0,
     minProcessingTime: Infinity,
+    concurrentDetections: 0, // Track concurrent detections
   };
 
   constructor() {
@@ -78,7 +79,7 @@ export class NativeFaceDetectionService {
   }
 
   /**
-   * Detect faces using the high-performance C++ module with thread safety
+   * Detect faces using the high-performance C++ module - removed queue for full parallelism
    */
   public async detectFaces(imageBuffer: Buffer): Promise<{
     faces: Array<{
@@ -88,42 +89,35 @@ export class NativeFaceDetectionService {
     }>;
     processingTimeMs: number;
   }> {
-    // Use queue to ensure thread safety for concurrent requests
-    return new Promise((resolve, reject) => {
-      this.detectionQueue = this.detectionQueue.then(async () => {
-        try {
-          if (!this.detector || !this.isInitialized) {
-            throw new Error('Native face detector not initialized');
-          }
+    if (!this.detector || !this.isInitialized) {
+      throw new Error('Native face detector not initialized');
+    }
 
-          const result = this.detector.detectFaces(imageBuffer);
+    try {
+      const result = this.detector.detectFaces(imageBuffer);
 
-          if (!result.success) {
-            throw new Error(`Face detection failed: ${result.error}`);
-          }
+      if (!result.success) {
+        throw new Error(`Face detection failed: ${result.error}`);
+      }
 
-          // Update performance statistics
-          this.updatePerformanceStats(result.processingTimeMs);
+      // Update performance statistics
+      this.updatePerformanceStats(result.processingTimeMs);
 
-          const processedResult = {
-            faces: result.faces.map(face => ({
-              boundingBox: face.boundingBox,
-              confidence: face.confidence,
-              landmarks: [], // C++ module can be extended to include landmarks
-            })),
-            processingTimeMs: result.processingTimeMs,
-          };
-
-          resolve(processedResult);
-        } catch (error) {
-          reject(error);
-        }
-      }).catch(reject);
-    });
+      return {
+        faces: result.faces.map(face => ({
+          boundingBox: face.boundingBox,
+          confidence: face.confidence,
+          landmarks: [], // C++ module can be extended to include landmarks
+        })),
+        processingTimeMs: result.processingTimeMs,
+      };
+    } catch (error) {
+      throw error;
+    }
   }
 
   /**
-   * Async face detection for non-blocking operations with thread safety
+   * Async face detection with true parallel processing - no queuing
    */
   public detectFacesAsync(
     imageBuffer: Buffer
@@ -135,53 +129,56 @@ export class NativeFaceDetectionService {
     }>;
     processingTimeMs: number;
   }> {
-    // Use queue to ensure thread safety for concurrent requests
     return new Promise((resolve, reject) => {
-      this.detectionQueue = this.detectionQueue.then(async () => {
-        return new Promise<void>((queueResolve, queueReject) => {
-          if (!this.detector || !this.isInitialized) {
-            const error = new Error('Native face detector not initialized');
-            reject(error);
-            queueReject(error);
+      if (!this.detector || !this.isInitialized) {
+        reject(new Error('Native face detector not initialized'));
+        return;
+      }
+
+      // Track concurrent detections
+      this.performanceStats.concurrentDetections++;
+      const startTime = Date.now();
+
+      // Add timeout for safety
+      const timeoutId = setTimeout(() => {
+        this.performanceStats.concurrentDetections--;
+        reject(new Error('Face detection timeout - 15 seconds exceeded'));
+      }, 15000); // 15 second timeout
+
+      // Direct async call - no queuing, full parallelism
+      this.detector.detectFacesAsync(imageBuffer, (err, result) => {
+        try {
+          clearTimeout(timeoutId);
+          this.performanceStats.concurrentDetections--;
+
+          if (err) {
+            reject(err);
             return;
           }
 
-          this.detector.detectFacesAsync(imageBuffer, (err, result) => {
-            try {
-              if (err) {
-                reject(err);
-                queueReject(err);
-                return;
-              }
+          if (!result.success) {
+            reject(new Error(`Face detection failed: ${result.error}`));
+            return;
+          }
 
-              if (!result.success) {
-                const error = new Error(`Face detection failed: ${result.error}`);
-                reject(error);
-                queueReject(error);
-                return;
-              }
+          // Update performance statistics
+          this.updatePerformanceStats(result.processingTimeMs);
 
-              // Update performance statistics
-              this.updatePerformanceStats(result.processingTimeMs);
+          const processedResult = {
+            faces: result.faces.map(face => ({
+              boundingBox: face.boundingBox,
+              confidence: face.confidence,
+              landmarks: [],
+            })),
+            processingTimeMs: result.processingTimeMs,
+          };
 
-              const processedResult = {
-                faces: result.faces.map(face => ({
-                  boundingBox: face.boundingBox,
-                  confidence: face.confidence,
-                  landmarks: [],
-                })),
-                processingTimeMs: result.processingTimeMs,
-              };
-
-              resolve(processedResult);
-              queueResolve();
-            } catch (error) {
-              reject(error);
-              queueReject(error);
-            }
-          });
-        });
-      }).catch(reject);
+          resolve(processedResult);
+        } catch (error) {
+          this.performanceStats.concurrentDetections--;
+          reject(error);
+        }
+      });
     });
   }
 

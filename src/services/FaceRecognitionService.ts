@@ -38,6 +38,14 @@ export class FaceRecognitionService {
   private readonly recognitionThreshold = 0.8; // Minimum confidence for face recognition
   private lastSavedImageTime = 0; // Track when we last saved a detection image
   private readonly imageSaveInterval = 1000; // Save detection images max every 1000ms for crowd monitoring
+  private readonly processingTimeoutMs = 10000; // 10 second timeout for face detection
+  private readonly performanceStats = {
+    totalProcessingTime: 0,
+    totalDetections: 0,
+    averageProcessingTime: 0,
+    activeDetections: 0,
+    lastResetTime: Date.now(),
+  };
 
   constructor() {
     this.personService = new PersonService();
@@ -51,30 +59,25 @@ export class FaceRecognitionService {
    */
   public async initialize(): Promise<void> {
     if (this.isInitialized) {
-      console.log('🔄 INIT: Forcing face detection re-initialization...');
       this.dispose(); // Force re-initialization with new config
     }
 
     try {
-      console.log('🚀 INIT: Initializing native C++ face detector...');
       const nativeSuccess = await nativeFaceDetectionService.initialize();
 
       if (nativeSuccess) {
         this.isInitialized = true;
-        console.log('🎉 INIT: Native C++ face detector ready!');
-        console.log('⚡ NATIVE: High-performance OpenCV face detection active');
         return;
       } else {
         throw new Error('Native detector initialization failed');
       }
     } catch (error) {
-      console.error('❌ CRITICAL: Failed to initialize native face detection:', error);
       throw new Error(`Native face detection initialization failed: ${error}`);
     }
   }
 
   /**
-   * Detect faces in an image buffer using native detector
+   * Detect faces in an image buffer using native detector with timeout protection
    */
   public async detectFaces(imageBuffer: Buffer): Promise<FaceDetectionResult> {
     if (!this.isInitialized) {
@@ -82,11 +85,11 @@ export class FaceRecognitionService {
     }
 
     try {
-      const startTime = Date.now();
-      const nativeResult = await nativeFaceDetectionService.detectFacesAsync(imageBuffer);
-      const totalTime = Date.now() - startTime;
-
-      console.log(`🚀 NATIVE: Detected ${nativeResult.faces.length} faces in ${nativeResult.processingTimeMs}ms (total: ${totalTime}ms)`);
+      // Wrap detection with timeout to prevent freezing
+      const nativeResult: any = await Promise.race([
+        nativeFaceDetectionService.detectFacesAsync(imageBuffer),
+        this.createTimeoutPromise(this.processingTimeoutMs, 'Face detection timeout')
+      ]);
 
       // Convert native result to our format
       const candidateFaces: DetectedFace[] = nativeResult.faces
@@ -96,28 +99,36 @@ export class FaceRecognitionService {
           landmarks: face.landmarks || [],
           encoding: face.encoding || [], // Include face encoding from C++
         }))
-        .filter(face => {
-          console.log(`🔍 NATIVE: Processing detection: confidence=${face.confidence.toFixed(3)}, size=${face.boundingBox.width.toFixed(0)}x${face.boundingBox.height.toFixed(0)}`);
+        .filter((face: any) => {
           // Basic validation for native detector
           return this.validateBasicFace(face);
         });
 
-      console.log(`🔍 FILTER: ${candidateFaces.length} faces passed basic validation`);
-
       // Apply advanced filtering to remove false positives
       const faces = this.applyAdvancedFiltering(candidateFaces);
 
-      console.log(`✅ FINAL: ${faces.length} faces passed all validation (${candidateFaces.length - faces.length} filtered out)`);
-
       return { faces };
-    } catch (error) {
-      console.error('Native face detection failed:', error);
+    } catch (error: any) {
+      if (error.message && error.message.includes('timeout')) {
+        console.warn('⚠️ Face detection timed out, disposing detector for re-initialization');
+        this.dispose(); // Force re-initialization on timeout
+        return { faces: [] }; // Return empty result on timeout
+      }
       throw new Error(`Native face detection failed: ${error}`);
     }
   }
 
   /**
-   * Process a video frame for face detection and recognition
+   * Create a timeout promise that rejects after specified milliseconds
+   */
+  private createTimeoutPromise<T>(ms: number, message: string): Promise<T> {
+    return new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(message)), ms);
+    });
+  }
+
+  /**
+   * Process a video frame for face detection and recognition with camera-level throttling
    */
   public async processVideoFrame(
     frameBuffer: Buffer,
@@ -126,10 +137,25 @@ export class FaceRecognitionService {
     eventId?: number
   ): Promise<void> {
     try {
-      // Detect faces in the frame
+      // Start performance tracking
+      const startTime = Date.now();
+      this.performanceStats.activeDetections++;
+
+      console.log(`🎯 Camera ${cameraId}: Starting detection (${this.performanceStats.activeDetections} active globally)`);
+
+      // Detect faces in the frame with timeout protection - no throttling, full concurrency
       const detection = await this.detectFaces(frameBuffer);
+      const processingTime = Date.now() - startTime;
+
+      // Update performance statistics
+      this.performanceStats.totalDetections++;
+      this.performanceStats.totalProcessingTime += processingTime;
+      this.performanceStats.averageProcessingTime = this.performanceStats.totalProcessingTime / this.performanceStats.totalDetections;
+
+      console.log(`✅ Camera ${cameraId}: Detection completed in ${processingTime}ms, found ${detection.faces.length} faces (avg: ${this.performanceStats.averageProcessingTime.toFixed(1)}ms)`);
 
       if (detection.faces.length === 0) {
+        this.performanceStats.activeDetections--;
         return; // No faces detected
       }
 
@@ -140,6 +166,7 @@ export class FaceRecognitionService {
           currentEventId = await this.getActiveEventForCamera(cameraId);
         } catch (error) {
           console.log(`No active event for camera ${cameraId}, skipping detection recording (faces detected but not saved)`);
+          this.performanceStats.activeDetections--;
           return; // Skip detection recording when no active event
         }
       }
@@ -150,7 +177,6 @@ export class FaceRecognitionService {
       if (currentTime - this.lastSavedImageTime > this.imageSaveInterval) {
         imageUrl = await this.saveDetectionImage(frameBuffer, detection.faces);
         this.lastSavedImageTime = currentTime;
-        console.log(`📸 DETECTION: Saved detection image with ${detection.faces.length} faces (camera ${cameraId})`);
       }
 
       // Process each detected face
@@ -197,8 +223,18 @@ export class FaceRecognitionService {
           });
         }
       }
+
+      // Mark processing complete
+      this.performanceStats.activeDetections--;
+
     } catch (error) {
       console.error('Error processing video frame:', error);
+
+      // Ensure processing counter is decremented on error
+      if (this.performanceStats.activeDetections > 0) {
+        this.performanceStats.activeDetections--;
+      }
+
       // Don't throw - we don't want to stop the stream for recognition errors
     }
   }
@@ -244,7 +280,6 @@ export class FaceRecognitionService {
     try {
       // Check if we have encoding data for the detected face
       if (!face.encoding || face.encoding.length === 0) {
-        console.log('🔍 RECOGNITION: No encoding data available for face recognition');
         return {
           confidence: 0,
           isMatch: false,
@@ -257,8 +292,6 @@ export class FaceRecognitionService {
         confidence: 0,
         isMatch: false,
       };
-
-      console.log(`🔍 RECOGNITION: Comparing against ${knownPersons.length} known persons`);
 
       for (const person of knownPersons) {
         // Get person faces with biometric data
@@ -273,8 +306,6 @@ export class FaceRecognitionService {
                 if (storedEncoding && Array.isArray(storedEncoding) && storedEncoding.length > 0) {
                   // Compute similarity between encodings
                   const similarity = this.computeFaceSimilarity(face.encoding, storedEncoding);
-
-                  console.log(`🔍 RECOGNITION: Person ${person.name} (face ${personFace.id}): similarity=${similarity.toFixed(3)}`);
 
                   if (similarity > bestMatch.confidence && similarity > this.recognitionThreshold) {
                     bestMatch = {
@@ -324,7 +355,6 @@ export class FaceRecognitionService {
 
       // Create a face entry for this unknown person with biometric data
       const encodingData = face.encoding || [];
-      console.log(`💾 BIOMETRIC: Storing ${encodingData.length}-dimensional face encoding for unknown person ${unknownPerson.id}`);
 
       const personFace = await this.personService.addFace(unknownPerson.id, {
         faceId: `face-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Generate unique faceId
@@ -477,23 +507,17 @@ export class FaceRecognitionService {
   private applyAdvancedFiltering(faces: DetectedFace[]): DetectedFace[] {
     if (faces.length === 0) return faces;
 
-    console.log(`🔍 ADVANCED: Starting with ${faces.length} candidate faces`);
-
     // Step 1: Non-Maximum Suppression to remove overlapping detections
     let filteredFaces = this.nonMaximumSuppression(faces, 0.3);
-    console.log(`🔍 NMS: ${filteredFaces.length} faces after overlap removal`);
 
     // Step 2: Remove faces in UI overlay areas (timestamps, camera info, etc.)
     filteredFaces = this.removeUIOverlayFaces(filteredFaces);
-    console.log(`🔍 UI: ${filteredFaces.length} faces after UI overlay filtering`);
 
     // Step 3: Remove faces that are too densely packed (likely false positives)
     filteredFaces = this.removeDenselyPackedFaces(filteredFaces);
-    console.log(`🔍 DENSITY: ${filteredFaces.length} faces after density filtering`);
 
     // Step 4: Keep only the highest confidence faces (top 20% or max 10 faces)
     filteredFaces = this.keepTopConfidenceFaces(filteredFaces, 10);
-    console.log(`🔍 TOP: ${filteredFaces.length} faces after confidence ranking`);
 
     return filteredFaces;
   }
