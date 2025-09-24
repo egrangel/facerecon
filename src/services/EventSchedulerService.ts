@@ -45,6 +45,32 @@ export class EventSchedulerService {
   }
 
   /**
+   * Build RTSP URL with authentication credentials
+   */
+  private buildRtspUrl(camera: any): string {
+    if (!camera.streamUrl) {
+      throw new Error('Camera does not have a valid stream URL');
+    }
+
+    let rtspUrl = camera.streamUrl;
+
+    // If username and password are provided, inject them into the URL
+    if (camera.username && camera.password) {
+      // Parse the URL to inject credentials
+      const urlMatch = rtspUrl.match(/^(rtsp:\/\/)(.+)$/);
+      if (urlMatch) {
+        const protocol = urlMatch[1]; // "rtsp://"
+        const hostAndPath = urlMatch[2]; // "ip:port/stream"
+
+        // Build URL with credentials: rtsp://username:password@ip:port/stream
+        rtspUrl = `${protocol}${camera.username}:${camera.password}@${hostAndPath}`;
+      }
+    }
+
+    return rtspUrl;
+  }
+
+  /**
    * Start the event scheduler
    */
   public start(): void {
@@ -238,14 +264,15 @@ export class EventSchedulerService {
 
       console.log(`📹 Found camera: ${camera.name}, streamUrl: ${camera.streamUrl}`);
 
-      if (!camera.streamUrl) {
-        console.error(`❌ Camera ${cameraId} does not have a valid stream URL`);
+      // Build RTSP URL with authentication
+      let rtspUrl: string;
+      try {
+        rtspUrl = this.buildRtspUrl(camera);
+        console.log(`🔗 Using RTSP URL: ${rtspUrl.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')}`); // Hide credentials in logs
+      } catch (error) {
+        console.error(`❌ Camera ${cameraId} does not have a valid stream URL:`, error);
         return;
       }
-
-      // Use the configured stream URL
-      const rtspUrl = camera.streamUrl;
-      console.log(`🔗 Using RTSP URL: ${rtspUrl}`);
 
       // Start video stream for the event
       console.log(`🎥 Starting video stream for camera ${cameraId}...`);

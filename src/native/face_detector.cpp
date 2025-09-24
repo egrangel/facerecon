@@ -219,6 +219,11 @@ bool FaceDetector::validateFaceRegion(const cv::Rect& faceRect, const cv::Mat& f
     cv::Mat faceGray;
     cv::cvtColor(faceRegion, faceGray, cv::COLOR_BGR2GRAY);
 
+    // Screen/Display detection filter - reject electronic displays
+    if (isElectronicDisplay(faceRegion, faceGray)) {
+        return false;
+    }
+
     // Contrast and texture analysis
     cv::Scalar mean, stddev;
     cv::meanStdDev(faceGray, mean, stddev);
@@ -251,4 +256,97 @@ bool FaceDetector::validateFaceRegion(const cv::Rect& faceRect, const cv::Mat& f
 
     // For non-skin (profile faces, shadows, etc.) - stricter edge requirements
     return edgeDensity > 0.1f && edgeDensity < 0.4f;
+}
+
+bool FaceDetector::isElectronicDisplay(const cv::Mat& faceRegion, const cv::Mat& faceGray) {
+    // Detect electronic displays (POS terminals, screens, digital displays)
+
+    // 1. Check for high uniform brightness (typical of backlit displays)
+    cv::Scalar mean, stddev;
+    cv::meanStdDev(faceGray, mean, stddev);
+
+    // Electronic displays often have very uniform brightness
+    if (mean[0] > 200 && stddev[0] < 15) {
+        return true; // Very bright and uniform - likely a display
+    }
+
+    // 2. Check for geometric patterns (text, numbers, icons on displays)
+    cv::Mat edges;
+    cv::Canny(faceGray, edges, 100, 200);
+
+    // Find contours to detect rectangular patterns
+    std::vector<std::vector<cv::Point>> contours;
+    cv::findContours(edges, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+    int rectangularContours = 0;
+    for (const auto& contour : contours) {
+        if (contour.size() < 4) continue;
+
+        // Approximate contour to polygon
+        std::vector<cv::Point> approx;
+        double epsilon = 0.02 * cv::arcLength(contour, true);
+        cv::approxPolyDP(contour, approx, epsilon, true);
+
+        // Count rectangular shapes (4 corners)
+        if (approx.size() == 4) {
+            cv::Rect boundRect = cv::boundingRect(approx);
+            // Only count significant rectangles
+            if (boundRect.width > 5 && boundRect.height > 5) {
+                rectangularContours++;
+            }
+        }
+    }
+
+    // If many rectangular patterns, likely a display with text/numbers
+    if (rectangularContours > 3) {
+        return true;
+    }
+
+    // 3. Check for artificial color patterns (non-skin tones)
+    cv::Scalar bgrMean = cv::mean(faceRegion);
+    float b = bgrMean[0], g = bgrMean[1], r = bgrMean[2];
+
+    // Check for very saturated colors or pure colors (typical of displays)
+    float maxChannel = std::max({r, g, b});
+    float minChannel = std::min({r, g, b});
+    float saturation = maxChannel > 0 ? (maxChannel - minChannel) / maxChannel : 0;
+
+    // High saturation with bright colors - likely artificial
+    if (saturation > 0.7f && maxChannel > 150) {
+        return true;
+    }
+
+    // 4. Check for high contrast patterns (text on displays)
+    cv::Mat blur;
+    cv::GaussianBlur(faceGray, blur, cv::Size(5, 5), 0);
+    cv::Mat diff;
+    cv::absdiff(faceGray, blur, diff);
+    cv::Scalar diffMean = cv::mean(diff);
+
+    // Sharp edges with high contrast - typical of digital text
+    if (diffMean[0] > 25 && rectangularContours > 1) {
+        return true;
+    }
+
+    // 5. Check for horizontal/vertical line patterns (typical of displays)
+    cv::Mat horizontalKernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(15, 1));
+    cv::Mat verticalKernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(1, 15));
+
+    cv::Mat horizontalLines, verticalLines;
+    cv::morphologyEx(edges, horizontalLines, cv::MORPH_OPEN, horizontalKernel);
+    cv::morphologyEx(edges, verticalLines, cv::MORPH_OPEN, verticalKernel);
+
+    cv::Scalar hSum = cv::sum(horizontalLines);
+    cv::Scalar vSum = cv::sum(verticalLines);
+
+    float totalPixels = faceRegion.rows * faceRegion.cols * 255.0f;
+    float hLineRatio = hSum[0] / totalPixels;
+    float vLineRatio = vSum[0] / totalPixels;
+
+    // Strong horizontal/vertical patterns suggest digital display
+    if ((hLineRatio > 0.08f || vLineRatio > 0.08f) && rectangularContours > 1) {
+        return true;
+    }
+
+    return false; // Not detected as electronic display
 }

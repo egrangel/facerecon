@@ -135,6 +135,10 @@ export class PersonService extends BaseService<Person> {
       personId: person.id,
     });
   }
+
+  async searchWithPagination(searchTerm: string, options: any): Promise<any> {
+    return (this.repository as PersonRepository).searchWithPagination(searchTerm, options);
+  }
 }
 
 export class EventService extends BaseService<Event> {

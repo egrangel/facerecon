@@ -4,24 +4,71 @@ const path = require('path');
 const { createCanvas, loadImage } = require('canvas');
 
 async function testSimpleNative() {
-  const imagePath = process.argv[2] || 'D:\\Estudos\\facerecon\\temp\\frames\\event-1-camera-5-1758643697859_003.jpg';
+  // Check if a specific image path is provided
+  const providedPath = process.argv[2];
 
+  if (providedPath) {
+    // Test single image
+    await testSingleImage(providedPath);
+    return;
+  }
+
+  // Test all images in /temp/test folder
+  const testDir = path.join(process.cwd(), 'temp', 'test');
+
+  if (!fs.existsSync(testDir)) {
+    console.log(`Test directory not found: ${testDir}`);
+    console.log('Usage: node test-simple-native.js [image-path]');
+    console.log('Or create temp/test/ directory and place test images there');
+    return;
+  }
+
+  // Get all image files
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.bmp'];
+  const files = fs.readdirSync(testDir).filter(file =>
+    imageExtensions.some(ext => file.toLowerCase().endsWith(ext))
+  );
+
+  if (files.length === 0) {
+    console.log(`No image files found in ${testDir}`);
+    return;
+  }
+
+  console.log(`Found ${files.length} images in test directory`);
+  console.log('='.repeat(50));
+
+  // Initialize native detector once
+  const success = await nativeFaceDetectionService.initialize();
+  if (!success) {
+    console.log('Native detector initialization failed');
+    return;
+  }
+
+  // Test each image
+  for (const file of files) {
+    const imagePath = path.join(testDir, file);
+    await testSingleImage(imagePath, false); // false = don't re-initialize
+    console.log('-'.repeat(30));
+  }
+}
+
+async function testSingleImage(imagePath, shouldInitialize = true) {
   if (!fs.existsSync(imagePath)) {
     console.log(`Image not found: ${imagePath}`);
-    console.log('Usage: node test-simple-native.js <image-path>');
     return;
   }
 
   try {
-    console.log(`Testing: ${imagePath}`);
+    console.log(`Testing: ${path.basename(imagePath)}`);
     const imageBuffer = fs.readFileSync(imagePath);
 
-    // Initialize native detector
-    const success = await nativeFaceDetectionService.initialize();
-
-    if (!success) {
-      console.log('Native detector initialization failed');
-      return;
+    // Initialize native detector if needed
+    if (shouldInitialize) {
+      const success = await nativeFaceDetectionService.initialize();
+      if (!success) {
+        console.log('Native detector initialization failed');
+        return;
+      }
     }
 
     // Set optimized confidence threshold for crowd detection
@@ -37,6 +84,8 @@ async function testSimpleNative() {
     if (result.faces.length > 0) {
       // Save output image with bounding boxes
       await saveImageWithBoundingBoxes(imagePath, result.faces);
+    } else {
+      console.log('No faces detected');
     }
 
   } catch (error) {

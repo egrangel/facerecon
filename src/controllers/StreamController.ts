@@ -13,6 +13,32 @@ export class StreamController {
   }
 
   /**
+   * Build RTSP URL with authentication credentials
+   */
+  private buildRtspUrl(camera: any): string {
+    if (!camera.streamUrl) {
+      throw createError('Camera does not have a valid stream URL', 400);
+    }
+
+    let rtspUrl = camera.streamUrl;
+
+    // If username and password are provided, inject them into the URL
+    if (camera.username && camera.password) {
+      // Parse the URL to inject credentials
+      const urlMatch = rtspUrl.match(/^(rtsp:\/\/)(.+)$/);
+      if (urlMatch) {
+        const protocol = urlMatch[1]; // "rtsp://"
+        const hostAndPath = urlMatch[2]; // "ip:port/stream"
+
+        // Build URL with credentials: rtsp://username:password@ip:port/stream
+        rtspUrl = `${protocol}${camera.username}:${camera.password}@${hostAndPath}`;
+      }
+    }
+
+    return rtspUrl;
+  }
+
+  /**
    * @swagger
    * /api/v1/streams/start/{cameraId}:
    *   post:
@@ -46,13 +72,8 @@ export class StreamController {
       throw createError('Camera not found', 404);
     }
 
-    // Validate camera has RTSP URL
-    if (!camera.streamUrl) {
-      throw createError('Camera does not have a valid stream URL', 400);
-    }
-
-    // Use the configured stream URL
-    const rtspUrl = camera.streamUrl;
+    // Build RTSP URL with authentication
+    const rtspUrl = this.buildRtspUrl(camera);
 
     try {
       const organizationId = camera.organizationId;
@@ -125,9 +146,7 @@ export class StreamController {
     });
   });
 
-  // HLS methods removed - all streaming now uses WebSocket for ultra-low latency
-
-  /**
+    /**
    * @swagger
    * /api/v1/streams/status/{sessionId}:
    *   get:
@@ -233,9 +252,6 @@ export class StreamController {
       throw createError('Invalid camera ID', 400);
     }
 
-    // All streaming now uses WebSocket only
-    const streamType = 'websocket';
-
     // Check if there's already an active session for this camera
     const activeSessions = streamService.getActiveSessions();
     const existingSession = activeSessions.find(session => session.cameraId === cameraIdNum);
@@ -260,11 +276,8 @@ export class StreamController {
       throw createError('Camera not found', 404);
     }
 
-    if (!camera.streamUrl) {
-      throw createError('Camera does not have a valid stream URL', 400);
-    }
-
-    const rtspUrl = camera.streamUrl;
+    // Build RTSP URL with authentication
+    const rtspUrl = this.buildRtspUrl(camera);
 
     try {
       const organizationId = camera.organizationId;
@@ -369,12 +382,8 @@ export class StreamController {
       throw createError('Organization ID required for face recognition', 400);
     }
 
-    if (!camera.streamUrl) {
-      throw createError('Camera does not have a valid stream URL', 400);
-    }
-
-    // Use the configured stream URL
-    const rtspUrl = camera.streamUrl;
+    // Build RTSP URL with authentication
+    const rtspUrl = this.buildRtspUrl(camera);
 
     try {
       // Start face recognition with a unique session ID for background processing
@@ -385,7 +394,7 @@ export class StreamController {
         cameraIdNum,
         camera.organizationId,
         rtspUrl,
-        5 // frameInterval in seconds
+        2 // frameInterval in seconds
       );
 
       res.status(200).json({

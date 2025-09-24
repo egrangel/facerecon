@@ -72,6 +72,45 @@ export class PersonController extends BaseController<any> {
     this.personService = service;
   }
 
+  // Override findAll to handle search functionality
+  findAll = asyncHandler(async (req: OrganizationRequest, res: Response): Promise<void> => {
+    const { page, limit, sortBy, sortOrder, search, ...filters } = req.query;
+
+    // Add organization filter to all queries
+    const organizationFilters = {
+      ...filters,
+      organizationId: req.organizationId,
+    };
+
+    let result;
+
+    if (page && limit) {
+      const paginationOptions = {
+        page: parseInt(page as string) || 1,
+        limit: parseInt(limit as string) || 10,
+        sortBy: sortBy as string || 'createdAt',
+        sortOrder: (sortOrder as 'ASC' | 'DESC') || 'DESC',
+        where: organizationFilters,
+      };
+
+      // Handle search functionality
+      if (search) {
+        result = await this.personService.searchWithPagination(search as string, paginationOptions);
+      } else {
+        result = await this.service.findWithPagination(paginationOptions);
+      }
+    } else {
+      const data = await this.service.findAllByOrganization(req.organizationId);
+      result = { data };
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Pessoas encontradas com sucesso',
+      ...result,
+    });
+  });
+
   // Override create to automatically set organizationId
   create = asyncHandler(async (req: OrganizationRequest, res: Response): Promise<void> => {
     const personData = {
@@ -196,6 +235,8 @@ export class PersonController extends BaseController<any> {
     // Exclude foreign key fields and relation fields that should be handled separately
     const {
       personId,        // This doesn't exist on Person entity
+      email,           // Should be handled as PersonContact
+      telefone,        // Should be handled as PersonContact
       types,           // Relation - handled separately
       faces,           // Relation - handled separately
       contacts,        // Relation - handled separately

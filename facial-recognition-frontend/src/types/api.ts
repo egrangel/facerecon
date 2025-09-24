@@ -104,6 +104,8 @@ export interface Camera extends BaseEntity {
   name: string;
   description?: string;
   streamUrl?: string;
+  username?: string;
+  password?: string;
   protocol: string;
   status: string;
   settings?: string;

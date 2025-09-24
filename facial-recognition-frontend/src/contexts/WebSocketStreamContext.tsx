@@ -49,6 +49,13 @@ export const WebSocketStreamProvider: React.FC<WebSocketStreamProviderProps> = (
     forceUpdate({});
   }, []);
 
+  // Clear all streams on app startup to prevent stale session issues
+  useEffect(() => {
+    console.log('WebSocketStreamProvider initialized - clearing any existing streams');
+    streams.clear();
+    triggerUpdate();
+  }, []);
+
   // Cleanup inactive streams periodically
   useEffect(() => {
     const cleanup = setInterval(() => {
@@ -106,6 +113,10 @@ export const WebSocketStreamProvider: React.FC<WebSocketStreamProviderProps> = (
         stream.errorMessage = 'Authentication error - please login again';
       } else if (error.response?.status === 403) {
         stream.errorMessage = 'Access denied - insufficient permissions';
+      } else if (error.response?.status === 404) {
+        stream.errorMessage = 'Camera not found or not configured';
+        // Clear the stream since the camera doesn't exist
+        streams.delete(cameraId);
       } else if (error.response?.data?.message) {
         stream.errorMessage = error.response.data.message;
       } else if (error.message) {

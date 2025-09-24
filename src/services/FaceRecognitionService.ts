@@ -1,17 +1,12 @@
-import * as tf from '@tensorflow/tfjs';
-import '@tensorflow/tfjs-backend-cpu';
-import * as faceDetection from '@tensorflow-models/face-detection';
-import { createCanvas, loadImage, Canvas } from 'canvas';
-import * as sharp from 'sharp';
 import * as path from 'path';
 import * as fs from 'fs';
+import { createCanvas, loadImage } from 'canvas';
 import { PersonService, DetectionService, EventService, EventCameraService } from './index';
 import { nativeFaceDetectionService } from './NativeFaceDetectionService';
 
 export interface FaceDetectionResult {
   faces: DetectedFace[];
   processedImagePath?: string;
-  canvas?: any; // Store the canvas used for detection
 }
 
 export interface DetectedFace {
@@ -34,18 +29,15 @@ export interface RecognitionResult {
 }
 
 export class FaceRecognitionService {
-  private detector: faceDetection.FaceDetector | null = null;
   private isInitialized = false;
   private personService: PersonService;
   private detectionService: DetectionService;
   private eventService: EventService;
   private eventCameraService: EventCameraService;
-  private readonly faceThreshold = 0.2; // Lower threshold for better detection
+  private readonly faceThreshold = 0.8; // Higher threshold to reduce false positives
   private readonly recognitionThreshold = 0.8; // Minimum confidence for face recognition
-  private readonly enableAdvancedFiltering = true; // Toggle for advanced false positive filtering
   private lastSavedImageTime = 0; // Track when we last saved a detection image
   private readonly imageSaveInterval = 1000; // Save detection images max every 1000ms for crowd monitoring
-  private readonly useNativeDetector = true; // Use high-performance C++ detector when available
 
   constructor() {
     this.personService = new PersonService();
@@ -55,7 +47,7 @@ export class FaceRecognitionService {
   }
 
   /**
-   * Initialize the face detection model
+   * Initialize the native face detection model
    */
   public async initialize(): Promise<void> {
     if (this.isInitialized) {
@@ -64,52 +56,25 @@ export class FaceRecognitionService {
     }
 
     try {
-      // Try to initialize native C++ detector first (much faster)
-      if (this.useNativeDetector) {
-        console.log('🚀 INIT: Attempting native C++ face detector initialization...');
-        const nativeSuccess = await nativeFaceDetectionService.initialize();
+      console.log('🚀 INIT: Initializing native C++ face detector...');
+      const nativeSuccess = await nativeFaceDetectionService.initialize();
 
-        if (nativeSuccess) {
-          this.isInitialized = true;
-          console.log('🎉 INIT: High-performance C++ face detector ready!');
-          console.log('⚡ NATIVE: Expected 10-50x performance improvement for crowd detection');
-          return;
-        } else {
-          console.log('⚠️ INIT: Native detector failed, falling back to TensorFlow.js...');
-        }
+      if (nativeSuccess) {
+        this.isInitialized = true;
+        console.log('🎉 INIT: Native C++ face detector ready!');
+        console.log('⚡ NATIVE: High-performance OpenCV face detection active');
+        return;
+      } else {
+        throw new Error('Native detector initialization failed');
       }
-
-      // Fallback to TensorFlow.js MediaPipe detector
-      console.log('🚀 INIT: Starting TensorFlow.js MediaPipe initialization...');
-
-      // Set TensorFlow backend to GPU for faster inference
-      await tf.setBackend('cpu');
-      await tf.ready();
-      console.log(`✅ INIT: TensorFlow.js backend ready: ${tf.getBackend()}`);
-
-      // Create MediaPipe detector optimized for mass attendance (many faces)
-      const model = faceDetection.SupportedModels.MediaPipeFaceDetector;
-      const detectorConfig = {
-        runtime: 'tfjs' as const,
-        modelType: 'full' as const, // More accurate model for better detection
-        maxFaces: 50, // Higher limit for crowd detection
-        minDetectionConfidence: 0.2, // Lower threshold to catch more faces
-        minSuppressionThreshold: 0.05, // Even lower to detect overlapping faces
-      };
-
-      console.log(`⚡ INIT: TensorFlow.js MediaPipe config: ${JSON.stringify(detectorConfig)}`);
-
-      this.detector = await faceDetection.createDetector(model, detectorConfig);
-      this.isInitialized = true;
-      console.log('🎉 INIT: TensorFlow.js MediaPipe initialization completed!');
     } catch (error) {
-      console.error('❌ CRITICAL: Failed to initialize face detection:', error);
-      throw new Error(`Face detection initialization failed: ${error}`);
+      console.error('❌ CRITICAL: Failed to initialize native face detection:', error);
+      throw new Error(`Native face detection initialization failed: ${error}`);
     }
   }
 
   /**
-   * Detect faces in an image buffer
+   * Detect faces in an image buffer using native detector
    */
   public async detectFaces(imageBuffer: Buffer): Promise<FaceDetectionResult> {
     if (!this.isInitialized) {
@@ -117,76 +82,36 @@ export class FaceRecognitionService {
     }
 
     try {
-      // Use native C++ detector if available (much faster)
-      if (this.useNativeDetector && nativeFaceDetectionService.isAvailable()) {
-        console.log(`⚡ NATIVE: Running high-performance C++ face detection...`);
+      const startTime = Date.now();
+      const nativeResult = await nativeFaceDetectionService.detectFacesAsync(imageBuffer);
+      const totalTime = Date.now() - startTime;
 
-        const startTime = Date.now();
-        const nativeResult = await nativeFaceDetectionService.detectFacesAsync(imageBuffer);
-        const totalTime = Date.now() - startTime;
+      console.log(`🚀 NATIVE: Detected ${nativeResult.faces.length} faces in ${nativeResult.processingTimeMs}ms (total: ${totalTime}ms)`);
 
-        console.log(`🚀 NATIVE: Detected ${nativeResult.faces.length} faces in ${nativeResult.processingTimeMs}ms (total: ${totalTime}ms)`);
-
-        // Convert native result to our format
-        const faces: DetectedFace[] = nativeResult.faces
-          .map(face => ({
-            boundingBox: face.boundingBox,
-            confidence: face.confidence,
-            landmarks: face.landmarks || [],
-          }))
-          .filter(face => {
-            console.log(`🔍 NATIVE: Processing detection: confidence=${face.confidence.toFixed(3)}, size=${face.boundingBox.width.toFixed(0)}x${face.boundingBox.height.toFixed(0)}`);
-            // Light validation for native detector
-            return this.validateBasicFaceLight(face);
-          });
-
-        console.log(`✅ NATIVE: ${faces.length} faces passed validation`);
-
-        // Still create canvas for image saving compatibility
-        const canvas = await this.bufferToCanvas(imageBuffer);
-        return { faces, canvas };
-      }
-
-      // Fallback to TensorFlow.js MediaPipe detector
-      const canvas = await this.bufferToCanvas(imageBuffer);
-
-      console.log(`⚡ TENSORFLOW: Running MediaPipe on ${canvas.width}x${canvas.height} canvas...`);
-
-      const detections = await this.detector!.estimateFaces(canvas);
-      console.log(`📊 TENSORFLOW: MediaPipe found ${detections.length} faces`);
-
-      // Log all raw detections
-      detections.forEach((detection, index) => {
-        const box = detection.box;
-        const confidence = (detection as any).score || 1;
-        console.log(`🔍 Raw Face ${index + 1}: confidence=${confidence.toFixed(3)}, size=${box.width.toFixed(0)}x${box.height.toFixed(0)}, pos=(${box.xMin.toFixed(0)},${box.yMin.toFixed(0)})`);
-      });
-
-      const faces: DetectedFace[] = detections
-        .map(detection => {
-          // Add padding to bounding box to ensure full face is captured
-          const padding = Math.max(detection.box.width, detection.box.height) * 0.1;
-          const x = Math.max(0, detection.box.xMin - padding);
-          const y = Math.max(0, detection.box.yMin - padding);
-          const width = Math.min(canvas.width - x, detection.box.width + 2 * padding);
-          const height = Math.min(canvas.height - y, detection.box.height + 2 * padding);
-
-          return {
-            boundingBox: { x, y, width, height },
-            confidence: (detection as any).score || 1,
-            landmarks: detection.keypoints || [],
-          };
-        })
+      // Convert native result to our format
+      const candidateFaces: DetectedFace[] = nativeResult.faces
+        .map(face => ({
+          boundingBox: face.boundingBox,
+          confidence: face.confidence,
+          landmarks: face.landmarks || [],
+        }))
         .filter(face => {
-          console.log(`🔍 TENSORFLOW: Processing detection: confidence=${face.confidence.toFixed(3)}, size=${face.boundingBox.width.toFixed(0)}x${face.boundingBox.height.toFixed(0)}`);
-          return this.validateFace(face, canvas);
+          console.log(`🔍 NATIVE: Processing detection: confidence=${face.confidence.toFixed(3)}, size=${face.boundingBox.width.toFixed(0)}x${face.boundingBox.height.toFixed(0)}`);
+          // Basic validation for native detector
+          return this.validateBasicFace(face);
         });
 
-      console.log(`✅ TENSORFLOW: ${faces.length} faces passed validation`);
-      return { faces, canvas };
+      console.log(`🔍 FILTER: ${candidateFaces.length} faces passed basic validation`);
+
+      // Apply advanced filtering to remove false positives
+      const faces = this.applyAdvancedFiltering(candidateFaces);
+
+      console.log(`✅ FINAL: ${faces.length} faces passed all validation (${candidateFaces.length - faces.length} filtered out)`);
+
+      return { faces };
     } catch (error) {
-      console.error('Face detection failed:', error);
-      throw new Error(`Face detection failed: ${error}`);
+      console.error('Native face detection failed:', error);
+      throw new Error(`Native face detection failed: ${error}`);
     }
   }
 
@@ -214,7 +139,7 @@ export class FaceRecognitionService {
       let imageUrl = '';
       const currentTime = Date.now();
       if (currentTime - this.lastSavedImageTime > this.imageSaveInterval) {
-        imageUrl = await this.saveDetectionImage(frameBuffer, detection.faces, detection.canvas);
+        imageUrl = await this.saveDetectionImage(frameBuffer, detection.faces);
         this.lastSavedImageTime = currentTime;
         console.log(`📸 DETECTION: Saved detection image with ${detection.faces.length} faces (camera ${cameraId})`);
       }
@@ -350,9 +275,9 @@ export class FaceRecognitionService {
   }
 
   /**
-   * Save detection image with bounding boxes
+   * Save detection image with bounding boxes drawn
    */
-  private async saveDetectionImage(imageBuffer: Buffer, faces: DetectedFace[], detectionCanvas?: any): Promise<string> {
+  private async saveDetectionImage(imageBuffer: Buffer, faces: DetectedFace[]): Promise<string> {
     try {
       const timestamp = Date.now();
       const filename = `detection_${timestamp}.jpg`;
@@ -365,325 +290,281 @@ export class FaceRecognitionService {
 
       const outputPath = path.join(detectionDir, filename);
 
-      // Use the detection canvas if provided, otherwise create a new one
-      const canvas = detectionCanvas || await this.bufferToCanvas(imageBuffer);
-      const ctx = canvas.getContext('2d');
+      if (faces.length === 0) {
+        // No faces detected, save original image
+        fs.writeFileSync(outputPath, imageBuffer);
+      } else {
+        // Load image and draw bounding boxes
+        const image = await loadImage(imageBuffer);
+        const canvas = createCanvas(image.width, image.height);
+        const ctx = canvas.getContext('2d');
 
-      // Draw bounding boxes
-      faces.forEach((face, index) => {
-        const { x, y, width, height } = face.boundingBox;
+        // Draw the original image
+        ctx.drawImage(image, 0, 0);
 
-        ctx.strokeStyle = '#00ff00';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(x, y, width, height);
+        // Draw bounding boxes for each detected face
+        faces.forEach((face, index) => {
+          const { x, y, width, height } = face.boundingBox;
 
-        // Add confidence label
-        ctx.fillStyle = '#00ff00';
-        ctx.font = '16px Arial';
-        ctx.fillText(
-          `Face ${index + 1}: ${(face.confidence * 100).toFixed(1)}%`,
-          x,
-          y - 5
-        );
-      });
+          // Draw bounding box
+          ctx.strokeStyle = '#00ff00'; // Green color
+          ctx.lineWidth = 3;
+          ctx.strokeRect(x, y, width, height);
 
-      // Convert canvas to buffer and save
-      const buffer = canvas.toBuffer('image/jpeg', { quality: 0.8 });
-      fs.writeFileSync(outputPath, buffer);
+          // Draw confidence label
+          ctx.fillStyle = '#00ff00';
+          ctx.font = '16px Arial';
+          ctx.fillRect(x, y - 25, width, 25); // Background for text
+          ctx.fillStyle = '#000000'; // Black text
+          ctx.fillText(
+            `Face ${index + 1}: ${(face.confidence * 100).toFixed(1)}%`,
+            x + 5,
+            y - 8
+          );
+        });
+
+        // Convert canvas to buffer and save
+        const buffer = canvas.toBuffer('image/jpeg', { quality: 0.8 });
+        fs.writeFileSync(outputPath, buffer);
+      }
 
       return `/uploads/detections/${filename}`;
     } catch (error) {
       console.error('Failed to save detection image:', error);
-      return '';
+      // Fallback to saving original image
+      try {
+        const fallbackPath = path.join(process.cwd(), 'uploads', 'detections', `detection_${Date.now()}.jpg`);
+        fs.writeFileSync(fallbackPath, imageBuffer);
+        return `/uploads/detections/${path.basename(fallbackPath)}`;
+      } catch (fallbackError) {
+        console.error('Failed to save fallback image:', fallbackError);
+        return '';
+      }
     }
   }
 
   /**
-   * Validate a detected face to reduce false positives
+   * Apply advanced filtering to remove false positives
    */
-  private validateFace(face: DetectedFace, canvas?: Canvas): boolean {
-    const { width, height } = face.boundingBox;
+  private applyAdvancedFiltering(faces: DetectedFace[]): DetectedFace[] {
+    if (faces.length === 0) return faces;
 
-    // Basic size validation
-    if (width < 8 || height < 8) {
-      console.log(`🚫 Face rejected: too small (${width}x${height})`);
-      return false;
-    }
+    console.log(`🔍 ADVANCED: Starting with ${faces.length} candidate faces`);
 
-    if (width > 1000 || height > 1000) {
-      console.log(`🚫 Face rejected: too large (${width}x${height})`);
-      return false;
-    }
+    // Step 1: Non-Maximum Suppression to remove overlapping detections
+    let filteredFaces = this.nonMaximumSuppression(faces, 0.3);
+    console.log(`🔍 NMS: ${filteredFaces.length} faces after overlap removal`);
 
-    // Aspect ratio validation
-    const aspectRatio = width / height;
-    if (aspectRatio < 0.15 || aspectRatio > 6.0) {
-      console.log(`🚫 Face rejected: extreme aspect ratio (${aspectRatio.toFixed(2)})`);
-      return false;
-    }
+    // Step 2: Remove faces in UI overlay areas (timestamps, camera info, etc.)
+    filteredFaces = this.removeUIOverlayFaces(filteredFaces);
+    console.log(`🔍 UI: ${filteredFaces.length} faces after UI overlay filtering`);
 
-    // Confidence threshold
-    if (face.confidence < 0.2) {
-      console.log(`🚫 Face rejected: very low confidence (${face.confidence.toFixed(2)})`);
-      return false;
-    }
+    // Step 3: Remove faces that are too densely packed (likely false positives)
+    filteredFaces = this.removeDenselyPackedFaces(filteredFaces);
+    console.log(`🔍 DENSITY: ${filteredFaces.length} faces after density filtering`);
 
-    // Advanced validation to filter out printed faces/posters (if enabled)
-    if (this.enableAdvancedFiltering && canvas && !this.validateRealFace(face, canvas)) {
-      return false;
-    }
+    // Step 4: Keep only the highest confidence faces (top 20% or max 10 faces)
+    filteredFaces = this.keepTopConfidenceFaces(filteredFaces, 10);
+    console.log(`🔍 TOP: ${filteredFaces.length} faces after confidence ranking`);
 
-    console.log(`✅ Face validated: ${width}x${height}, confidence: ${face.confidence.toFixed(2)}`);
-    return true;
+    return filteredFaces;
   }
 
   /**
-   * Light validation for native detector
+   * Non-Maximum Suppression to remove overlapping bounding boxes
    */
-  private validateBasicFaceLight(face: DetectedFace): boolean {
-    const { width, height } = face.boundingBox;
+  private nonMaximumSuppression(faces: DetectedFace[], overlapThreshold: number): DetectedFace[] {
+    if (faces.length === 0) return faces;
 
-    // Very permissive validation - just basic sanity checks
-    if (width < 20 || height < 20) {
-      console.log(`🚫 NATIVE: Face rejected: too small (${width}x${height})`);
-      return false;
+    // Sort by confidence (highest first)
+    const sortedFaces = [...faces].sort((a, b) => b.confidence - a.confidence);
+    const keep: DetectedFace[] = [];
+
+    for (const face of sortedFaces) {
+      let shouldKeep = true;
+
+      for (const keptFace of keep) {
+        const overlap = this.calculateOverlap(face.boundingBox, keptFace.boundingBox);
+        if (overlap > overlapThreshold) {
+          shouldKeep = false;
+          break;
+        }
+      }
+
+      if (shouldKeep) {
+        keep.push(face);
+      }
     }
 
-    if (width > 500 || height > 500) {
-      console.log(`🚫 NATIVE: Face rejected: too large (${width}x${height})`);
-      return false;
-    }
-
-    console.log(`✅ NATIVE: Face validated: ${width}x${height}, confidence: ${face.confidence.toFixed(2)}`);
-    return true;
+    return keep;
   }
 
   /**
-   * Basic validation for native detector (skip expensive canvas operations)
+   * Calculate overlap ratio between two bounding boxes
+   */
+  private calculateOverlap(box1: any, box2: any): number {
+    const x1 = Math.max(box1.x, box2.x);
+    const y1 = Math.max(box1.y, box2.y);
+    const x2 = Math.min(box1.x + box1.width, box2.x + box2.width);
+    const y2 = Math.min(box1.y + box1.height, box2.y + box2.height);
+
+    if (x2 <= x1 || y2 <= y1) return 0;
+
+    const intersectionArea = (x2 - x1) * (y2 - y1);
+    const box1Area = box1.width * box1.height;
+    const box2Area = box2.width * box2.height;
+    const unionArea = box1Area + box2Area - intersectionArea;
+
+    return intersectionArea / unionArea;
+  }
+
+  /**
+   * Remove faces that are too densely packed (likely false positives on textures)
+   */
+  private removeDenselyPackedFaces(faces: DetectedFace[]): DetectedFace[] {
+    if (faces.length <= 3) return faces; // Keep if few faces
+
+    const filtered: DetectedFace[] = [];
+
+    for (const face of faces) {
+      let nearbyCount = 0;
+      const searchRadius = Math.max(face.boundingBox.width, face.boundingBox.height) * 2;
+
+      for (const otherFace of faces) {
+        if (face === otherFace) continue;
+
+        const distance = this.calculateDistance(
+          face.boundingBox.x + face.boundingBox.width / 2,
+          face.boundingBox.y + face.boundingBox.height / 2,
+          otherFace.boundingBox.x + otherFace.boundingBox.width / 2,
+          otherFace.boundingBox.y + otherFace.boundingBox.height / 2
+        );
+
+        if (distance < searchRadius) {
+          nearbyCount++;
+        }
+      }
+
+      // Keep face if it's not too densely packed (max 2 nearby faces)
+      if (nearbyCount <= 2) {
+        filtered.push(face);
+      } else {
+        console.log(`🚫 DENSITY: Rejected face with ${nearbyCount} nearby faces (too dense)`);
+      }
+    }
+
+    return filtered;
+  }
+
+  /**
+   * Calculate Euclidean distance between two points
+   */
+  private calculateDistance(x1: number, y1: number, x2: number, y2: number): number {
+    return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+  }
+
+  /**
+   * Remove faces detected in UI overlay areas (timestamps, camera info, etc.)
+   */
+  private removeUIOverlayFaces(faces: DetectedFace[]): DetectedFace[] {
+    const filtered: DetectedFace[] = [];
+
+    for (const face of faces) {
+      const { x, y, width, height } = face.boundingBox;
+
+      // Define UI overlay exclusion zones (typically where timestamps/text appear)
+      const isInTopLeftCorner = x < 200 && y < 100; // Top-left corner (timestamp area)
+      const isInTopRightCorner = x > (1920 - 200) && y < 100; // Top-right corner
+      const isInBottomLeftCorner = x < 200 && y > (1080 - 100); // Bottom-left corner
+      const isInBottomRightCorner = x > (1920 - 200) && y > (1080 - 100); // Bottom-right corner
+
+      // Additional checks for small detections in corner areas (likely text/numbers)
+      const isSmallInCorner = (width < 50 || height < 50) &&
+        (x < 300 || x > (1920 - 300) || y < 150 || y > (1080 - 150));
+
+      // Check if detection is very thin/wide (likely text)
+      const aspectRatio = width / height;
+      const isTextLike = aspectRatio > 3.0 || aspectRatio < 0.3;
+
+      if (isInTopLeftCorner || isInTopRightCorner || isInBottomLeftCorner ||
+          isInBottomRightCorner || isSmallInCorner || isTextLike) {
+        console.log(`🚫 UI: Rejected face in overlay area: ${x},${y} ${width}x${height} (aspect: ${aspectRatio.toFixed(2)})`);
+      } else {
+        filtered.push(face);
+      }
+    }
+
+    return filtered;
+  }
+
+  /**
+   * Keep only the top N highest confidence faces
+   */
+  private keepTopConfidenceFaces(faces: DetectedFace[], maxFaces: number): DetectedFace[] {
+    if (faces.length <= maxFaces) return faces;
+
+    return faces
+      .sort((a, b) => b.confidence - a.confidence)
+      .slice(0, maxFaces);
+  }
+
+  /**
+   * Strict validation for detected faces to reduce false positives
    */
   private validateBasicFace(face: DetectedFace): boolean {
     const { width, height } = face.boundingBox;
 
-    // More balanced validation for native detector
+    // Much stricter confidence threshold - faces should be very clear
+    if (face.confidence < 0.85) {
+      console.log(`🚫 Face rejected: confidence too low (${face.confidence.toFixed(2)})`);
+      return false;
+    }
+
+    // Stricter size validation for realistic face sizes
     if (width < 30 || height < 30) {
-      console.log(`🚫 NATIVE: Face rejected: too small (${width}x${height})`);
+      console.log(`🚫 Face rejected: too small (${width}x${height})`);
       return false;
     }
 
-    if (width > 500 || height > 500) {
-      console.log(`🚫 NATIVE: Face rejected: too large (${width}x${height})`);
+    if (width > 300 || height > 300) {
+      console.log(`🚫 Face rejected: too large (${width}x${height})`);
       return false;
     }
 
-    // More permissive aspect ratio for faces
+    // Much stricter aspect ratio for realistic faces
     const aspectRatio = width / height;
-    if (aspectRatio < 0.5 || aspectRatio > 2.0) {
-      console.log(`🚫 NATIVE: Face rejected: bad aspect ratio (${aspectRatio.toFixed(2)})`);
+    if (aspectRatio < 0.7 || aspectRatio > 1.5) {
+      console.log(`🚫 Face rejected: unrealistic aspect ratio (${aspectRatio.toFixed(2)})`);
       return false;
     }
 
-    // Balanced confidence threshold for native detector
-    if (face.confidence < 0.6) {
-      console.log(`🚫 NATIVE: Face rejected: low confidence (${face.confidence.toFixed(2)})`);
+    // Minimum size requirements for reasonable face detection
+    const faceArea = width * height;
+    if (faceArea < 1000) { // Minimum 1000 pixels area
+      console.log(`🚫 Face rejected: area too small (${faceArea}px²)`);
       return false;
     }
 
-    console.log(`✅ NATIVE: Face validated: ${width}x${height}, confidence: ${face.confidence.toFixed(2)}`);
+    console.log(`✅ Face validated: ${width}x${height}, confidence: ${face.confidence.toFixed(2)}, area: ${faceArea}px²`);
     return true;
   }
 
-  /**
-   * Advanced validation to distinguish real faces from printed/artwork faces
-   */
-  private validateRealFace(face: DetectedFace, canvas: Canvas): boolean {
-    try {
-      const ctx = canvas.getContext('2d');
-      const { x, y, width, height } = face.boundingBox;
 
-      // Extract face region
-      const faceImageData = ctx.getImageData(x, y, width, height);
-      const data = faceImageData.data;
-
-      // Analyze color properties
-      const colorAnalysis = this.analyzeFaceColors(data);
-
-      // Check for realistic skin tones
-      if (!this.hasRealisticSkinTone(colorAnalysis)) {
-        console.log(`🚫 Face rejected: unrealistic skin tone`);
-        return false;
-      }
-
-      // Check for natural color variation (real faces have more variation than printed ones)
-      if (!this.hasNaturalColorVariation(colorAnalysis)) {
-        console.log(`🚫 Face rejected: lacks natural color variation (likely printed)`);
-        return false;
-      }
-
-      // Check for edge characteristics (printed faces often have sharper, more uniform edges)
-      if (this.hasArtificialEdges(data, width, height)) {
-        console.log(`🚫 Face rejected: artificial edge characteristics (likely printed)`);
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      console.log(`⚠️ Face validation error, accepting by default: ${error instanceof Error ? error.message : String(error)}`);
-      return true; // Accept if validation fails
-    }
-  }
-
-  private analyzeFaceColors(data: Uint8ClampedArray) {
-    let totalR = 0, totalG = 0, totalB = 0;
-    let minR = 255, maxR = 0, minG = 255, maxG = 0, minB = 255, maxB = 0;
-    let pixelCount = 0;
-
-    for (let i = 0; i < data.length; i += 4) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-
-      totalR += r; totalG += g; totalB += b;
-      minR = Math.min(minR, r); maxR = Math.max(maxR, r);
-      minG = Math.min(minG, g); maxG = Math.max(maxG, g);
-      minB = Math.min(minB, b); maxB = Math.max(maxB, b);
-      pixelCount++;
-    }
-
-    return {
-      avgR: totalR / pixelCount,
-      avgG: totalG / pixelCount,
-      avgB: totalB / pixelCount,
-      variationR: maxR - minR,
-      variationG: maxG - minG,
-      variationB: maxB - minB,
-    };
-  }
-
-  private hasRealisticSkinTone(colorAnalysis: any): boolean {
-    const { avgR, avgG, avgB } = colorAnalysis;
-
-    // Very permissive skin tone validation - mainly reject extreme non-skin colors
-    // Allow wide range to account for different ethnicities, lighting, and camera settings
-    if (avgR < 30 || avgR > 255) return false;
-    if (avgG < 20 || avgG > 255) return false;
-    if (avgB < 10 || avgB > 255) return false;
-
-    // Reject obviously non-skin colors (pure blue, green, etc.)
-    if (avgB > avgR + 50 && avgB > avgG + 50) return false; // Too blue
-    if (avgG > avgR + 50 && avgG > avgB + 50) return false; // Too green
-
-    return true;
-  }
-
-  private hasNaturalColorVariation(colorAnalysis: any): boolean {
-    const { variationR, variationG, variationB } = colorAnalysis;
-
-    // More permissive variation check - mainly reject completely flat colors
-    const totalVariation = variationR + variationG + variationB;
-
-    // Only reject if colors are extremely uniform (likely solid color blocks)
-    if (totalVariation < 20) {
-      return false;
-    }
-
-    // Allow much higher variation for noisy/textured images
-    if (totalVariation > 600) {
-      return false;
-    }
-
-    return true;
-  }
-
-  private hasArtificialEdges(data: Uint8ClampedArray, width: number, height: number): boolean {
-    // More permissive edge detection - only reject extremely artificial patterns
-    let sharpEdgeCount = 0;
-    let totalEdges = 0;
-
-    // Sample fewer pixels for performance and less strict checking
-    for (let y = 2; y < height - 2; y += 2) {
-      for (let x = 2; x < width - 2; x += 2) {
-        const idx = (y * width + x) * 4;
-
-        // Calculate luminance for current pixel
-        const currentLum = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
-
-        // Check neighboring pixels
-        const rightIdx = (y * width + (x + 2)) * 4;
-        const bottomIdx = ((y + 2) * width + x) * 4;
-
-        const rightLum = 0.299 * data[rightIdx] + 0.587 * data[rightIdx + 1] + 0.114 * data[rightIdx + 2];
-        const bottomLum = 0.299 * data[bottomIdx] + 0.587 * data[bottomIdx + 1] + 0.114 * data[bottomIdx + 2];
-
-        const edgeStrength = Math.abs(currentLum - rightLum) + Math.abs(currentLum - bottomLum);
-
-        if (edgeStrength > 20) {
-          totalEdges++;
-          if (edgeStrength > 80) {
-            sharpEdgeCount++;
-          }
-        }
-      }
-    }
-
-    // Only reject if overwhelming majority are sharp edges (very artificial)
-    const sharpEdgeRatio = totalEdges > 0 ? sharpEdgeCount / totalEdges : 0;
-    return sharpEdgeRatio > 0.7;
-  }
-
-  /**
-   * Convert image buffer to canvas
-   */
-  private async bufferToCanvas(buffer: Buffer): Promise<Canvas> {
-    try {
-      // Higher resolution processing for better face detection
-      const processedBuffer = await sharp.default(buffer)
-        .resize(1280, 960, { fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: 85 }) // Higher quality preserves facial features
-        .toBuffer();
-
-      const image = await loadImage(processedBuffer);
-      const canvas = createCanvas(image.width, image.height);
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(image, 0, 0);
-
-      return canvas;
-    } catch (error) {
-      console.error('Failed to convert buffer to canvas:', error);
-      throw error;
-    }
-  }
 
   /**
    * Get service health and statistics
    */
   public getServiceHealth() {
-    const baseHealth = {
+    return {
       isInitialized: this.isInitialized,
       modelLoaded: this.isInitialized,
+      detector: 'Native C++ OpenCV',
       settings: {
         faceThreshold: this.faceThreshold,
         recognitionThreshold: this.recognitionThreshold,
-        useNativeDetector: this.useNativeDetector,
-        enableAdvancedFiltering: this.enableAdvancedFiltering,
       },
-    };
-
-    // Add native detector stats if available
-    if (this.useNativeDetector && nativeFaceDetectionService.isAvailable()) {
-      return {
-        ...baseHealth,
-        detector: 'High-Performance C++ OpenCV',
-        nativePerformance: nativeFaceDetectionService.getPerformanceStats(),
-        expectedSpeedup: '10-50x faster than JavaScript',
-      };
-    }
-
-    // Fallback TensorFlow.js stats
-    return {
-      ...baseHealth,
-      detector: 'TensorFlow.js MediaPipe FaceDetector',
-      backend: tf.getBackend(),
-      memoryInfo: tf.memory(),
+      nativePerformance: nativeFaceDetectionService.getPerformanceStats(),
+      performance: 'High-performance native implementation',
     };
   }
 
@@ -691,12 +572,9 @@ export class FaceRecognitionService {
    * Cleanup resources
    */
   public dispose(): void {
-    if (this.detector) {
-      this.detector.dispose();
-      this.detector = null;
-    }
     this.isInitialized = false;
-    console.log('🔄 DISPOSE: MediaPipe detector disposed for re-initialization');
+    nativeFaceDetectionService.dispose();
+    console.log('🔄 DISPOSE: Native face detector disposed for re-initialization');
   }
 }
 

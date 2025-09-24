@@ -12,6 +12,8 @@ interface CameraFormData {
   name: string;
   description?: string;
   streamUrl?: string;
+  username?: string;
+  password?: string;
   protocol: string;
   status: string;
   settings?: string;
@@ -244,6 +246,10 @@ const CamerasPage: React.FC = () => {
 
                 <div className="text-sm text-gray-600 space-y-1">
                   <div className="flex items-center">
+                    <span className="font-medium">Descrição:</span>
+                    <span className="ml-1">{camera.name}</span>
+                  </div>
+                  <div className="flex items-center">
                     <span className="font-medium">Protocolo:</span>
                     <span className="ml-1">{camera.protocol.toUpperCase()}</span>
                   </div>
@@ -299,6 +305,8 @@ const CameraFormModal: React.FC<CameraFormModalProps> = ({
     name: camera?.name || '',
     description: camera?.description || '',
     streamUrl: camera?.streamUrl || '',
+    username: camera?.username || '',
+    password: camera?.password || '',
     protocol: camera?.protocol || 'rtsp',
     status: camera?.status || 'inactive',
     settings: camera?.settings || '',
@@ -356,8 +364,33 @@ const CameraFormModal: React.FC<CameraFormModalProps> = ({
                 type="text"
                 value={formData.streamUrl}
                 onChange={(e) => handleChange('streamUrl', e.target.value)}
-                placeholder="rtsp://username:password@ip:port/stream"
+                placeholder="rtsp://ip:port/stream"
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Usuário
+                </label>
+                <Input
+                  type="text"
+                  value={formData.username}
+                  onChange={(e) => handleChange('username', e.target.value)}
+                  placeholder="username"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Senha
+                </label>
+                <Input
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => handleChange('password', e.target.value)}
+                  placeholder="password"
+                />
+              </div>
             </div>
 
 

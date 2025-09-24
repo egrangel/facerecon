@@ -1,5 +1,5 @@
 import { AppDataSource } from '../config/database';
-import { BaseRepository } from './BaseRepository';
+import { BaseRepository, PaginatedResult } from './BaseRepository';
 import { Organization } from '../entities/Organization';
 import { Person } from '../entities/Person';
 import { PersonType, PersonFace, PersonContact, PersonAddress } from '../entities';
@@ -56,6 +56,32 @@ export class PersonRepository extends BaseRepository<Person> {
       where: { id },
       relations: ['organization', 'types', 'faces', 'contacts', 'addresses'],
     });
+  }
+
+  async searchWithPagination(searchTerm: string, options: any): Promise<PaginatedResult<Person>> {
+    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'DESC', where } = options;
+    const skip = (page - 1) * limit;
+
+    const queryBuilder = this.repository.createQueryBuilder('person')
+      .leftJoinAndSelect('person.organization', 'organization')
+      .where('person.organizationId = :organizationId', { organizationId: where.organizationId })
+      .andWhere('(person.name ILIKE :search OR person.documentNumber ILIKE :search)', {
+        search: `%${searchTerm}%`
+      })
+      .skip(skip)
+      .take(limit)
+      .orderBy(`person.${sortBy}`, sortOrder);
+
+    const [data, total] = await queryBuilder.getManyAndCount();
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages,
+    };
   }
 }
 

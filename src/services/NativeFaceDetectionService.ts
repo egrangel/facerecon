@@ -27,6 +27,7 @@ interface NativeDetectionResult {
 export class NativeFaceDetectionService {
   private detector: NativeFaceDetector | null = null;
   private isInitialized = false;
+  private detectionQueue: Promise<any> = Promise.resolve();
   private performanceStats = {
     totalDetections: 0,
     totalProcessingTime: 0,
@@ -65,7 +66,7 @@ export class NativeFaceDetectionService {
 
       if (success) {
         this.isInitialized = true;
-        this.detector.setConfidenceThreshold(0.2); // Lower threshold for better face detection
+        this.detector.setConfidenceThreshold(0.15); // Lower threshold for surveillance scenarios
         return true;
       } else {
         return false;
@@ -76,7 +77,7 @@ export class NativeFaceDetectionService {
   }
 
   /**
-   * Detect faces using the high-performance C++ module
+   * Detect faces using the high-performance C++ module with thread safety
    */
   public async detectFaces(imageBuffer: Buffer): Promise<{
     faces: Array<{
@@ -86,31 +87,42 @@ export class NativeFaceDetectionService {
     }>;
     processingTimeMs: number;
   }> {
-    if (!this.detector || !this.isInitialized) {
-      throw new Error('Native face detector not initialized');
-    }
+    // Use queue to ensure thread safety for concurrent requests
+    return new Promise((resolve, reject) => {
+      this.detectionQueue = this.detectionQueue.then(async () => {
+        try {
+          if (!this.detector || !this.isInitialized) {
+            throw new Error('Native face detector not initialized');
+          }
 
-    const result = this.detector.detectFaces(imageBuffer);
+          const result = this.detector.detectFaces(imageBuffer);
 
-    if (!result.success) {
-      throw new Error(`Face detection failed: ${result.error}`);
-    }
+          if (!result.success) {
+            throw new Error(`Face detection failed: ${result.error}`);
+          }
 
-    // Update performance statistics
-    this.updatePerformanceStats(result.processingTimeMs);
+          // Update performance statistics
+          this.updatePerformanceStats(result.processingTimeMs);
 
-    return {
-      faces: result.faces.map(face => ({
-        boundingBox: face.boundingBox,
-        confidence: face.confidence,
-        landmarks: [], // C++ module can be extended to include landmarks
-      })),
-      processingTimeMs: result.processingTimeMs,
-    };
+          const processedResult = {
+            faces: result.faces.map(face => ({
+              boundingBox: face.boundingBox,
+              confidence: face.confidence,
+              landmarks: [], // C++ module can be extended to include landmarks
+            })),
+            processingTimeMs: result.processingTimeMs,
+          };
+
+          resolve(processedResult);
+        } catch (error) {
+          reject(error);
+        }
+      }).catch(reject);
+    });
   }
 
   /**
-   * Async face detection for non-blocking operations
+   * Async face detection for non-blocking operations with thread safety
    */
   public detectFacesAsync(
     imageBuffer: Buffer
@@ -122,35 +134,53 @@ export class NativeFaceDetectionService {
     }>;
     processingTimeMs: number;
   }> {
+    // Use queue to ensure thread safety for concurrent requests
     return new Promise((resolve, reject) => {
-      if (!this.detector || !this.isInitialized) {
-        reject(new Error('Native face detector not initialized'));
-        return;
-      }
+      this.detectionQueue = this.detectionQueue.then(async () => {
+        return new Promise<void>((queueResolve, queueReject) => {
+          if (!this.detector || !this.isInitialized) {
+            const error = new Error('Native face detector not initialized');
+            reject(error);
+            queueReject(error);
+            return;
+          }
 
-      this.detector.detectFacesAsync(imageBuffer, (err, result) => {
-        if (err) {
-          reject(err);
-          return;
-        }
+          this.detector.detectFacesAsync(imageBuffer, (err, result) => {
+            try {
+              if (err) {
+                reject(err);
+                queueReject(err);
+                return;
+              }
 
-        if (!result.success) {
-          reject(new Error(`Face detection failed: ${result.error}`));
-          return;
-        }
+              if (!result.success) {
+                const error = new Error(`Face detection failed: ${result.error}`);
+                reject(error);
+                queueReject(error);
+                return;
+              }
 
-        // Update performance statistics
-        this.updatePerformanceStats(result.processingTimeMs);
+              // Update performance statistics
+              this.updatePerformanceStats(result.processingTimeMs);
 
-        resolve({
-          faces: result.faces.map(face => ({
-            boundingBox: face.boundingBox,
-            confidence: face.confidence,
-            landmarks: [],
-          })),
-          processingTimeMs: result.processingTimeMs,
+              const processedResult = {
+                faces: result.faces.map(face => ({
+                  boundingBox: face.boundingBox,
+                  confidence: face.confidence,
+                  landmarks: [],
+                })),
+                processingTimeMs: result.processingTimeMs,
+              };
+
+              resolve(processedResult);
+              queueResolve();
+            } catch (error) {
+              reject(error);
+              queueReject(error);
+            }
+          });
         });
-      });
+      }).catch(reject);
     });
   }
 

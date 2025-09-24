@@ -71,7 +71,6 @@ export const WebSocketStreamPlayer: React.FC<WebSocketStreamPlayerProps> = ({
               if (message.data && canvasRef.current) {
                 drawFrame(message.data);
                 setFrameCount(prev => prev + 1);
-              } else {
               }
               break;
 
@@ -86,6 +85,13 @@ export const WebSocketStreamPlayer: React.FC<WebSocketStreamPlayerProps> = ({
               setError(message.message || 'Unknown stream error');
               setIsLoading(false);
               onError?.(message.message || 'Unknown stream error');
+
+              // If session not found, don't try to reconnect with same session
+              if (message.message?.includes('not found')) {
+                console.log('Session not found - stopping reconnection attempts');
+                ws.close(1000, 'Session expired');
+                return;
+              }
               break;
 
             default:
@@ -101,13 +107,28 @@ export const WebSocketStreamPlayer: React.FC<WebSocketStreamPlayerProps> = ({
         setIsConnected(false);
         setIsLoading(false);
 
-        // Attempt to reconnect after a delay unless it was intentionally closed
-        if (event.code !== 1000) {
+        // Don't reconnect if:
+        // - Connection was intentionally closed (code 1000)
+        // - Session expired/not found (reason includes "Session expired")
+        // - No sessionId available
+        const shouldReconnect = event.code !== 1000 &&
+                               !event.reason?.includes('Session expired') &&
+                               sessionId;
+
+        if (shouldReconnect) {
+          console.log('Attempting to reconnect in 3 seconds...');
           setTimeout(() => {
             if (sessionId) {
               connectWebSocket();
             }
           }, 3000);
+        } else {
+          console.log('Not reconnecting:', {
+            code: event.code,
+            reason: event.reason,
+            hasSessionId: !!sessionId
+          });
+          onStreamStop?.();
         }
       };
 

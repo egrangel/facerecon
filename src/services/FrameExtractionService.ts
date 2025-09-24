@@ -112,35 +112,35 @@ export class FrameExtractionService {
       this.sessions.set(sessionId, session);
 
       // Handle process events
-      ffmpegProcess.stdout?.on('data', (data) => {
-        // Log stdout if needed
-        // console.log(`FFmpeg stdout (${sessionId}): ${data}`);
-      });
+      // ffmpegProcess.stdout?.on('data', (data) => {
+      //   // Log stdout if needed
+      //   // console.log(`FFmpeg stdout (${sessionId}): ${data}`);
+      // });
 
-      ffmpegProcess.stderr?.on('data', (data) => {
-        const output = data.toString();
+      // ffmpegProcess.stderr?.on('data', (data) => {
+      //   const output = data.toString();
 
-        // Log important information, filter noise
-        if (output.includes('frame=') || output.includes('fps=') ||
-            output.includes('error') || output.includes('failed') ||
-            output.includes('Connection') || output.includes('timeout')) {
-          console.log(`FFmpeg (${sessionId}): ${output.trim()}`);
-        }
+      //   // Log important information, filter noise
+      //   if (output.includes('frame=') || output.includes('fps=') ||
+      //       output.includes('error') || output.includes('failed') ||
+      //       output.includes('Connection') || output.includes('timeout')) {
+      //     console.log(`FFmpeg (${sessionId}): ${output.trim()}`);
+      //   }
 
-        // Check for frame generation indicators
-        if (output.includes('frame=') || output.includes('fps=')) {
-          session.lastFrameTime = new Date();
-        }
+      //   // Check for frame generation indicators
+      //   if (output.includes('frame=') || output.includes('fps=')) {
+      //     session.lastFrameTime = new Date();
+      //   }
 
-        // Check for connection errors
-        if (output.includes('Connection refused') ||
-            output.includes('No route to host') ||
-            output.includes('Invalid data found') ||
-            output.includes('Server returned 404') ||
-            output.includes('Connection timed out')) {
-          console.error(`🚨 CAMERA ERROR (${sessionId}): ${output.trim()}`);
-        }
-      });
+      //   // Check for connection errors
+      //   if (output.includes('Connection refused') ||
+      //       output.includes('No route to host') ||
+      //       output.includes('Invalid data found') ||
+      //       output.includes('Server returned 404') ||
+      //       output.includes('Connection timed out')) {
+      //     console.error(`🚨 CAMERA ERROR (${sessionId}): ${output.trim()}`);
+      //   }
+      // });
 
       ffmpegProcess.on('error', (error) => {
         console.error(`Frame extraction error for session ${sessionId}:`, error);

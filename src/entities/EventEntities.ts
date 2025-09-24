@@ -178,6 +178,24 @@ class Camera extends BaseEntity {
   @Column({
     type: 'varchar',
     length: 100,
+    nullable: true
+  })
+  @IsOptional()
+  @IsString()
+  username?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 100,
+    nullable: true
+  })
+  @IsOptional()
+  @IsString()
+  password?: string;
+
+  @Column({
+    type: 'varchar',
+    length: 100,
     nullable: false,
     default: 'RTSP'
   })

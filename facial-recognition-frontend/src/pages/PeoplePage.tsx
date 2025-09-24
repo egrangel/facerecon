@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -26,16 +26,42 @@ const PessoasPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const queryClient = useQueryClient();
 
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const { data: peopleResponse, isLoading } = useQuery({
-    queryKey: ['people'],
+    queryKey: ['people', currentPage, pageSize, debouncedSearchTerm],
     queryFn: async () => {
-      return await apiClient.getPeople();
+      const params: any = {
+        page: currentPage,
+        limit: pageSize,
+        sortBy: 'createdAt',
+        sortOrder: 'DESC'
+      };
+
+      // Add search filter if present
+      if (debouncedSearchTerm) {
+        params.search = debouncedSearchTerm;
+      }
+
+      return await apiClient.getPeople(params);
     },
   });
 
   const people = peopleResponse?.data || [];
+  const totalPages = Math.ceil((peopleResponse?.total || 0) / pageSize);
+  const totalPeople = peopleResponse?.total || 0;
 
   const createPersonMutation = useMutation({
     mutationFn: async (data: PersonFormData) => {
@@ -68,10 +94,25 @@ const PessoasPage: React.FC = () => {
     },
   });
 
-  const filteredPeople = people.filter((person: Person) =>
-    person.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    person.documentNumber?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Handle search with debounce
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+  };
+
+  // Reset to first page when debounced search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchTerm]);
+
+  // Handle page changes
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setCurrentPage(1); // Reset to first page when changing page size
+  };
 
   const handleEdit = (person: Person) => {
     setEditingPerson(person);
@@ -104,10 +145,13 @@ const PessoasPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="max-w-md w-full">
               <Input
-                placeholder="Buscar por nome ou email..."
+                placeholder="Buscar por nome ou documento..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
               />
+            </div>
+            <div className="text-sm text-gray-500">
+              {totalPeople} pessoa{totalPeople !== 1 ? 's' : ''} encontrada{totalPeople !== 1 ? 's' : ''}
             </div>
           </div>
         </CardContent>
@@ -144,14 +188,14 @@ const PessoasPage: React.FC = () => {
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
                     </td>
                   </tr>
-                ) : filteredPeople.length === 0 ? (
+                ) : people.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
                       Nenhuma pessoa encontrada
                     </td>
                   </tr>
                 ) : (
-                  filteredPeople.map((person: Person) => (
+                  people.map((person: Person) => (
                     <tr key={person.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
@@ -209,6 +253,76 @@ const PessoasPage: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-700">
+                  Mostrando {(currentPage - 1) * pageSize + 1} a {Math.min(currentPage * pageSize, totalPeople)} de {totalPeople} registros
+                </span>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1">
+                  <span className="text-sm text-gray-700">Itens por página:</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                    className="px-2 py-1 border border-gray-300 rounded text-sm"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center space-x-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    Anterior
+                  </Button>
+
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      const pageNum = Math.max(1, Math.min(totalPages - 4, currentPage - 2)) + i;
+                      if (pageNum > totalPages) return null;
+
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={currentPage === pageNum ? "primary" : "outline"}
+                          size="sm"
+                          onClick={() => handlePageChange(pageNum)}
+                          className="min-w-[32px]"
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    Próximo
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Modal */}
       {isModalOpen && (

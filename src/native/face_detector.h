@@ -38,4 +38,5 @@ public:
 
 private:
     bool validateFaceRegion(const cv::Rect& faceRect, const cv::Mat& frame);
+    bool isElectronicDisplay(const cv::Mat& faceRegion, const cv::Mat& faceGray);
 };
