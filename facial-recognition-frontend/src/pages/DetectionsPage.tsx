@@ -105,7 +105,7 @@ const DeteccoesPage: React.FC = () => {
       {/* Filters */}
       <Card>
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
             <Input
               placeholder="Buscar por pessoa ou câmera..."
               value={searchTerm}
@@ -172,7 +172,7 @@ const DeteccoesPage: React.FC = () => {
       )}
 
       {/* Detections Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
         {isLoading ? (
           <div className="col-span-full flex justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
@@ -185,12 +185,32 @@ const DeteccoesPage: React.FC = () => {
           detections.map((detection: Detection) => (
             <Card key={detection.id} className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setSelectedDetection(detection)}>
               <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-4">
+                <div className="flex items-start justify-between mt-3">
                   <div className="flex items-center space-x-3">
-                    <div className="h-12 w-12 bg-primary-100 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium text-primary-600">
-                        {detection.personFace?.person?.name?.charAt(0).toUpperCase() || '?'}
-                      </span>
+                    <div className="h-12 w-12 bg-primary-100 rounded-full flex items-center justify-center overflow-hidden">
+                      {detection.imageUrl ? (
+                        <img
+                          src={`${process.env.REACT_APP_API_URL?.replace('/api/v1', '')}${detection.imageUrl}`}
+                          alt={detection.personFace?.person?.name || 'Face detectada'}
+                          className="w-full h-full object-cover rounded-full"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            const container = target.parentElement;
+                            if (container) {
+                              container.innerHTML = `
+                                <span class="text-sm font-medium text-primary-600">
+                                  ${detection.personFace?.person?.name?.charAt(0).toUpperCase() || '?'}
+                                </span>
+                              `;
+                            }
+                          }}
+                        />
+                      ) : (
+                        <span className="text-sm font-medium text-primary-600">
+                          {detection.personFace?.person?.name?.charAt(0).toUpperCase() || '?'}
+                        </span>
+                      )}
                     </div>
                     <div>
                       <h3 className="font-medium text-gray-900">{detection.personFace?.person?.name || 'Desconhecido'}</h3>
@@ -330,11 +350,6 @@ const DeteccaoModal: React.FC<DeteccaoModalProps> = ({ deteccao, onClose }) => {
                 ) : (
                   <div className="w-48 h-48 bg-gray-200 rounded-lg flex items-center justify-center">
                     <span className="text-gray-500 text-sm">Nenhuma imagem disponível</span>
-                  </div>
-                )}
-                {deteccao.imageUrl && (
-                  <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs">
-                    {deteccao.confidence.toFixed(1)}%
                   </div>
                 )}
               </div>

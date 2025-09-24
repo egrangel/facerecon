@@ -257,7 +257,7 @@ const EventosPage: React.FC = () => {
       {/* Filters */}
       <Card>
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mt-3">
             <Input 
               placeholder="Buscar eventos..."
               value={searchTerm}

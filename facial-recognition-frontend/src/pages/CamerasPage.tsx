@@ -221,7 +221,7 @@ const CamerasPage: React.FC = () => {
       </div>
 
       {/* Cameras Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {filteredCameras.map((camera) => (
           <Card key={camera.id} className="overflow-hidden">
             <CardContent className="p-0">
