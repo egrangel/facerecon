@@ -59,8 +59,8 @@ export class NativeFaceDetectionService {
     }
 
     try {
-      // Set up model path for OpenCV DNN models
-      const defaultModelPath = path.join(process.cwd(), 'models', 'face_detection');
+      // Set up model path for Facenet and fallback models
+            const defaultModelPath = path.join(process.cwd(), 'models').replace(/\\/g, '/');
       const finalModelPath = modelPath || defaultModelPath;
 
       // Use synchronous initialization for better reliability
@@ -68,7 +68,7 @@ export class NativeFaceDetectionService {
 
       if (success) {
         this.isInitialized = true;
-        this.detector.setConfidenceThreshold(0.15); // Lower threshold for surveillance scenarios
+        this.detector.setConfidenceThreshold(0.6); // Facenet demo default - good balance of accuracy vs false positives
         return true;
       } else {
         return false;

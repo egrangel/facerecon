@@ -1,121 +1,103 @@
-#pragma once
+#ifndef FACE_DETECTOR_H
+#define FACE_DETECTOR_H
+
 #include <opencv2/opencv.hpp>
 #include <opencv2/dnn.hpp>
-#include <vector>
-#include <string>
+#include <opencv2/objdetect.hpp>
+#include <memory>
 #include <thread>
-#include <future>
-#include <queue>
-#include <functional>
+#include <mutex>
 #include <condition_variable>
+#include <queue>
+#include <future>
 #include <atomic>
 
-// Try to include CUDA support if available
-#ifdef HAVE_CUDA
-#include <opencv2/imgproc/imgproc.hpp>
-#include <cuda_runtime.h>
-#include <cuda.h>
-#include <cublas_v2.h>
-#include <curand.h>
-// Basic CUDA runtime support without full OpenCV CUDA integration
-#endif
+// Forward declaration of ThreadPool
+class ThreadPool;
 
 struct DetectedFace {
     cv::Rect boundingBox;
-    double confidence;
+    float confidence;
     std::vector<cv::Point2f> landmarks;
-    std::vector<float> encoding; // Face encoding for recognition
+    // You can add more features here, e.g., facial emotions, etc.
 };
 
 struct DetectionResult {
-    std::vector<DetectedFace> faces;
     bool success;
     std::string error;
-    int processingTimeMs;
-};
-
-// Thread Pool for parallel face detection
-class ThreadPool {
-public:
-    ThreadPool(size_t numThreads);
-    ~ThreadPool();
-
-    template<typename F, typename... Args>
-    auto enqueue(F&& f, Args&&... args) -> std::future<typename std::result_of<F(Args...)>::type>;
-
-private:
-    std::vector<std::thread> workers;
-    std::queue<std::function<void()>> tasks;
-    std::mutex queueMutex;
-    std::condition_variable condition;
-    bool stop;
+    std::vector<DetectedFace> faces;
+    long long processingTimeMs;
 };
 
 class FaceDetector {
-private:
-    cv::dnn::Net faceNet;
-    cv::CascadeClassifier faceCascade;
-    bool useDeepLearning;
-    float confidenceThreshold;
-    float nmsThreshold;
-    bool initialized;
-
-    // Thread pool for parallel processing
-    static std::unique_ptr<ThreadPool> threadPool;
-    static std::atomic<int> instanceCount;
-
-    // GPU acceleration support
-    bool useGPU;
-    bool gpuAvailable;
-
-#ifdef HAVE_CUDA
-    // Basic CUDA runtime support
-    cudaDeviceProp deviceProp;
-    int cudaDeviceId;
-
-    // CUDA streams for async operations
-    cudaStream_t processStream;
-
-    // GPU memory management
-    float* d_imageBuffer;
-    float* d_processedBuffer;
-    size_t gpuBufferSize;
-
-    // GPU face detection buffers
-    unsigned char* d_grayImage;
-    float* d_integralImage;
-    int* d_detectionResults;
-    size_t maxImageSize;
-#endif
-
 public:
     FaceDetector();
     ~FaceDetector();
 
-    bool initialize(const std::string& modelPath = "", bool useDL = true);
+    /**
+     * @brief Initializes the face detector with the specified models.
+     * @param modelPath The path to the directory containing the model files (e.g., /path/to/models).
+     * @param useDL Set to true to use deep learning models (YuNet/SSD), false for Haar Cascade.
+     * @return True if a model was loaded successfully, false otherwise.
+     */
+    bool initialize(const std::string& modelPath, bool useDL = true);
+
+    /**
+     * @brief Detects faces in a given frame.
+     * @param frame The input image frame.
+     * @return A DetectionResult struct containing the detected faces and processing information.
+     */
     DetectionResult detectFaces(const cv::Mat& frame);
+
+    /**
+     * @brief Detects faces asynchronously using a thread pool.
+     * @param frame The input image frame.
+     * @return A future object that will hold the DetectionResult.
+     */
+    std::future<DetectionResult> detectFacesAsync(const cv::Mat& frame);
+
+    /**
+     * @brief Detects faces from a raw image buffer asynchronously.
+     * @param buffer The pointer to the image data buffer.
+     * @param length The size of the buffer.
+     * @return A future object that will hold the DetectionResult.
+     */
+    std::future<DetectionResult> detectFacesFromBufferAsync(const uint8_t* buffer, size_t length);
+
+    /**
+     * @brief Detects faces from a raw image buffer.
+     * @param buffer The pointer to the image data buffer.
+     * @param length The size of the buffer.
+     * @return A DetectionResult struct containing the detected faces and processing information.
+     */
     DetectionResult detectFacesFromBuffer(const uint8_t* buffer, size_t length);
 
-    // Async detection using thread pool
-    std::future<DetectionResult> detectFacesAsync(const cv::Mat& frame);
-    std::future<DetectionResult> detectFacesFromBufferAsync(const uint8_t* buffer, size_t length);
+    // Getters and setters
     void setConfidenceThreshold(float threshold);
     void setNMSThreshold(float threshold);
+    float getConfidenceThreshold() const { return confidenceThreshold; }
+    float getNMSThreshold() const { return nmsThreshold; }
     bool isInitialized() const { return initialized; }
-    std::vector<float> extractFaceEncoding(const cv::Mat& face);
-
-    // GPU acceleration methods
-    bool initializeGPU();
-    void cleanupGPU();
-    std::vector<float> extractFaceEncodingGPU(const cv::Mat& face);
-
-    // GPU face detection methods
-    DetectionResult detectFacesGPU(const cv::Mat& frame);
-    std::vector<cv::Rect> runCascadeOnGPU(const cv::Mat& image);
 
 private:
+    cv::Ptr<cv::FaceDetectorYN> yunetDetector;
+    cv::dnn::Net faceNet;
+    cv::CascadeClassifier faceCascade;
+
+    bool useDeepLearning;
+    bool useYuNet;
+    bool initialized;
+    bool useUltraFace;
+
+    float confidenceThreshold;
+    float nmsThreshold;
+
+    // Thread pool for async operations
+    static std::unique_ptr<ThreadPool> threadPool;
+    static std::atomic<int> instanceCount;
+
+    // Helper function for simplified face region validation
     bool validateFaceRegion(const cv::Rect& faceRect, const cv::Mat& frame);
-    bool isElectronicDisplay(const cv::Mat& faceRegion, const cv::Mat& faceGray);
-     bool isOverlapping(const DetectedFace& newFace, const std::vector<DetectedFace>& existingFaces);
-    DetectionResult detectFacesInRegion(const cv::Mat& region);
 };
+
+#endif // FACE_DETECTOR_H
