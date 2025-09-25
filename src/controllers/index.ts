@@ -582,6 +582,41 @@ export class DetectionController extends BaseController<any> {
     this.detectionService = service;
   }
 
+  // Override findAll to include camera and person relations
+  findAll = asyncHandler(async (req: OrganizationRequest, res: Response): Promise<void> => {
+    const { page, limit, sortBy, sortOrder, ...filters } = req.query;
+
+    // Add organization filter to all queries
+    const organizationFilters = {
+      ...filters,
+      organizationId: req.organizationId,
+    };
+
+    let result;
+
+    if (page && limit) {
+      const paginationOptions = {
+        page: parseInt(page as string) || 1,
+        limit: parseInt(limit as string) || 10,
+        sortBy: sortBy as string || 'detectedAt',
+        sortOrder: (sortOrder as 'ASC' | 'DESC') || 'DESC',
+        where: organizationFilters,
+        relations: ['camera', 'personFace', 'personFace.person', 'event'], // Include relations
+      };
+
+      result = await this.service.findWithPagination(paginationOptions);
+    } else {
+      const data = await this.service.findAllByOrganization(req.organizationId, ['camera', 'personFace', 'personFace.person', 'event']);
+      result = { data };
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Detecções encontradas com sucesso',
+      ...result,
+    });
+  });
+
   // Override create to automatically set organizationId
   create = asyncHandler(async (req: OrganizationRequest, res: Response): Promise<void> => {
     const detectionData = {
