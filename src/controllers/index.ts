@@ -76,6 +76,7 @@ export class PersonController extends BaseController<any> {
   findAll = asyncHandler(async (req: OrganizationRequest, res: Response): Promise<void> => {
     const { page, limit, sortBy, sortOrder, search, ...filters } = req.query;
 
+
     // Add organization filter to all queries
     const organizationFilters = {
       ...filters,
@@ -93,15 +94,30 @@ export class PersonController extends BaseController<any> {
         where: organizationFilters,
       };
 
-      // Handle search functionality
-      if (search) {
-        result = await this.personService.searchWithPagination(search as string, paginationOptions);
+      // Handle search functionality and status filtering
+      if (search || filters.status) {
+        // Use searchWithPagination for both search and status filtering
+        const searchTerm = search ? search as string : '';
+        result = await this.personService.searchWithPagination(searchTerm, paginationOptions);
       } else {
         result = await this.service.findWithPagination(paginationOptions);
       }
     } else {
-      const data = await this.service.findAllByOrganization(req.organizationId);
-      result = { data };
+      // Handle status filtering even without pagination
+      if (filters.status) {
+        // Use searchWithPagination with empty search term but status filter
+        const searchResult = await this.personService.searchWithPagination('', {
+          page: 1,
+          limit: 1000, // Large limit to get all results
+          sortBy: 'createdAt',
+          sortOrder: 'DESC',
+          where: organizationFilters,
+        });
+        result = { data: searchResult.data };
+      } else {
+        const data = await this.service.findAllByOrganization(req.organizationId);
+        result = { data };
+      }
     }
 
     res.status(200).json({
@@ -607,6 +623,19 @@ export class DetectionController extends BaseController<any> {
       result = await this.service.findWithPagination(paginationOptions);
     } else {
       const data = await this.service.findAllByOrganization(req.organizationId, ['camera', 'personFace', 'personFace.person', 'event']);
+
+      // Debug: Log detection data to verify relations
+      if (data.length > 0) {
+        console.log('🔍 DEBUG: First detection data:', {
+          id: data[0].id,
+          personId: (data[0] as any).personId,
+          hasPersonFace: !!(data[0] as any).personFace,
+          personFaceId: (data[0] as any).personFace?.id,
+          personName: (data[0] as any).personFace?.person?.name,
+          personData: (data[0] as any).personFace?.person,
+        });
+      }
+
       result = { data };
     }
 
@@ -645,18 +674,6 @@ export class DetectionController extends BaseController<any> {
     });
   });
 
-  findByPersonFaceId = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const { personFaceId } = req.params;
-
-    const data = await this.detectionService.findByPersonFaceId(parseInt(personFaceId));
-
-    res.status(200).json({
-      success: true,
-      message: 'Detections found successfully',
-      data,
-    });
-  });
-
   findRecentDetections = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { hours } = req.query;
     const hoursNumber = hours ? parseInt(hours as string) : 24;
@@ -682,6 +699,199 @@ export class DetectionController extends BaseController<any> {
       success: true,
       message: 'Statistics obtained successfully',
       data: stats,
+    });
+  });
+
+  // Associate detection to existing person
+  associateToExistingPerson = asyncHandler(async (req: OrganizationRequest, res: Response): Promise<void> => {
+    const { detectionId } = req.params;
+    const { personId } = req.body;
+
+    if (!personId) {
+      res.status(400).json({
+        success: false,
+        message: 'Person ID is required',
+      });
+      return;
+    }
+
+    const data = await this.detectionService.associateToExistingPerson(
+      parseInt(detectionId),
+      parseInt(personId),
+      req.organizationId
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Detection associated to person successfully',
+      data,
+    });
+  });
+
+  // Create new person and associate detection
+  createPersonFromDetection = asyncHandler(async (req: OrganizationRequest, res: Response): Promise<void> => {
+    const { detectionId } = req.params;
+    const { personData } = req.body;
+
+    if (!personData || !personData.name) {
+      res.status(400).json({
+        success: false,
+        message: 'Person data with name is required',
+      });
+      return;
+    }
+
+    const data = await this.detectionService.createPersonFromDetection(
+      parseInt(detectionId),
+      { ...personData, organizationId: req.organizationId },
+      req.organizationId
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'New person created and detection associated successfully',
+      data,
+    });
+  });
+
+  // Unmatch person from detection
+  unmatchPerson = asyncHandler(async (req: OrganizationRequest, res: Response): Promise<void> => {
+    const { detectionId } = req.params;
+
+    if (!detectionId) {
+      res.status(400).json({
+        success: false,
+        message: 'Detection ID is required',
+      });
+      return;
+    }
+
+    const detection = await this.detectionService.findById(parseInt(detectionId));
+    if (!detection) {
+      res.status(404).json({
+        success: false,
+        message: 'Detection not found',
+      });
+      return;
+    }
+
+    // Update detection to remove person association and set status to detected
+    const updatedDetection = await this.detectionService.repository.update(parseInt(detectionId), {
+      personFaceId: undefined,
+      status: 'detectada'
+    });
+
+    const detectionWithRelations = await this.detectionService.findById(parseInt(detectionId), [
+      'camera', 'personFace', 'personFace.person', 'event'
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: 'Person unmatched from detection successfully',
+      data: detectionWithRelations,
+    });
+  });
+
+  // Confirm detection
+  confirmDetection = asyncHandler(async (req: OrganizationRequest, res: Response): Promise<void> => {
+    const { detectionId } = req.params;
+
+    if (!detectionId) {
+      res.status(400).json({
+        success: false,
+        message: 'Detection ID is required',
+      });
+      return;
+    }
+
+    const detection = await this.detectionService.findById(parseInt(detectionId));
+    if (!detection) {
+      res.status(404).json({
+        success: false,
+        message: 'Detection not found',
+      });
+      return;
+    }
+
+    // Only allow confirming detections with 'reconhecida' status
+    if (detection.status !== 'reconhecida') {
+      res.status(400).json({
+        success: false,
+        message: 'Only recognized detections can be confirmed',
+      });
+      return;
+    }
+
+    // Update detection status to 'confirmada'
+    const updatedDetection = await this.detectionService.repository.update(parseInt(detectionId), {
+      status: 'confirmada'
+    });
+
+    const detectionWithRelations = await this.detectionService.findById(parseInt(detectionId), [
+      'camera', 'personFace', 'personFace.person', 'event'
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: 'Detection confirmed successfully',
+      data: detectionWithRelations,
+    });
+  });
+
+  // Get latest detection for a person
+  getLatestDetectionForPerson = asyncHandler(async (req: OrganizationRequest, res: Response): Promise<void> => {
+    const { personId } = req.params;
+
+    const latestDetection = await (this.service.repository as any).getRepository()
+      .createQueryBuilder('detection')
+      .leftJoinAndSelect('detection.personFace', 'personFace')
+      .leftJoinAndSelect('personFace.person', 'person')
+      .leftJoinAndSelect('detection.camera', 'camera')
+      .where('person.id = :personId', { personId: parseInt(personId) })
+      .andWhere('person.organizationId = :organizationId', { organizationId: req.organizationId })
+      .orderBy('detection.detectedAt', 'DESC')
+      .limit(1)
+      .getOne();
+
+    res.status(200).json({
+      success: true,
+      message: 'Última detecção encontrada',
+      data: latestDetection,
+    });
+  });
+
+  // Check if a person has existing face records
+  checkPersonFaceRecords = asyncHandler(async (req: OrganizationRequest, res: Response): Promise<void> => {
+    const { personId } = req.params;
+
+    if (!personId) {
+      res.status(400).json({
+        success: false,
+        message: 'Person ID is required',
+      });
+      return;
+    }
+
+    // Verify person exists and belongs to organization
+    const person = await this.detectionService.personService.findById(parseInt(personId));
+    if (!person || person.organizationId !== req.organizationId) {
+      res.status(404).json({
+        success: false,
+        message: 'Person not found or access denied',
+      });
+      return;
+    }
+
+    const faceCheck = await this.detectionService.checkPersonFaceExists(parseInt(personId));
+
+    res.status(200).json({
+      success: true,
+      message: 'Person face records retrieved successfully',
+      data: {
+        personId: parseInt(personId),
+        personName: person.name,
+        ...faceCheck
+      }
     });
   });
 }
@@ -749,3 +959,4 @@ export class UserController extends BaseController<any> {
 }
 
 export { DashboardController } from './DashboardController';
+export { ReportController } from './ReportController';

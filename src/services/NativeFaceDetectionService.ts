@@ -60,8 +60,12 @@ export class NativeFaceDetectionService {
 
     try {
       // Set up model path for Facenet and fallback models
-            const defaultModelPath = path.join(process.cwd(), 'models').replace(/\\/g, '/');
+      const defaultModelPath = path.join(process.cwd(), 'models').replace(/\\/g, '/');
       const finalModelPath = modelPath || defaultModelPath;
+
+      console.log(`🔧 NATIVE DETECTOR: Initializing with model path: ${finalModelPath}`);
+      console.log(`🔧 NATIVE DETECTOR: Deep learning enabled: ${useDeepLearning}`);
+      console.log(`🔧 NATIVE DETECTOR: Expected facenet model at: ${finalModelPath}/facenet/facenet.onnx`);
 
       // Use synchronous initialization for better reliability
       const success = this.detector.initialize(finalModelPath, useDeepLearning);
@@ -69,11 +73,14 @@ export class NativeFaceDetectionService {
       if (success) {
         this.isInitialized = true;
         this.detector.setConfidenceThreshold(0.6); // Facenet demo default - good balance of accuracy vs false positives
+        console.log(`✅ NATIVE DETECTOR: Initialization successful - detector ready`);
         return true;
       } else {
+        console.error(`❌ NATIVE DETECTOR: Initialization failed - C++ module returned false`);
         return false;
       }
     } catch (error) {
+      console.error(`❌ NATIVE DETECTOR: Initialization error:`, error);
       return false;
     }
   }
@@ -86,6 +93,7 @@ export class NativeFaceDetectionService {
       boundingBox: { x: number; y: number; width: number; height: number };
       confidence: number;
       landmarks?: any[];
+      encoding?: number[]; // Include encoding
     }>;
     processingTimeMs: number;
   }> {
@@ -103,12 +111,25 @@ export class NativeFaceDetectionService {
       // Update performance statistics
       this.updatePerformanceStats(result.processingTimeMs);
 
+      const processedFaces = result.faces.map(face => ({
+        boundingBox: face.boundingBox,
+        confidence: face.confidence,
+        landmarks: [], // C++ module can be extended to include landmarks
+        encoding: face.encoding || [], // Include face encoding from C++
+      }));
+
+      // Debug logging for encoding issues
+      if (processedFaces.length > 0) {
+        const faceWithEncoding = processedFaces.find(f => f.encoding && f.encoding.length > 0);
+        if (!faceWithEncoding) {
+          console.warn('⚠️ NATIVE DETECTOR: No encodings found in detected faces - C++ module may not be generating encodings');
+        } else {
+          console.log(`✅ NATIVE DETECTOR: Found ${processedFaces.length} face(s) with encodings (${faceWithEncoding.encoding!.length} dimensions)`);
+        }
+      }
+
       return {
-        faces: result.faces.map(face => ({
-          boundingBox: face.boundingBox,
-          confidence: face.confidence,
-          landmarks: [], // C++ module can be extended to include landmarks
-        })),
+        faces: processedFaces,
         processingTimeMs: result.processingTimeMs,
       };
     } catch (error) {
@@ -126,6 +147,7 @@ export class NativeFaceDetectionService {
       boundingBox: { x: number; y: number; width: number; height: number };
       confidence: number;
       landmarks?: any[];
+      encoding?: number[]; // Include encoding
     }>;
     processingTimeMs: number;
   }> {
@@ -164,12 +186,25 @@ export class NativeFaceDetectionService {
           // Update performance statistics
           this.updatePerformanceStats(result.processingTimeMs);
 
+          const processedFaces = result.faces.map(face => ({
+            boundingBox: face.boundingBox,
+            confidence: face.confidence,
+            landmarks: [],
+            encoding: face.encoding || [], // Include face encoding from C++
+          }));
+
+          // Debug logging for encoding issues
+          if (processedFaces.length > 0) {
+            const faceWithEncoding = processedFaces.find(f => f.encoding && f.encoding.length > 0);
+            if (!faceWithEncoding) {
+              console.warn('⚠️ NATIVE DETECTOR ASYNC: No encodings found in detected faces - C++ module may not be generating encodings');
+            } else {
+              console.log(`✅ NATIVE DETECTOR ASYNC: Found ${processedFaces.length} face(s) with encodings (${faceWithEncoding.encoding!.length} dimensions)`);
+            }
+          }
+
           const processedResult = {
-            faces: result.faces.map(face => ({
-              boundingBox: face.boundingBox,
-              confidence: face.confidence,
-              landmarks: [],
-            })),
+            faces: processedFaces,
             processingTimeMs: result.processingTimeMs,
           };
 

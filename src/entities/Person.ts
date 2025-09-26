@@ -28,8 +28,7 @@ export class Person extends BaseEntity {
   @Column({
     type: 'varchar',
     length: 20,
-    nullable: true,
-    unique: true
+    nullable: true
   })
   @IsOptional()
   @IsString()

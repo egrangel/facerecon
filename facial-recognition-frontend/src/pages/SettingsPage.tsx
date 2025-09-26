@@ -180,7 +180,7 @@ const SettingsPage: React.FC = () => {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Configurações</h1>
       </div>
 
       {/* Tabs */}
@@ -194,7 +194,7 @@ const SettingsPage: React.FC = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Organization
+            Organização
           </button>
           <button
             onClick={() => setActiveTab('users')}
@@ -204,7 +204,7 @@ const SettingsPage: React.FC = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Users
+            Usuários
           </button>
         </nav>
       </div>
@@ -213,7 +213,7 @@ const SettingsPage: React.FC = () => {
       {activeTab === 'organization' && (
         <Card>
           <CardHeader>
-            <CardTitle>Organization Information</CardTitle>
+            <CardTitle>Informações da Organização</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleOrgSubmit(onOrgSubmit)} className="space-y-4">
@@ -229,7 +229,7 @@ const SettingsPage: React.FC = () => {
 
               <div>
                 <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
+                  Descrição
                 </label>
                 <textarea
                   id="description"
@@ -248,8 +248,8 @@ const SettingsPage: React.FC = () => {
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                   {...registerOrg('status')}
                 >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
+                  <option value="active">Ativo</option>
+                  <option value="inactive">Inativo</option>
                 </select>
               </div>
 
@@ -258,7 +258,7 @@ const SettingsPage: React.FC = () => {
                 isLoading={updateOrgMutation.isPending}
                 className="w-full sm:w-auto"
               >
-                Update Organization
+                Atualizar Organização
               </Button>
             </form>
           </CardContent>
@@ -269,12 +269,12 @@ const SettingsPage: React.FC = () => {
       {activeTab === 'users' && (
         <div className="space-y-6">
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-medium text-gray-900">Organization Users</h2>
+            <h2 className="text-lg font-medium text-gray-900">Usuários da Organização</h2>
             <Button
               onClick={() => setShowUserModal(true)}
               className="bg-primary-600 text-white hover:bg-primary-700"
             >
-              Add User
+              Adicionar Usuário
             </Button>
           </div>
 
@@ -312,7 +312,7 @@ const SettingsPage: React.FC = () => {
                           </span>
                           {user.lastLoginAt && (
                             <span className="ml-2 text-xs text-gray-500">
-                              Last login: {new Date(user.lastLoginAt).toLocaleDateString()}
+                              Último acesso: {new Date(user.lastLoginAt).toLocaleDateString()}
                             </span>
                           )}
                         </div>
@@ -323,7 +323,7 @@ const SettingsPage: React.FC = () => {
                           variant="outline"
                           onClick={() => handleEditUser(user)}
                         >
-                          Edit
+                          Editar
                         </Button>
                         <Button
                           size="sm"
@@ -331,7 +331,7 @@ const SettingsPage: React.FC = () => {
                           onClick={() => handleDeleteUser(user)}
                           className="text-red-600 border-red-300 hover:bg-red-50"
                         >
-                          Delete
+                          Deletar
                         </Button>
                       </div>
                     </div>
@@ -396,15 +396,15 @@ const SettingsPage: React.FC = () => {
 
                 <div>
                   <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
-                    Role
+                    Perfil
                   </label>
                   <select
                     id="role"
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                     {...registerUser('role')}
                   >
-                    <option value="user">User</option>
-                    <option value="operator">Operator</option>
+                    <option value="user">Usuário</option>
+                    <option value="operator">Operador</option>
                     <option value="admin">Admin</option>
                   </select>
                 </div>
@@ -415,13 +415,13 @@ const SettingsPage: React.FC = () => {
                     variant="outline"
                     onClick={closeUserModal}
                   >
-                    Cancel
+                    Cancelar
                   </Button>
                   <Button
                     type="submit"
                     isLoading={createUserMutation.isPending || updateUserMutation.isPending}
                   >
-                    {editingUser ? 'Update' : 'Create'}
+                    {editingUser ? 'Atualizar' : 'Criar'}
                   </Button>
                 </div>
               </form>

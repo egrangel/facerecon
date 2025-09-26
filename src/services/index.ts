@@ -1,6 +1,7 @@
 import { DeepPartial } from 'typeorm';
 import { BaseService } from './BaseService';
 import { createError } from '../middlewares/errorHandler';
+import { faceIndexService } from './FaceIndexService';
 import {
   OrganizationRepository,
   PersonRepository,
@@ -219,16 +220,17 @@ export class CameraService extends BaseService<Camera> {
 }
 
 export class DetectionService extends BaseService<Detection> {
+  public personService: PersonService;
+  private personFaceRepository: PersonFaceRepository;
+
   constructor() {
     super(new DetectionRepository());
+    this.personService = new PersonService();
+    this.personFaceRepository = new PersonFaceRepository();
   }
 
   async findByEventId(eventId: number): Promise<Detection[]> {
     return (this.repository as DetectionRepository).findByEventId(eventId);
-  }
-
-  async findByPersonFaceId(personFaceId: number): Promise<Detection[]> {
-    return (this.repository as DetectionRepository).findByPersonFaceId(personFaceId);
   }
 
   async findRecentDetections(hours: number = 24): Promise<Detection[]> {
@@ -237,7 +239,6 @@ export class DetectionService extends BaseService<Detection> {
 
   async create(data: DeepPartial<Detection>): Promise<Detection> {
     this.validateRequiredField(data.eventId, 'eventId');
-    this.validateRequiredField(data.personFaceId, 'personFaceId');
     this.validateRequiredField(data.detectedAt, 'detectedAt');
     this.validateNumericField(data.confidence, 'confidence');
     this.validateRequiredField(data.organizationId, 'organizationId');
@@ -259,6 +260,146 @@ export class DetectionService extends BaseService<Detection> {
       byDay: [],
       byConfidence: [],
     };
+  }
+
+  // Associate detection to existing person
+  async associateToExistingPerson(detectionId: number, personId: number, organizationId: number): Promise<Detection> {
+    // Find the detection
+    const detection = await this.findById(detectionId);
+    if (!detection) {
+      throw createError('Detection not found', 404);
+    }
+
+    // Verify the person exists and belongs to the same organization
+    const person = await this.personService.findById(personId);
+    if (!person || person.organizationId !== organizationId) {
+      throw createError('Person not found or access denied', 404);
+    }
+
+    // Always create a new PersonFace record with the detection's embedding data
+    // This allows us to accumulate multiple face samples for better recognition
+    const personFace = await this.personFaceRepository.create({
+      personId: personId,
+      biometricParameters: detection.metadata || '', // Use detection metadata if available
+      embedding: detection.embedding || undefined, // Use detection embedding if available
+      reliability: detection.confidence / 100, // Convert percentage to decimal
+      status: 'active'
+    });
+
+    console.log(`Created new PersonFace record for ${person.name} (ID: ${personId}) with PersonFace ID: ${personFace.id}`);
+    console.log(`📊 PersonFace embedding status: ${personFace.embedding ? `${personFace.embedding.length} bytes` : 'NULL/EMPTY'}`);
+    console.log(`📊 Detection embedding status: ${detection.embedding ? `${detection.embedding.length} bytes` : 'NULL/EMPTY'}`);
+
+    // Add the new PersonFace to the ANN index if it has an embedding
+    if (personFace.embedding) {
+      await faceIndexService.addFace(personFace);
+      console.log(`📊 Added PersonFace ${personFace.id} to ANN index for better future recognition`);
+    } else {
+      console.warn(`⚠️ Cannot add PersonFace ${personFace.id} to ANN index - no embedding data available`);
+    }
+
+    // Update the detection to point to this PersonFace
+    const updatedDetection = await this.repository.update(detectionId, {
+      personFaceId: personFace.id,
+      status: 'confirmada'
+    });
+
+    // Return the updated detection with relations
+    const updatedDetectionResult = await this.repository.findOne({
+      where: { id: detectionId },
+      relations: ['camera', 'personFace', 'personFace.person', 'event']
+    });
+
+    if (!updatedDetectionResult) {
+      throw createError('Detection not found after update', 404);
+    }
+
+    return updatedDetectionResult;
+  }
+
+  // Create new person and associate detection
+  async createPersonFromDetection(detectionId: number, personData: DeepPartial<Person>, organizationId: number): Promise<Detection> {
+    // Find the detection
+    const detection = await this.findById(detectionId);
+    if (!detection) {
+      throw createError('Detection not found', 404);
+    }
+
+    // Create the new person
+    const newPerson = await this.personService.create({
+      ...personData,
+      organizationId: organizationId
+    });
+
+    // Create a PersonFace for the new person using the detection data
+    const personFace = await this.personFaceRepository.create({
+      personId: newPerson.id,
+      biometricParameters: detection.metadata || '', // Use detection metadata if available
+      embedding: detection.embedding || undefined, // Use detection embedding if available
+      reliability: detection.confidence / 100, // Convert percentage to decimal
+      status: 'active'
+    });
+
+    console.log(`Created new person "${newPerson.name}" (ID: ${newPerson.id}) with PersonFace ID: ${personFace.id}`);
+
+    // Add the new PersonFace to the ANN index if it has an embedding
+    if (personFace.embedding) {
+      await faceIndexService.addFace(personFace);
+      console.log(`📊 Added PersonFace ${personFace.id} to ANN index`);
+    }
+
+    // Update the detection to point to this PersonFace
+    await this.repository.update(detectionId, {
+      personFaceId: personFace.id,
+      status: 'confirmada'
+    });
+
+    // Return the updated detection with relations
+    const updatedDetectionResult = await this.repository.findOne({
+      where: { id: detectionId },
+      relations: ['camera', 'personFace', 'personFace.person', 'event']
+    });
+
+    if (!updatedDetectionResult) {
+      throw createError('Detection not found after update', 404);
+    }
+
+    return updatedDetectionResult;
+  }
+
+  // Helper method to check if a person has existing face records
+  async checkPersonFaceExists(personId: number): Promise<{
+    hasRecords: boolean;
+    count: number;
+    activeRecords: number;
+    faces?: any[];
+  }> {
+    const existingFaces = await this.personFaceRepository.getRepository().find({
+      where: { personId: personId },
+      relations: ['person']
+    });
+
+    const activeCount = existingFaces.filter(face => face.status === 'active').length;
+
+    return {
+      hasRecords: existingFaces.length > 0,
+      count: existingFaces.length,
+      activeRecords: activeCount,
+      faces: existingFaces
+    };
+  }
+
+  // Helper method to get the best PersonFace for a person (prefers active ones)
+  async getBestPersonFace(personId: number): Promise<any | null> {
+    const faceCheck = await this.checkPersonFaceExists(personId);
+
+    if (!faceCheck.hasRecords) {
+      return null;
+    }
+
+    // Prefer active faces, fallback to any face
+    const activeFace = faceCheck.faces?.find(face => face.status === 'active');
+    return activeFace || faceCheck.faces?.[0] || null;
   }
 }
 

@@ -1,6 +1,6 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
-import { Express } from 'express';
+import e, { Express } from 'express';
 
 const options = {
   definition: {
@@ -140,8 +140,8 @@ const options = {
           type: 'object',
           properties: {
             id: { type: 'integer' },
-            faceId: { type: 'string' },
             parametrosBiometricos: { type: 'object' },
+            embedding: { type: 'string', format: 'binary' },
             confiabilidade: { type: 'number' },
             status: { type: 'string' },
             observacoes: { type: 'string' },
@@ -227,10 +227,10 @@ const options = {
             confiabilidade: { type: 'number' },
             status: { type: 'string' },
             imagemUrl: { type: 'string' },
-            coordenadas: { type: 'object' },
+            metadata: { type: 'object' },
+            embedding: { type: 'string', format: 'binary' },
             observacoes: { type: 'string' },
             eventoId: { type: 'integer' },
-            pessoaFaceId: { type: 'integer' },
             cameraId: { type: 'integer' },
             createdAt: { type: 'string', format: 'date-time' },
             updatedAt: { type: 'string', format: 'date-time' },

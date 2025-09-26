@@ -1,6 +1,4 @@
 import { spawn, ChildProcess } from 'child_process';
-import * as path from 'path';
-import * as fs from 'fs';
 import { faceRecognitionService } from './FaceRecognitionService';
 
 export interface FrameExtractionSession {
@@ -12,19 +10,18 @@ export interface FrameExtractionSession {
   process?: ChildProcess;
   frameCount: number;
   lastFrameTime: Date;
-  extractionInterval: number; // seconds between frame extractions
+  extractionInterval: number;
+  frameBuffer: Map<number, Buffer>; // In-memory frame storage
+  lastProcessedFrame: number;
+  monitor?: NodeJS.Timeout;
 }
 
 export class FrameExtractionService {
   private static instance: FrameExtractionService;
   private sessions: Map<string, FrameExtractionSession> = new Map();
-  private readonly frameDir: string;
   private readonly defaultInterval = 1; // Extract frame every 1 second
 
-  constructor() {
-    this.frameDir = path.join(process.cwd(), 'temp', 'frames');
-    this.ensureFrameDirectory();
-  }
+  constructor() {}
 
   public static getInstance(): FrameExtractionService {
     if (!FrameExtractionService.instance) {
@@ -33,11 +30,6 @@ export class FrameExtractionService {
     return FrameExtractionService.instance;
   }
 
-  private ensureFrameDirectory(): void {
-    if (!fs.existsSync(this.frameDir)) {
-      fs.mkdirSync(this.frameDir, { recursive: true });
-    }
-  }
 
   /**
    * Start frame extraction for a camera stream
@@ -65,6 +57,8 @@ export class FrameExtractionService {
         frameCount: 0,
         lastFrameTime: new Date(),
         extractionInterval,
+        frameBuffer: new Map<number, Buffer>(),
+        lastProcessedFrame: 0
       };
 
       // Initialize face recognition service - CRITICAL: Must succeed
@@ -76,28 +70,23 @@ export class FrameExtractionService {
         throw error; // Re-throw to fail the frame extraction startup
       }
 
-      // Start FFmpeg process for frame extraction
-      const frameOutputPattern = path.join(this.frameDir, `${sessionId}_%03d.jpg`);
-
+      // Start FFmpeg process for frame extraction to stdout
       const ffmpegArgs = [
         // Enhanced input options for better camera compatibility
         '-rtsp_transport', 'tcp',
-        '-analyzeduration', '2000000', // Increased analysis time
-        '-probesize', '2000000', // Increased probe size
-        '-fflags', '+genpts', // Generate presentation timestamps
-        '-max_delay', '5000000', // Max delay for real-time streams
+        '-analyzeduration', '2000000',
+        '-probesize', '2000000',
+        '-fflags', '+genpts',
+        '-max_delay', '5000000',
         '-i', rtspUrl,
 
-        // Enhanced frame extraction options
-        '-vf', `fps=1/${extractionInterval},scale=1280:720:force_original_aspect_ratio=decrease`, // Better resolution
-        '-f', 'image2',
-        '-q:v', '3', // Good quality JPEG (balance of quality/size)
-        '-pix_fmt', 'yuvj420p', // Better color format compatibility
-        '-start_number', '1', // Start numbering from 1
-        '-y', // Overwrite output files
-
-        // Output pattern
-        frameOutputPattern
+        // Enhanced frame extraction options - output to stdout
+        '-vf', `fps=1/${extractionInterval},scale=1280:720:force_original_aspect_ratio=decrease`,
+        '-f', 'image2pipe',
+        '-q:v', '3',
+        '-pix_fmt', 'yuvj420p',
+        '-vcodec', 'mjpeg',
+        'pipe:1' // Output to stdout
       ];
 
       // console.log(`Starting frame extraction for camera ${cameraId}: ffmpeg ${ffmpegArgs.join(' ')}`);
@@ -111,11 +100,46 @@ export class FrameExtractionService {
       session.isActive = true;
       this.sessions.set(sessionId, session);
 
-      // Handle process events
-      // ffmpegProcess.stdout?.on('data', (data) => {
-      //   // Log stdout if needed
-      //   // console.log(`FFmpeg stdout (${sessionId}): ${data}`);
-      // });
+      // Handle stdout data - frames in memory
+      let frameBuffer = Buffer.alloc(0);
+      let frameNumber = 1;
+
+      ffmpegProcess.stdout?.on('data', (data: Buffer) => {
+        frameBuffer = Buffer.concat([frameBuffer, data]);
+
+        // Look for JPEG markers to separate frames
+        let startIdx = 0;
+        let endIdx = frameBuffer.indexOf(Buffer.from([0xFF, 0xD9]), startIdx); // JPEG end marker
+
+        while (endIdx !== -1) {
+          const frameStart = frameBuffer.indexOf(Buffer.from([0xFF, 0xD8]), startIdx); // JPEG start marker
+          if (frameStart !== -1 && frameStart < endIdx) {
+            const completeFrame = frameBuffer.subarray(frameStart, endIdx + 2);
+
+            // Store frame in memory dictionary
+            session.frameBuffer.set(frameNumber, completeFrame);
+            session.frameCount++;
+            session.lastFrameTime = new Date();
+
+            // Process frame immediately
+            this.processFrameFromMemory(completeFrame, frameNumber, session);
+
+            frameNumber++;
+            startIdx = endIdx + 2;
+          } else {
+            startIdx = endIdx + 2;
+          }
+
+          endIdx = frameBuffer.indexOf(Buffer.from([0xFF, 0xD9]), startIdx);
+        }
+
+        // Keep remaining incomplete data
+        if (startIdx < frameBuffer.length) {
+          frameBuffer = frameBuffer.subarray(startIdx);
+        } else {
+          frameBuffer = Buffer.alloc(0);
+        }
+      });
 
       // ffmpegProcess.stderr?.on('data', (data) => {
       //   const output = data.toString();
@@ -154,9 +178,6 @@ export class FrameExtractionService {
         this.cleanup(sessionId);
       });
 
-      // Start monitoring for new frames
-      this.startFrameMonitoring(sessionId);
-
       console.log(`Frame extraction started for session ${sessionId}`);
     } catch (error) {
       console.error('Failed to start frame extraction:', error);
@@ -165,75 +186,28 @@ export class FrameExtractionService {
   }
 
   /**
-   * Monitor for new frames and process them
+   * Process frames from memory buffer
    */
-  private startFrameMonitoring(sessionId: string): void {
-    const session = this.sessions.get(sessionId);
-    if (!session) return;
-
-    const framePattern = path.join(this.frameDir, `${sessionId}_*.jpg`);
-    let lastProcessedFrame = 0;
-
-    const monitor = setInterval(async () => {
-      try {
-        if (!session.isActive) {
-          clearInterval(monitor);
-          return;
-        }
-
-        // Look for new frame files
-        const frameFiles = fs.readdirSync(this.frameDir)
-          .filter(file => file.startsWith(`${sessionId}_`) && file.endsWith('.jpg'))
-          .map(file => {
-            const match = file.match(new RegExp(`${sessionId}_(\\d+)\\.jpg`));
-            return match ? { file, number: parseInt(match[1]) } : null;
-          })
-          .filter(item => item !== null)
-          .sort((a, b) => a!.number - b!.number);
-
-        // Process new frames
-        for (const frameInfo of frameFiles) {
-          if (frameInfo!.number > lastProcessedFrame) {
-            const framePath = path.join(this.frameDir, frameInfo!.file);
-
-            if (fs.existsSync(framePath)) {
-              await this.processFrame(framePath, session);
-              lastProcessedFrame = frameInfo!.number;
-              session.frameCount++;
-
-              // Clean up old frame file to save space
-              setTimeout(() => {
-                if (fs.existsSync(framePath)) {
-                  fs.unlinkSync(framePath);
-                }
-              }, 5000);
-            }
-          }
-        }
-      } catch (error) {
-        console.error(`Frame monitoring error for session ${sessionId}:`, error);
-      }
-    }, 1000); // Check every second
-
-    // Store monitor reference for cleanup
-    (session as any).monitor = monitor;
-  }
-
-  /**
-   * Process a single frame for face detection
-   */
-  private async processFrame(framePath: string, session: FrameExtractionSession): Promise<void> {
+  private async processFrameFromMemory(
+    frameBuffer: Buffer,
+    frameNumber: number,
+    session: FrameExtractionSession
+  ): Promise<void> {
     try {
-      // Read frame buffer
-      const frameBuffer = fs.readFileSync(framePath);
+      // Clean up older frames to prevent memory leaks (keep only last 20 frames)
+      if (session.frameBuffer.size > 20) {
+        const frames = Array.from(session.frameBuffer.keys());
+        const oldestFrame = Math.min(...frames);
+        session.frameBuffer.delete(oldestFrame);
+      }
 
-      // Extract event ID from session ID (format: event-{eventId}-camera-{cameraId}-{timestamp})
+      // Extract event ID from session ID
       let eventId: number | undefined;
       const eventMatch = session.sessionId.match(/^event-(\d+)-camera-\d+-\d+$/);
       if (eventMatch) {
         eventId = parseInt(eventMatch[1]);
       } else {
-        console.warn(`⚠︝ FRAME EXTRACT: Could not extract event ID from session ${session.sessionId}`);
+        console.warn(`⚠️ FRAME EXTRACT: Could not extract event ID from session ${session.sessionId}`);
       }
 
       // Process frame with face detection
@@ -241,11 +215,12 @@ export class FrameExtractionService {
         frameBuffer,
         session.cameraId,
         session.organizationId,
-        eventId // Pass the extracted event ID
+        eventId
       );
 
+      session.lastProcessedFrame = frameNumber;
     } catch (error) {
-      console.error(`Failed to process frame ${framePath}:`, error);
+      console.error(`Failed to process frame ${frameNumber}:`, error);
     }
   }
 
@@ -276,8 +251,8 @@ export class FrameExtractionService {
     }
 
     // Clear monitoring interval
-    if ((session as any).monitor) {
-      clearInterval((session as any).monitor);
+    if (session.monitor) {
+      clearInterval(session.monitor);
     }
 
     this.cleanup(sessionId);
@@ -324,24 +299,12 @@ export class FrameExtractionService {
     const session = this.sessions.get(sessionId);
     if (session) {
       // Clear monitoring interval
-      if ((session as any).monitor) {
-        clearInterval((session as any).monitor);
+      if (session.monitor) {
+        clearInterval(session.monitor);
       }
 
-      // Clean up frame files
-      try {
-        const frameFiles = fs.readdirSync(this.frameDir)
-          .filter(file => file.startsWith(`${sessionId}_`));
-
-        frameFiles.forEach(file => {
-          const filePath = path.join(this.frameDir, file);
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-          }
-        });
-      } catch (error) {
-        console.error('Error cleaning up frame files:', error);
-      }
+      // Clear frame buffer from memory
+      session.frameBuffer.clear();
 
       this.sessions.delete(sessionId);
     }
@@ -362,7 +325,7 @@ export class FrameExtractionService {
   public getServiceHealth() {
     return {
       activeSessions: this.sessions.size,
-      frameDirectory: this.frameDir,
+      memoryFrameBuffers: Array.from(this.sessions.values()).reduce((total, session) => total + session.frameBuffer.size, 0),
       faceRecognitionHealth: faceRecognitionService.getServiceHealth(),
       uptime: process.uptime(),
     };

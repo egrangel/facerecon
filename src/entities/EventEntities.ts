@@ -2,7 +2,7 @@ import { Entity, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { IsString, IsOptional, Length, IsDateString, IsNumber } from 'class-validator';
 import { BaseEntity } from './BaseEntity';
 import { Organization } from './Organization';
-import { PersonFace } from './index';
+import { Person, PersonFace } from './index';
 
 // Event Entity
 @Entity('events')
@@ -290,12 +290,18 @@ class Detection extends BaseEntity {
   @IsOptional()
   metadata?: string; // JSON string
 
+  @Column({
+    type: 'blob',
+    nullable: true
+  })
+  embedding?: Buffer; // Binary data for face embedding (blob for SQLite)
+
   // Foreign Keys
+  @Column({ name: 'personface_id', nullable: true })
+  personFaceId?: number;
+
   @Column({ name: 'event_id', nullable: false })
   eventId!: number;
-
-  @Column({ name: 'person_face_id', nullable: false })
-  personFaceId!: number;
 
   @Column({ name: 'camera_id', nullable: true })
   cameraId?: number;
@@ -312,11 +318,11 @@ class Detection extends BaseEntity {
   event!: Event;
 
   @ManyToOne(() => PersonFace, {
-    nullable: false,
+    nullable: true,
     onDelete: 'CASCADE'
   })
-  @JoinColumn({ name: 'person_face_id' })
-  personFace!: PersonFace;
+  @JoinColumn({ name: 'personface_id' })
+  personFace?: PersonFace;
 
   @ManyToOne(() => Camera, (camera) => camera.detections, {
     nullable: true,

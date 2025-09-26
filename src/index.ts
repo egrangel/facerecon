@@ -16,6 +16,7 @@ import { errorHandler, notFoundHandler } from '@/middlewares/errorHandler';
 import { streamService } from '@/services/StreamService';
 import { webSocketStreamService } from '@/services/WebSocketStreamService';
 import { eventSchedulerService } from '@/services/EventSchedulerService';
+import { faceIndexService } from '@/services/FaceIndexService';
 
 // Load environment variables
 dotenv.config();
@@ -31,22 +32,22 @@ if (IS_PRODUCTION && process.env.TRUST_PROXY === 'true') {
 }
 
 // Rate limiting
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '500'),
-  message: {
-    success: false,
-    message: 'Too many requests. Please try again later.',
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: process.env.RATE_LIMIT_SKIP_SUCCESSFUL_REQUESTS === 'true',
-  skipFailedRequests: process.env.RATE_LIMIT_SKIP_FAILED_REQUESTS === 'true',
-  keyGenerator: (req) => {
-    // Use X-Forwarded-For in production behind proxy
-    return req.ip || req.connection.remoteAddress || 'unknown';
-  },
-});
+// const limiter = rateLimit({
+//   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
+//   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '10000'),
+//   message: {
+//     success: false,
+//     message: 'Too many requests. Please try again later.',
+//   },
+//   standardHeaders: true,
+//   legacyHeaders: false,
+//   skipSuccessfulRequests: process.env.RATE_LIMIT_SKIP_SUCCESSFUL_REQUESTS === 'true',
+//   skipFailedRequests: process.env.RATE_LIMIT_SKIP_FAILED_REQUESTS === 'true',
+//   keyGenerator: (req) => {
+//     // Use X-Forwarded-For in production behind proxy
+//     return req.ip || req.connection.remoteAddress || 'unknown';
+//   },
+// });
 
 // Security middlewares
 app.use(helmet({
@@ -104,7 +105,7 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 // Rate limiting
-app.use(limiter);
+// app.use(limiter);
 
 // Static file serving for uploaded images
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
@@ -135,12 +136,22 @@ const startServer = async (): Promise<void> => {
   try {
     await initializeDatabase();
     console.log('✅ Database initialized successfully');
+
+    // Initialize Face Recognition ANN Index
+    try {
+      await faceIndexService.initialize();
+      const stats = faceIndexService.getStats();
+      console.log(`✅ Face Recognition ANN Index initialized with ${stats.totalFaces} faces`);
+    } catch (indexError) {
+      console.error('❌ Face Recognition ANN Index initialization failed:', indexError);
+      console.log('⚠️ Face recognition will work with reduced performance');
+    }
   } catch (error: unknown) {
     // Type guard to check if error is an Error object
-    const errorMessage = error instanceof Error 
+    const errorMessage = error instanceof Error
       ? error.message
       : 'Unknown error occurred';
-    
+
     console.error('❌ Database connection failed:', errorMessage);
     console.log('⚠︝ Server will start without database connection (some features may be unavailable)');
   }
@@ -157,7 +168,6 @@ const startServer = async (): Promise<void> => {
   server.listen(PORT, host, () => {
     console.log(`🚀 Server is running on port ${PORT}`);
     console.log(`🌝 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🎥 HLS Streaming service initialized`);
     console.log(`📡 WebSocket streaming service initialized`);
 
     // Start the event scheduler for automatic facial recognition

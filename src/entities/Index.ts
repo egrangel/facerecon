@@ -48,20 +48,16 @@ class PersonType extends BaseEntity {
 @Entity('person_faces')
 class PersonFace extends BaseEntity {
   @Column({
-    type: 'varchar',
-    length: 255,
-    nullable: false,
-    unique: true
-  })
-  @IsString()
-  @Length(1, 255)
-  faceId!: string; // Biometric identifier
-
-  @Column({
     type: 'text',
     nullable: true
   })
   biometricParameters?: string; // JSON string
+
+  @Column({
+    type: 'blob',
+    nullable: true
+  })
+  embedding?: Buffer; // Binary data for face embedding (blob for SQLite)
 
   @Column({
     type: 'float',

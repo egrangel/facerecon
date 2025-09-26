@@ -115,6 +115,17 @@ private:
             jsFace.Set("boundingBox", boundingBox);
             jsFace.Set("confidence", Napi::Number::New(env, face.confidence));
 
+            // Add encoding array
+            if (!face.encoding.empty()) {
+                Napi::Array encoding = Napi::Array::New(env, face.encoding.size());
+                for (size_t j = 0; j < face.encoding.size(); j++) {
+                    encoding.Set(j, Napi::Number::New(env, face.encoding[j]));
+                }
+                jsFace.Set("encoding", encoding);
+            } else {
+                jsFace.Set("encoding", Napi::Array::New(env, 0)); // Empty array
+            }
+
             faces.Set(i, jsFace);
         }
 
@@ -162,6 +173,17 @@ private:
 
                 jsFace.Set("boundingBox", boundingBox);
                 jsFace.Set("confidence", Napi::Number::New(env, face.confidence));
+
+                // Add encoding array
+                if (!face.encoding.empty()) {
+                    Napi::Array encoding = Napi::Array::New(env, face.encoding.size());
+                    for (size_t j = 0; j < face.encoding.size(); j++) {
+                        encoding.Set(j, Napi::Number::New(env, face.encoding[j]));
+                    }
+                    jsFace.Set("encoding", encoding);
+                } else {
+                    jsFace.Set("encoding", Napi::Array::New(env, 0)); // Empty array
+                }
 
                 faces.Set(i, jsFace);
             }

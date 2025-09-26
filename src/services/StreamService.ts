@@ -14,7 +14,6 @@ export interface StreamSession {
 
 /**
  * StreamService - Simplified wrapper around WebSocketStreamService
- * All streaming now uses WebSocket for ultra-low latency (200-500ms vs HLS 10-30 seconds)
  */
 export class StreamService {
   private static instance: StreamService;
@@ -81,32 +80,7 @@ export class StreamService {
       uptime: process.uptime(),
     };
   }
-
-  // Legacy methods for compatibility - these are no longer used but kept to avoid breaking changes
-
-  /**
-   * @deprecated WebSocket streaming doesn't use URLs like HLS
-   */
-  public getStreamUrl(sessionId: string): string | null {
-    // WebSocket streams don't have URLs like HLS
-    return '/ws/stream';
-  }
-
-  /**
-   * @deprecated WebSocket streaming doesn't use file paths
-   */
-  public getStreamPath(sessionId: string): string | null {
-    // WebSocket streams don't have file paths
-    return null;
-  }
-
-  /**
-   * @deprecated WebSocket streaming doesn't use segments
-   */
-  public getSegmentPath(sessionId: string, segmentName: string): string | null {
-    // WebSocket streams don't have segments
-    return null;
-  }
+ 
 }
 
 // Export singleton instance

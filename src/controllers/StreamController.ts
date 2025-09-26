@@ -166,14 +166,12 @@ export class StreamController {
     const { sessionId } = req.params;
 
     const isActive = streamService.isStreamActive(sessionId);
-    const streamUrl = streamService.getStreamUrl(sessionId);
 
     res.status(200).json({
       success: true,
       data: {
         sessionId,
         isActive,
-        streamUrl,
       },
     });
   });
@@ -194,7 +192,6 @@ export class StreamController {
     const streams = activeSessions.map(session => ({
       sessionId: session.id,
       cameraId: session.cameraId,
-      streamUrl: streamService.getStreamUrl(session.id),
       createdAt: session.createdAt,
       lastAccessed: session.lastAccessed,
     }));

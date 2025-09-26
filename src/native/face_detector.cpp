@@ -90,7 +90,7 @@ bool is_file_exist(const std::string& path) {
 }
 
 FaceDetector::FaceDetector()
-    : useDeepLearning(true), useUltraFace(false), confidenceThreshold(0.6f), nmsThreshold(0.3f), initialized(false) {
+    : useDeepLearning(true), useUltraFace(false), confidenceThreshold(0.6f), nmsThreshold(0.3f), initialized(false), faceRecognitionInitialized(false) {
 
     // Safely initialize the thread pool
     instanceCount++;
@@ -117,8 +117,30 @@ bool FaceDetector::initialize(const std::string& modelPath, bool useDL) {
 
     // Reset detectors
     faceNet = cv::dnn::Net(); // Reset by assignment
+    faceRecognitionNet = cv::dnn::Net(); // Reset face recognition net
+    faceRecognitionInitialized = false;
 
     std::cout << "Initializing face detector..." << std::endl;
+
+    // --- FaceNet Model for Recognition ---
+    std::string faceNetModel = modelPath + "/facenet/facenet.onnx";
+    std::cout << "Checking for FaceNet model at: " << faceNetModel << std::endl;
+    if (is_file_exist(faceNetModel)) {
+        try {
+            std::cout << "Attempting to load FaceNet model..." << std::endl;
+            faceRecognitionNet = cv::dnn::readNetFromONNX(faceNetModel);
+            if (!faceRecognitionNet.empty()) {
+                faceRecognitionNet.setPreferableBackend(cv::dnn::DNN_BACKEND_OPENCV);
+                faceRecognitionNet.setPreferableTarget(cv::dnn::DNN_TARGET_CPU);
+                std::cout << "FaceNet model loaded successfully for face recognition." << std::endl;
+                faceRecognitionInitialized = true;
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "FaceNet model loading failed: " << e.what() << std::endl;
+        }
+    } else {
+        std::cout << "FaceNet model file not found - face recognition will be disabled." << std::endl;
+    }
 
     if (useDeepLearning) {
         // --- UltraFace Model ---
@@ -223,8 +245,13 @@ DetectionResult FaceDetector::detectFaces(const cv::Mat& frame) {
                             DetectedFace face;
                             face.boundingBox = faceRect;
                             face.confidence = score;
+
+                            // Extract face encoding using FaceNet
+                            face.encoding = extractFaceEncoding(frame, faceRect);
+
                             result.faces.push_back(face);
-                            std::cout << "Added UltraFace detection: conf=" << score << ", rect=" << faceRect.x << "," << faceRect.y << "," << faceRect.width << "," << faceRect.height << std::endl;
+                            std::cout << "Added UltraFace detection: conf=" << score << ", rect=" << faceRect.x << "," << faceRect.y << "," << faceRect.width << "," << faceRect.height
+                                      << ", encoding_size=" << face.encoding.size() << std::endl;
                         }
                     }
                 }
@@ -242,7 +269,13 @@ DetectionResult FaceDetector::detectFaces(const cv::Mat& frame) {
                     DetectedFace face;
                     face.boundingBox = faceRect;
                     face.confidence = 0.75;
+
+                    // Extract face encoding using FaceNet
+                    face.encoding = extractFaceEncoding(frame, faceRect);
+
                     result.faces.push_back(face);
+                    std::cout << "Added Haar Cascade detection: rect=" << faceRect.x << "," << faceRect.y << "," << faceRect.width << "," << faceRect.height
+                              << ", encoding_size=" << face.encoding.size() << std::endl;
                 }
             }
         }
@@ -330,4 +363,56 @@ void FaceDetector::setConfidenceThreshold(float threshold) {
 
 void FaceDetector::setNMSThreshold(float threshold) {
     nmsThreshold = threshold;
+}
+
+std::vector<float> FaceDetector::extractFaceEncoding(const cv::Mat& frame, const cv::Rect& faceRect) {
+    std::vector<float> encoding;
+
+    if (!faceRecognitionInitialized || faceRecognitionNet.empty()) {
+        std::cout << "FaceNet not initialized - returning empty encoding" << std::endl;
+        return encoding;
+    }
+
+    try {
+        // Extract face region and ensure it's valid
+        cv::Rect safeFaceRect = faceRect & cv::Rect(0, 0, frame.cols, frame.rows);
+        if (safeFaceRect.width <= 0 || safeFaceRect.height <= 0) {
+            std::cout << "Invalid face rectangle - returning empty encoding" << std::endl;
+            return encoding;
+        }
+
+        cv::Mat faceImage = frame(safeFaceRect);
+        if (faceImage.empty()) {
+            std::cout << "Empty face image - returning empty encoding" << std::endl;
+            return encoding;
+        }
+
+        // FaceNet typically expects 160x160 input images
+        cv::Mat resizedFace;
+        cv::resize(faceImage, resizedFace, cv::Size(160, 160));
+
+        // Create blob from the face image
+        // FaceNet usually expects normalized input [0,1] or [-1,1]
+        cv::Mat blob = cv::dnn::blobFromImage(resizedFace, 1.0/255.0, cv::Size(160, 160), cv::Scalar(0, 0, 0), true, false);
+
+        // Set input to the network
+        faceRecognitionNet.setInput(blob);
+
+        // Forward pass
+        cv::Mat output = faceRecognitionNet.forward();
+
+        // Convert output to vector<float>
+        if (output.type() == CV_32F && output.total() > 0) {
+            float* data = (float*)output.data;
+            encoding.assign(data, data + output.total());
+            std::cout << "Successfully extracted face encoding with " << encoding.size() << " dimensions" << std::endl;
+        } else {
+            std::cout << "Invalid FaceNet output format - returning empty encoding" << std::endl;
+        }
+
+    } catch (const std::exception& e) {
+        std::cerr << "Error extracting face encoding: " << e.what() << std::endl;
+    }
+
+    return encoding;
 }

@@ -36,8 +36,8 @@ export interface Person extends BaseEntity {
 }
 
 export interface PersonFace extends BaseEntity {
-  faceId: string;
   biometricParameters?: string;
+  embedding: Blob
   reliability?: number;
   status: string;
   notes?: string;
@@ -120,8 +120,8 @@ export interface Detection extends BaseEntity {
   status: string;
   imageUrl?: string;
   metadata?: string;
+  embedding?: Blob
   eventId: number;
-  personFaceId: number;
   cameraId?: number;
   event?: Event;
   personFace?: PersonFace;

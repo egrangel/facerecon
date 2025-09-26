@@ -19,6 +19,7 @@ struct DetectedFace {
     cv::Rect boundingBox;
     float confidence;
     std::vector<cv::Point2f> landmarks;
+    std::vector<float> encoding; // Face embedding/encoding for recognition
     // You can add more features here, e.g., facial emotions, etc.
 };
 
@@ -81,13 +82,15 @@ public:
 
 private:
     cv::Ptr<cv::FaceDetectorYN> yunetDetector;
-    cv::dnn::Net faceNet;
+    cv::dnn::Net faceNet; // For face detection (UltraFace)
+    cv::dnn::Net faceRecognitionNet; // For face recognition (FaceNet)
     cv::CascadeClassifier faceCascade;
 
     bool useDeepLearning;
     bool useYuNet;
     bool initialized;
     bool useUltraFace;
+    bool faceRecognitionInitialized;
 
     float confidenceThreshold;
     float nmsThreshold;
@@ -98,6 +101,9 @@ private:
 
     // Helper function for simplified face region validation
     bool validateFaceRegion(const cv::Rect& faceRect, const cv::Mat& frame);
+
+    // Helper function to extract face encodings using FaceNet
+    std::vector<float> extractFaceEncoding(const cv::Mat& frame, const cv::Rect& faceRect);
 };
 
 #endif // FACE_DETECTOR_H

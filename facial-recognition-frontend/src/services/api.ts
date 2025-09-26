@@ -281,6 +281,37 @@ class ApiClient {
     return this.get<Detection>(`/detections/${id}`);
   }
 
+  async associateDetectionToExistingPerson(detectionId: number, personId: number): Promise<ApiResponse<Detection>> {
+    return this.post<ApiResponse<Detection>>(`/detections/${detectionId}/associate-existing-person`, { personId });
+  }
+
+  async createPersonFromDetection(detectionId: number, personData: Omit<Person, keyof BaseEntity>): Promise<ApiResponse<Detection>> {
+    return this.post<ApiResponse<Detection>>(`/detections/${detectionId}/create-new-person`, { personData });
+  }
+
+  async unmatchPersonFromDetection(detectionId: number): Promise<ApiResponse<Detection>> {
+    return this.post<ApiResponse<Detection>>(`/detections/${detectionId}/unmatch-person`, {});
+  }
+
+  async getLatestDetectionForPerson(personId: number): Promise<ApiResponse<Detection>> {
+    return this.get<ApiResponse<Detection>>(`/detections/person/${personId}/latest`);
+  }
+
+  async confirmDetection(detectionId: number): Promise<ApiResponse<Detection>> {
+    return this.post<ApiResponse<Detection>>(`/detections/${detectionId}/confirm`, {});
+  }
+
+  async checkPersonFaceRecords(personId: number): Promise<ApiResponse<{
+    personId: number;
+    personName: string;
+    hasRecords: boolean;
+    count: number;
+    activeRecords: number;
+    faces?: any[];
+  }>> {
+    return this.get<ApiResponse<any>>(`/detections/person/${personId}/face-records`);
+  }
+
   // User methods
   async getUsers(params?: QueryParams): Promise<PaginatedResponse<User>> {
     return this.getPaginated<User>('/users', params);
@@ -531,6 +562,29 @@ class ApiClient {
         storage: { status: 'warning', message: 'Status desconhecido', percentage: 0 }
       };
     }
+  }
+
+  // Reports methods
+  async getAttendanceFrequencyReport(params?: {
+    eventIds?: number[];
+  }): Promise<ApiResponse<Array<{
+    personName: string;
+    personId: number;
+    count: number;
+    percentage: number;
+  }>>> {
+    return this.get<ApiResponse<any>>('/reports/attendance-frequency', params);
+  }
+
+  async getEventFrequencyReport(params?: {
+    eventIds?: number[];
+  }): Promise<ApiResponse<Array<{
+    eventName: string;
+    eventId: number;
+    count: number;
+    percentage: number;
+  }>>> {
+    return this.get<ApiResponse<any>>('/reports/event-frequency', params);
   }
 
   // Health check

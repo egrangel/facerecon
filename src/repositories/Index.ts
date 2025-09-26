@@ -62,12 +62,20 @@ export class PersonRepository extends BaseRepository<Person> {
     const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'DESC', where } = options;
     const skip = (page - 1) * limit;
 
+
     const queryBuilder = this.repository.createQueryBuilder('person')
       .leftJoinAndSelect('person.organization', 'organization')
       .where('person.organizationId = :organizationId', { organizationId: where.organizationId })
-      .andWhere('(person.name ILIKE :search OR person.documentNumber ILIKE :search)', {
+      .andWhere('(LOWER(person.name) LIKE LOWER(:search) OR LOWER(person.documentNumber) LIKE LOWER(:search))', {
         search: `%${searchTerm}%`
-      })
+      });
+
+    // Add status filter if provided
+    if (where.status) {
+      queryBuilder.andWhere('person.status = :status', { status: where.status });
+    }
+
+    queryBuilder
       .skip(skip)
       .take(limit)
       .orderBy(`person.${sortBy}`, sortOrder);
@@ -113,13 +121,6 @@ export class PersonFaceRepository extends BaseRepository<PersonFace> {
   async findByPersonId(personId: number): Promise<PersonFace[]> {
     return this.repository.find({
       where: { personId },
-      relations: ['person'],
-    });
-  }
-
-  async findByFaceId(faceId: string): Promise<PersonFace | null> {
-    return this.repository.findOne({
-      where: { faceId },
       relations: ['person'],
     });
   }
@@ -221,14 +222,6 @@ export class DetectionRepository extends BaseRepository<Detection> {
     return this.repository.find({
       where: { eventId },
       relations: ['event', 'personFace', 'camera'],
-    });
-  }
-
-  async findByPersonFaceId(personFaceId: number): Promise<Detection[]> {
-    return this.repository.find({
-      where: { personFaceId },
-      relations: ['event', 'personFace', 'camera'],
-      order: { detectedAt: 'DESC' },
     });
   }
 

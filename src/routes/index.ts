@@ -13,6 +13,8 @@ import {
 import { settingsRoutes } from './settingsRoutes';
 import streamRoutes from './streamRoutes';
 import { dashboardRoutes } from './dashboardRoutes';
+import { reportRoutes } from './reportRoutes';
+import { faceIndexService } from '../services/FaceIndexService';
 
 // Initialize controllers
 const authController = new AuthController();
@@ -132,11 +134,20 @@ detectionRoutes.get('/count', detectionController.count);
 detectionRoutes.get('/stats', detectionController.getStats);
 detectionRoutes.get('/recent', detectionController.findRecentDetections);
 detectionRoutes.get('/event/:eventId', detectionController.findByEventId);
-detectionRoutes.get('/person-face/:personFaceId', detectionController.findByPersonFaceId);
 detectionRoutes.get('/:id', detectionController.findById);
 detectionRoutes.post('/', authorize(['admin', 'operator']), detectionController.create);
 detectionRoutes.put('/:id', authorize(['admin', 'operator']), detectionController.update);
 detectionRoutes.delete('/:id', authorize(['admin']), detectionController.delete);
+
+// Person association routes
+detectionRoutes.post('/:detectionId/associate-existing-person', authorize(['admin', 'operator']), detectionController.associateToExistingPerson);
+detectionRoutes.post('/:detectionId/create-new-person', authorize(['admin', 'operator']), detectionController.createPersonFromDetection);
+detectionRoutes.post('/:detectionId/unmatch-person', authorize(['admin', 'operator']), detectionController.unmatchPerson);
+detectionRoutes.post('/:detectionId/confirm', authorize(['admin', 'operator']), detectionController.confirmDetection);
+detectionRoutes.get('/person/:personId/latest', authorize(['admin', 'operator']), detectionController.getLatestDetectionForPerson);
+
+// Person face validation routes
+detectionRoutes.get('/person/:personId/face-records', authorize(['admin', 'operator']), detectionController.checkPersonFaceRecords);
 
 // User Routes
 export const userRoutes = Router();
@@ -168,6 +179,7 @@ apiRoutes.use('/users', userRoutes);
 apiRoutes.use('/settings', settingsRoutes);
 apiRoutes.use('/streams', streamRoutes);
 apiRoutes.use('/dashboard', dashboardRoutes);
+apiRoutes.use('/reports', reportRoutes);
 
 
 // Health check route
@@ -178,4 +190,74 @@ apiRoutes.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     version: process.env.API_VERSION || 'v1',
   });
+});
+
+// Debug routes for Face Index Service
+apiRoutes.get('/debug/face-index/stats', (req, res) => {
+  try {
+    const stats = faceIndexService.getStats();
+    res.status(200).json({
+      success: true,
+      data: stats,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+apiRoutes.post('/debug/face-index/rebuild', async (req, res) => {
+  try {
+    console.log('🔄 Manual ANN index rebuild requested via API');
+    await faceIndexService.rebuild();
+    const stats = faceIndexService.getStats();
+    res.status(200).json({
+      success: true,
+      message: 'Face recognition ANN index rebuilt successfully',
+      data: stats,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error('❌ Manual ANN index rebuild failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+apiRoutes.post('/debug/face-index/threshold', async (req, res) => {
+  try {
+    const { threshold } = req.body;
+
+    if (!threshold || typeof threshold !== 'number') {
+      return res.status(400).json({
+        success: false,
+        error: 'Threshold must be a number between 0 and 1',
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    faceIndexService.updateSimilarityThreshold(threshold);
+    const stats = faceIndexService.getStats();
+
+    res.status(200).json({
+      success: true,
+      message: `Similarity threshold updated to ${(threshold * 100).toFixed(1)}%`,
+      data: stats,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: any) {
+    console.error('❌ Failed to update similarity threshold:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
 });

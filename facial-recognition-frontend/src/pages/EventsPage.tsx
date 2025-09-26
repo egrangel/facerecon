@@ -13,6 +13,7 @@ interface EventFormData {
   isScheduled: boolean;
   isActive: boolean;
   scheduledDate?: string;
+  type: string;
   startTime?: string;
   endTime?: string;
   weekDays?: string[];
@@ -315,7 +316,7 @@ const EventosPage: React.FC = () => {
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-3">
                           <h3 className="text-sm font-medium text-gray-900 capitalize">
-                            {event.type.replace('_', ' ')}
+                            {event.name}
                           </h3>
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(event.status)}`}>
                             {event.status}
@@ -337,10 +338,6 @@ const EventosPage: React.FC = () => {
                           {event.occurredAt ? formatTimestamp(event.occurredAt) : 'Evento agendado'}
                         </span>
                       </div>
-
-                      <p className="text-sm text-gray-700 mb-2">
-                        {event.description}
-                      </p>
                     </div>
 
                     <div className="flex-shrink-0 flex space-x-2">
@@ -492,6 +489,7 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ event, onClose, onSubmi
       isScheduled: event.isScheduled || false,
       isActive: event.isActive !== undefined ? event.isActive : true,
       scheduledDate: event.scheduledDate ? formatDateForInput(event.scheduledDate) : '',
+      type: event.type || 'scheduled',
       startTime: formatTimeForInput(event.startTime),
       endTime: formatTimeForInput(event.endTime),
       weekDays: parseWeekDays(event.weekDays),
@@ -502,6 +500,7 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ event, onClose, onSubmi
       isScheduled: true,
       isActive: true,
       scheduledDate: '',
+      type: 'scheduled',
       startTime: '',
       endTime: '',
       weekDays: [],

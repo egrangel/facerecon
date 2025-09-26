@@ -27,6 +27,7 @@ const PessoasPage: React.FC = () => {
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const queryClient = useQueryClient();
@@ -41,7 +42,7 @@ const PessoasPage: React.FC = () => {
   }, [searchTerm]);
 
   const { data: peopleResponse, isLoading } = useQuery({
-    queryKey: ['people', currentPage, pageSize, debouncedSearchTerm],
+    queryKey: ['people', currentPage, pageSize, debouncedSearchTerm, statusFilter],
     queryFn: async () => {
       const params: any = {
         page: currentPage,
@@ -53,6 +54,11 @@ const PessoasPage: React.FC = () => {
       // Add search filter if present
       if (debouncedSearchTerm) {
         params.search = debouncedSearchTerm;
+      }
+
+      // Add status filter if not 'all'
+      if (statusFilter !== 'all') {
+        params.status = statusFilter;
       }
 
       return await apiClient.getPeople(params);
@@ -99,10 +105,10 @@ const PessoasPage: React.FC = () => {
     setSearchTerm(value);
   };
 
-  // Reset to first page when debounced search term changes
+  // Reset to first page when debounced search term or status filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchTerm]);
+  }, [debouncedSearchTerm, statusFilter]);
 
   // Handle page changes
   const handlePageChange = (page: number) => {
@@ -139,16 +145,29 @@ const PessoasPage: React.FC = () => {
         </Button>
       </div>
 
-      {/* Search */}
+      {/* Search and Filters */}
       <Card>
         <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div className="max-w-md w-full">
-              <Input
-                placeholder="Buscar por nome ou documento..."
-                value={searchTerm}
-                onChange={(e) => handleSearchChange(e.target.value)}
-              />
+          <div className="flex items-center justify-between mt-5">
+            <div className="flex items-center space-x-4 flex-1">
+              <div className="max-w-md w-full">
+                <Input
+                  placeholder="Buscar por nome ou documento..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                />
+              </div>
+              <div className="min-w-[140px]">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
+                >
+                  <option value="all">Todos os Status</option>
+                  <option value="active">Ativo</option>
+                  <option value="inactive">Inativo</option>
+                </select>
+              </div>
             </div>
             <div className="text-sm text-gray-500">
               {totalPeople} pessoa{totalPeople !== 1 ? 's' : ''} encontrada{totalPeople !== 1 ? 's' : ''}

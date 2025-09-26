@@ -34,7 +34,7 @@ const databaseConfig = process.env.DB_TYPE === 'sqlite' ? {
 export const AppDataSource = new DataSource({
   ...databaseConfig,
   synchronize: process.env.NODE_ENV === 'development',
-  logging: process.env.NODE_ENV === 'development',
+  logging: false, // Disabled to prevent embedding data from appearing in logs
   entities: [
     Organization,
     Person,
