@@ -160,11 +160,11 @@ const PessoasPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-h-screen bg-[var(--color-background-primary)]">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Pessoas</h1>
-          <p className="mt-2 text-sm text-gray-700">
+          <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">Pessoas</h1>
+          <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
             Gerencie as pessoas cadastradas no sistema
           </p>
         </div>
@@ -197,7 +197,7 @@ const PessoasPage: React.FC = () => {
                 </select>
               </div>
             </div>
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-[var(--color-text-secondary)]">
               {totalPeople} pessoa{totalPeople !== 1 ? 's' : ''} encontrada{totalPeople !== 1 ? 's' : ''}
             </div>
           </div>
@@ -208,46 +208,46 @@ const PessoasPage: React.FC = () => {
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-[var(--color-border-light)]">
+              <thead className="bg-[var(--color-background-tertiary)]">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider">
                     Nome
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider">
                     Email
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider">
                     Telefone
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wider">
                     Ações
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-[var(--color-background-secondary)] divide-y divide-[var(--color-border-light)]">
                 {isLoading ? (
                   <tr>
                     <td colSpan={5} className="px-6 py-4 text-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-primary-500)] mx-auto"></div>
                     </td>
                   </tr>
                 ) : people.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                    <td colSpan={5} className="px-6 py-4 text-center text-[var(--color-text-muted)]">
                       Nenhuma pessoa encontrada
                     </td>
                   </tr>
                 ) : (
                   people.map((person: Person) => (
-                    <tr key={person.id} className="hover:bg-gray-50">
+                    <tr key={person.id} className="hover:bg-[var(--color-background-tertiary)] transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="h-10 w-10 flex-shrink-0">
-                            <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden">
+                            <div className="h-10 w-10 rounded-full bg-[var(--color-secondary-100)] flex items-center justify-center overflow-hidden">
                               {(() => {
                                 const latestDetection = personLatestDetections.get(person.id);
                                 return latestDetection?.imageUrl ? (
@@ -261,7 +261,7 @@ const PessoasPage: React.FC = () => {
                                       const container = target.parentElement;
                                       if (container) {
                                         container.innerHTML = `
-                                          <span class="text-sm font-medium text-primary-600">
+                                          <span class="text-sm font-medium text-[var(--color-primary-600)]">
                                             ${person.name?.charAt(0).toUpperCase() || '?'}
                                           </span>
                                         `;
@@ -269,7 +269,7 @@ const PessoasPage: React.FC = () => {
                                     }}
                                   />
                                 ) : (
-                                  <span className="text-sm font-medium text-primary-600">
+                                  <span className="text-sm font-medium text-[var(--color-primary-600)]">
                                     {person.name?.charAt(0).toUpperCase() || '?'}
                                   </span>
                                 );
@@ -277,23 +277,23 @@ const PessoasPage: React.FC = () => {
                             </div>
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
+                            <div className="text-sm font-medium text-[var(--color-text-primary)]">
                               {person.name}
                             </div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-text-secondary)]">
                         {person.documentNumber || '-'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-text-secondary)]">
                         {person.documentNumber || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                           person.status === 'active'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
+                            ? 'bg-[var(--color-status-success-bg)] text-[var(--color-status-success-text)]'
+                            : 'bg-[var(--color-status-error-bg)] text-[var(--color-status-error-text)]'
                         }`}>
                           {person.status}
                         </span>

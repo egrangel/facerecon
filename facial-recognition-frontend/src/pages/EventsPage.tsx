@@ -200,11 +200,11 @@ const EventosPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-h-screen bg-[var(--color-background-primary)]">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Eventos</h1>
-          <p className="mt-2 text-sm text-gray-700">
+          <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">Eventos</h1>
+          <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
             Histórico de eventos e notificações do sistema
           </p>
         </div>

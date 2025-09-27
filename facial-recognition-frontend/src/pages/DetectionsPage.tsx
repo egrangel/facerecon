@@ -126,7 +126,7 @@ const DeteccoesPage: React.FC = () => {
       return 'bg-green-100 text-green-800';
     }
     if (detectionStatus === 'pending') {
-      return 'bg-yellow-100 text-yellow-800';
+      return 'bg-brand-secondary text-brand-primary';
     }
     if (faceStatus === 'unrecognized') {
       return 'bg-red-100 text-red-800';
@@ -161,7 +161,7 @@ const DeteccoesPage: React.FC = () => {
 
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 90) return 'text-green-600';
-    if (confidence >= 75) return 'text-yellow-600';
+    if (confidence >= 75) return 'text-brand-primary';
     return 'text-red-600';
   };
 
@@ -170,13 +170,15 @@ const DeteccoesPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Detecções</h1>
-          <p className="mt-2 text-sm text-gray-700">
-            Visualize todas as detecções do sistema
-          </p>
+    <div className="min-h-screen bg-[var(--color-background-primary)]">
+      <div className="space-y-6 p-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-semibold text-brand-text">Detecções</h1>
+            <p className="mt-2 text-sm text-brand-textLight">
+              Visualize todas as detecções do sistema
+            </p>
+          </div>
         </div>
       </div>
 
@@ -199,7 +201,7 @@ const DeteccoesPage: React.FC = () => {
                 setStatusFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
             >
               <option value="">Todos os status</option>
               <option value="pending">Pendente de Confirmação</option>
@@ -225,7 +227,7 @@ const DeteccoesPage: React.FC = () => {
                   setUnrecognizedFilter(e.target.checked);
                   setCurrentPage(1);
                 }}
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                className="h-4 w-4 text-brand-primary focus:ring-brand-primary border-gray-300 rounded"
               />
               <label
                 htmlFor="unrecognized-filter"
@@ -251,7 +253,7 @@ const DeteccoesPage: React.FC = () => {
                 id="auto-reload"
                 checked={autoReload}
                 onChange={(e) => setAutoReload(e.target.checked)}
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                className="h-4 w-4 text-brand-primary focus:ring-brand-primary border-gray-300 rounded"
               />
               <label htmlFor="auto-reload" className="text-sm font-medium text-gray-700">
                 🔄 Atualização automática (5s)
@@ -313,7 +315,7 @@ const DeteccoesPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
         {isLoading ? (
           <div className="col-span-full flex justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div>
           </div>
         ) : detections.length === 0 ? (
           <div className="col-span-full text-center py-12 text-gray-500">
@@ -325,7 +327,7 @@ const DeteccoesPage: React.FC = () => {
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mt-3">
                   <div className="flex items-center space-x-3">
-                    <div className="h-12 w-12 bg-primary-100 rounded-full flex items-center justify-center overflow-hidden">
+                    <div className="h-12 w-12 bg-brand-secondary rounded-full flex items-center justify-center overflow-hidden">
                       {detection.imageUrl ? (
                         <img
                           src={`${process.env.REACT_APP_API_URL?.replace('/api/v1', '')}${detection.imageUrl}`}
@@ -337,7 +339,7 @@ const DeteccoesPage: React.FC = () => {
                             const container = target.parentElement;
                             if (container) {
                               container.innerHTML = `
-                                <span class="text-sm font-medium text-primary-600">
+                                <span class="text-sm font-medium text-brand-primary">
                                   ${detection.personFace?.person?.name?.charAt(0).toUpperCase() || '?'}
                                 </span>
                               `;
@@ -345,7 +347,7 @@ const DeteccoesPage: React.FC = () => {
                           }}
                         />
                       ) : (
-                        <span className="text-sm font-medium text-primary-600">
+                        <span className="text-sm font-medium text-brand-primary">
                           {detection.personFace?.person?.name?.charAt(0).toUpperCase() || '?'}
                         </span>
                       )}
@@ -453,7 +455,7 @@ interface DetectionModalProps {
 const DetectionModal: React.FC<DetectionModalProps> = ({ detection, onClose, onAssociateExisting, onCreateNew, onUnmatch, onConfirm, onDisassociate }) => {
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 90) return 'text-green-600';
-    if (confidence >= 75) return 'text-yellow-600';
+    if (confidence >= 75) return 'text-brand-primary';
     return 'text-red-600';
   };
 
@@ -462,7 +464,7 @@ const DetectionModal: React.FC<DetectionModalProps> = ({ detection, onClose, onA
       return 'bg-green-100 text-green-800';
     }
     if (detectionStatus === 'pending') {
-      return 'bg-yellow-100 text-yellow-800';
+      return 'bg-brand-secondary text-brand-primary';
     }
     if (faceStatus === 'unrecognized') {
       return 'bg-red-100 text-red-800';
@@ -565,8 +567,8 @@ const DetectionModal: React.FC<DetectionModalProps> = ({ detection, onClose, onA
                 <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                   {detection.personFace?.person ? (
                     <div className="flex items-center space-x-3">
-                      <div className="h-16 w-16 bg-primary-100 rounded-full flex items-center justify-center">
-                        <span className="text-lg font-medium text-primary-600">
+                      <div className="h-16 w-16 bg-brand-secondary rounded-full flex items-center justify-center">
+                        <span className="text-lg font-medium text-brand-primary">
                           {detection.personFace.person.name.charAt(0).toUpperCase()}
                         </span>
                       </div>
@@ -619,8 +621,8 @@ const DetectionModal: React.FC<DetectionModalProps> = ({ detection, onClose, onA
                 <h5 className="text-sm font-medium text-gray-700 mb-2">Informações da Câmera</h5>
                 <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                   <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-primary-100 rounded-lg">
-                      <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="p-2 bg-brand-secondary rounded-lg">
+                      <svg className="w-5 h-5 text-brand-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                       </svg>
                     </div>
@@ -722,7 +724,7 @@ const DetectionModal: React.FC<DetectionModalProps> = ({ detection, onClose, onA
             {/* Show Confirm button when detectionStatus = pending */}
             {detection.detectionStatus === 'pending' && (
               <Button
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="bg-brand-primary hover:bg-brand-primaryHover text-white"
                 onClick={onConfirm}
               >
                 Confirmar
@@ -869,7 +871,7 @@ const PersonSelectorModal: React.FC<PersonSelectorModalProps> = ({ detection, on
           <div className="max-h-60 overflow-y-auto">
             {isLoadingPeople ? (
               <div className="flex justify-center py-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-primary"></div>
               </div>
             ) : people.length === 0 ? (
               <div className="text-center py-4 text-gray-500">
@@ -882,13 +884,13 @@ const PersonSelectorModal: React.FC<PersonSelectorModalProps> = ({ detection, on
                     key={person.id}
                     className={`p-3 border rounded-lg cursor-pointer transition-colors ${
                       selectedPersonId === person.id
-                        ? 'border-primary-500 bg-primary-50'
+                        ? 'border-brand-primary bg-brand-background'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                     onClick={() => setSelectedPersonId(person.id)}
                   >
                     <div className="flex items-center space-x-3">
-                      <div className="h-10 w-10 bg-primary-100 rounded-full flex items-center justify-center overflow-hidden">
+                      <div className="h-10 w-10 bg-brand-secondary rounded-full flex items-center justify-center overflow-hidden">
                         {(() => {
                           const latestDetection = personLatestDetections.get(person.id);
                           return latestDetection?.imageUrl ? (
@@ -902,7 +904,7 @@ const PersonSelectorModal: React.FC<PersonSelectorModalProps> = ({ detection, on
                                 const container = target.parentElement;
                                 if (container) {
                                   container.innerHTML = `
-                                    <span class="text-sm font-medium text-primary-600">
+                                    <span class="text-sm font-medium text-brand-primary">
                                       ${person.name?.charAt(0).toUpperCase() || '?'}
                                     </span>
                                   `;
@@ -910,7 +912,7 @@ const PersonSelectorModal: React.FC<PersonSelectorModalProps> = ({ detection, on
                               }}
                             />
                           ) : (
-                            <span className="text-sm font-medium text-primary-600">
+                            <span className="text-sm font-medium text-brand-primary">
                               {person.name?.charAt(0).toUpperCase() || '?'}
                             </span>
                           );
@@ -935,7 +937,7 @@ const PersonSelectorModal: React.FC<PersonSelectorModalProps> = ({ detection, on
               </h4>
               {isLoadingFaceRecords ? (
                 <div className="flex items-center space-x-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-primary"></div>
                   <span className="text-sm text-blue-600">Verificando registros...</span>
                 </div>
               ) : selectedPersonFaceInfo ? (
@@ -1057,7 +1059,7 @@ const NewPersonModal: React.FC<NewPersonModalProps> = ({ detection, onClose, onS
               id="personType"
               value={formData.personType}
               onChange={(e) => setFormData({ ...formData, personType: e.target.value as 'individual' | 'company' })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
             >
               <option value="individual">Pessoa Física</option>
               <option value="company">Pessoa Jurídica</option>
@@ -1086,7 +1088,7 @@ const NewPersonModal: React.FC<NewPersonModalProps> = ({ detection, onClose, onS
               placeholder="Observações adicionais..."
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary"
             />
           </div>
 

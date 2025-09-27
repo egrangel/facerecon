@@ -6,6 +6,7 @@ import { Organization, User } from '../types/api';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
+import ThemeConfiguration from '../components/ThemeConfiguration';
 
 interface UserFormData {
   email: string;
@@ -21,7 +22,7 @@ interface OrganizationFormData {
 }
 
 const SettingsPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'organization' | 'users'>('organization');
+  const [activeTab, setActiveTab] = useState<'organization' | 'users' | 'theme'>('organization');
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [showUserModal, setShowUserModal] = useState(false);
   const queryClient = useQueryClient();
@@ -171,40 +172,50 @@ const SettingsPage: React.FC = () => {
 
   if (orgLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
+      <div className="flex items-center justify-center h-64 bg-[var(--color-background-primary)]">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[var(--color-primary-500)]"></div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 min-h-screen bg-[var(--color-background-primary)]">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Configurações</h1>
+        <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Configurações</h1>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-[var(--color-border-light)]">
         <nav className="-mb-px flex space-x-8">
           <button
             onClick={() => setActiveTab('organization')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
               activeTab === 'organization'
-                ? 'border-primary-500 text-primary-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-[var(--color-primary-500)] text-[var(--color-primary-600)]'
+                : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:border-[var(--color-border-medium)]'
             }`}
           >
             Organização
           </button>
           <button
             onClick={() => setActiveTab('users')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+            className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
               activeTab === 'users'
-                ? 'border-primary-500 text-primary-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? 'border-[var(--color-primary-500)] text-[var(--color-primary-600)]'
+                : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:border-[var(--color-border-medium)]'
             }`}
           >
             Usuários
+          </button>
+          <button
+            onClick={() => setActiveTab('theme')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === 'theme'
+                ? 'border-[var(--color-primary-500)] text-[var(--color-primary-600)]'
+                : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:border-[var(--color-border-medium)]'
+            }`}
+          >
+            Tema
           </button>
         </nav>
       </div>
@@ -228,24 +239,24 @@ const SettingsPage: React.FC = () => {
               </div>
 
               <div>
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="description" className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                   Descrição
                 </label>
                 <textarea
                   id="description"
                   rows={3}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                  className="mt-1 block w-full px-3 py-2 border border-[var(--color-border-medium)] rounded-[var(--border-radius-md)] shadow-[var(--shadow-sm)] bg-[var(--color-background-secondary)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:border-[var(--color-primary-500)] transition-all duration-200"
                   {...registerOrg('description')}
                 />
               </div>
 
               <div>
-                <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="status" className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                   Status
                 </label>
                 <select
                   id="status"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                  className="mt-1 block w-full px-3 py-2 border border-[var(--color-border-medium)] rounded-[var(--border-radius-md)] shadow-[var(--shadow-sm)] bg-[var(--color-background-secondary)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:border-[var(--color-primary-500)] transition-all duration-200"
                   {...registerOrg('status')}
                 >
                   <option value="active">Ativo</option>
@@ -269,10 +280,10 @@ const SettingsPage: React.FC = () => {
       {activeTab === 'users' && (
         <div className="space-y-6">
           <div className="flex justify-between items-center">
-            <h2 className="text-lg font-medium text-gray-900">Usuários da Organização</h2>
+            <h2 className="text-lg font-medium text-[var(--color-text-primary)]">Usuários da Organização</h2>
             <Button
               onClick={() => setShowUserModal(true)}
-              className="bg-primary-600 text-white hover:bg-primary-700"
+              className="bg-[var(--color-primary-500)] text-white hover:bg-[var(--color-primary-600)]"
             >
               Adicionar Usuário
             </Button>
@@ -280,38 +291,38 @@ const SettingsPage: React.FC = () => {
 
           {usersLoading ? (
             <div className="flex items-center justify-center h-32">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-primary-500)]"></div>
             </div>
           ) : (
-            <div className="bg-white shadow overflow-hidden sm:rounded-md">
-              <ul className="divide-y divide-gray-200">
+            <div className="bg-[var(--color-background-secondary)] shadow-[var(--shadow-md)] overflow-hidden sm:rounded-[var(--border-radius-md)]">
+              <ul className="divide-y divide-[var(--color-border-light)]">
                 {users.map((user) => (
                   <li key={user.id} className="px-6 py-4">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center">
-                          <p className="text-sm font-medium text-primary-600 truncate">
+                          <p className="text-sm font-medium text-[var(--color-primary-600)] truncate">
                             {user.name}
                           </p>
                           <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            user.role === 'admin' ? 'bg-red-100 text-red-800' :
-                            user.role === 'operator' ? 'bg-blue-100 text-blue-800' :
-                            'bg-gray-100 text-gray-800'
+                            user.role === 'admin' ? 'bg-[var(--color-status-error-bg)] text-[var(--color-status-error-text)]' :
+                            user.role === 'operator' ? 'bg-[var(--color-status-info-bg)] text-[var(--color-status-info-text)]' :
+                            'bg-[var(--color-secondary-100)] text-[var(--color-secondary-700)]'
                           }`}>
                             {user.role}
                           </span>
                         </div>
                         <div className="mt-1">
-                          <p className="text-sm text-gray-500">{user.email}</p>
+                          <p className="text-sm text-[var(--color-text-secondary)]">{user.email}</p>
                         </div>
                         <div className="mt-1 flex items-center">
                           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                            user.status === 'active' ? 'bg-[var(--color-status-success-bg)] text-[var(--color-status-success-text)]' : 'bg-[var(--color-secondary-100)] text-[var(--color-secondary-700)]'
                           }`}>
                             {user.status}
                           </span>
                           {user.lastLoginAt && (
-                            <span className="ml-2 text-xs text-gray-500">
+                            <span className="ml-2 text-xs text-[var(--color-text-muted)]">
                               Último acesso: {new Date(user.lastLoginAt).toLocaleDateString()}
                             </span>
                           )}
@@ -329,7 +340,7 @@ const SettingsPage: React.FC = () => {
                           size="sm"
                           variant="outline"
                           onClick={() => handleDeleteUser(user)}
-                          className="text-red-600 border-red-300 hover:bg-red-50"
+                          className="text-[var(--color-status-error-text)] border-[var(--color-status-error-border)] hover:bg-[var(--color-status-error-bg)]"
                         >
                           Deletar
                         </Button>
@@ -343,12 +354,17 @@ const SettingsPage: React.FC = () => {
         </div>
       )}
 
+      {/* Theme Tab */}
+      {activeTab === 'theme' && (
+        <ThemeConfiguration />
+      )}
+
       {/* User Modal */}
       {showUserModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div className="fixed inset-0 bg-[var(--color-text-primary)] bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border border-[var(--color-border-light)] w-96 shadow-[var(--shadow-xl)] rounded-[var(--border-radius-lg)] bg-[var(--color-background-secondary)]">
             <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
+              <h3 className="text-lg font-medium text-[var(--color-text-primary)] mb-4">
                 {editingUser ? 'Edit User' : 'Add New User'}
               </h3>
               <form onSubmit={handleUserSubmit(onUserSubmit)} className="space-y-4">
@@ -395,12 +411,12 @@ const SettingsPage: React.FC = () => {
                 )}
 
                 <div>
-                  <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="role" className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                     Perfil
                   </label>
                   <select
                     id="role"
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                    className="mt-1 block w-full px-3 py-2 border border-[var(--color-border-medium)] rounded-[var(--border-radius-md)] shadow-[var(--shadow-sm)] bg-[var(--color-background-secondary)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:border-[var(--color-primary-500)] transition-all duration-200"
                     {...registerUser('role')}
                   >
                     <option value="user">Usuário</option>

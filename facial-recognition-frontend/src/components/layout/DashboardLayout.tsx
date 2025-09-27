@@ -96,12 +96,12 @@ const DashboardLayout: React.FC = () => {
   }));
 
   return (
-    <div className="h-screen flex overflow-hidden bg-gray-100">
+    <div className="h-screen flex overflow-hidden bg-[var(--color-background-primary)]">
       {/* Sidebar for mobile */}
       {sidebarOpen && (
         <div className="fixed inset-0 flex z-40 lg:hidden">
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
-          <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white">
+          <div className="fixed inset-0 bg-[var(--color-text-primary)] bg-opacity-75" onClick={() => setSidebarOpen(false)} />
+          <div className="relative flex-1 flex flex-col max-w-xs w-full bg-[var(--color-background-secondary)]">
             <div className="absolute top-0 right-0 -mr-12 pt-2">
               <button
                 type="button"
@@ -130,7 +130,7 @@ const DashboardLayout: React.FC = () => {
         <div className="lg:hidden pl-1 pt-1 sm:pl-3 sm:pt-3">
           <button
             type="button"
-            className="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+            className="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--color-primary-500)]"
             onClick={() => setSidebarOpen(true)}
           >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -141,18 +141,18 @@ const DashboardLayout: React.FC = () => {
 
         {/* Top header */}
         <header className="w-full">
-          <div className="relative z-10 flex-shrink-0 flex h-16 bg-white shadow-sm border-b border-gray-200">
+          <div className="relative z-10 flex-shrink-0 flex h-16 bg-[var(--color-background-secondary)] shadow-[var(--shadow-sm)] border-b border-[var(--color-border-light)]">
             <div className="flex-1 px-4 flex justify-between">
               <div className="flex-1 flex">
                 <div className="w-full flex lg:ml-0">
-                  <div className="relative w-full text-gray-400 focus-within:text-gray-600">
+                  <div className="relative w-full text-[var(--color-text-muted)] focus-within:text-[var(--color-text-secondary)]">
                     <div className="absolute inset-y-0 left-0 flex items-center pointer-events-none">
                       <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
                       </svg>
                     </div>
                     <input
-                      className="block w-full h-full pl-8 pr-3 py-2 border-transparent text-gray-900 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-0 focus:border-transparent"
+                      className="block w-full h-full pl-8 pr-3 py-2 border-transparent text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:placeholder-[var(--color-text-muted)] focus:ring-0 focus:border-transparent bg-transparent"
                       placeholder="Buscar..."
                       type="search"
                     />
@@ -161,7 +161,7 @@ const DashboardLayout: React.FC = () => {
               </div>
               <div className="ml-4 flex items-center lg:ml-6">
                 <div className="flex items-center">
-                  <span className="text-sm font-medium text-gray-700 mr-4">
+                  <span className="text-sm font-medium text-[var(--color-text-primary)] mr-4">
                     {user?.name}
                   </span>
                   <Button variant="outline" size="sm" onClick={handleLogout}>
@@ -174,7 +174,7 @@ const DashboardLayout: React.FC = () => {
         </header>
 
         {/* Main content area */}
-        <main className="flex-1 relative overflow-y-auto focus:outline-none">
+        <main className="flex-1 relative overflow-y-auto focus:outline-none bg-[var(--color-background-primary)]">
           <div className="py-6">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <Outlet />
@@ -192,15 +192,15 @@ interface SidebarContentProps {
 
 const SidebarContent: React.FC<SidebarContentProps> = ({ navigation }) => {
   return (
-    <div className="flex flex-col h-0 flex-1 border-r border-gray-200 bg-white">
+    <div className="flex flex-col h-0 flex-1 border-r border-[var(--color-border-light)] bg-[var(--color-background-secondary)]">
       <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
         <div className="flex items-center flex-shrink-0 px-4">
-          <div className="h-8 w-8 bg-primary-600 rounded-lg flex items-center justify-center">
-            <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="h-8 w-8 bg-[var(--color-primary-500)] rounded-lg flex items-center justify-center">
+            <svg className="h-5 w-5 text-[var(--color-text-inverse)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
-          <h1 className="ml-3 text-xl font-semibold text-gray-900">
+          <h1 className="ml-3 text-xl font-semibold text-[var(--color-text-primary)]">
             FaceRec
           </h1>
         </div>
@@ -212,12 +212,12 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ navigation }) => {
               className={`
                 group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors
                 ${item.current
-                  ? 'bg-primary-100 text-primary-900'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  ? 'bg-[var(--color-primary-100)] text-[var(--color-primary-800)]'
+                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-primary)]'
                 }
               `}
             >
-              <span className={`mr-3 ${item.current ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-500'}`}>
+              <span className={`mr-3 ${item.current ? 'text-[var(--color-primary-600)]' : 'text-[var(--color-text-muted)] group-hover:text-[var(--color-text-secondary)]'}`}>
                 {item.icon}
               </span>
               {item.name}

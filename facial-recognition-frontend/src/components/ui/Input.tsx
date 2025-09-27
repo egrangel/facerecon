@@ -16,7 +16,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="block text-[var(--font-size-sm)] font-[var(--font-weight-medium)] text-[var(--color-text-primary)] mb-1"
           >
             {label}
           </label>
@@ -24,18 +24,28 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         <input
           type={type}
           className={clsx(
-            'flex h-10 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50',
-            error && 'border-red-300 focus:ring-red-500',
+            `flex h-10 w-full rounded-[var(--border-radius-md)] border border-[var(--color-border-medium)]
+             bg-[var(--color-background-secondary)] px-3 py-2 text-[var(--font-size-sm)]
+             text-[var(--color-text-primary)] font-family-[var(--font-family-sans)]
+             placeholder:text-[var(--color-text-muted)] transition-all duration-200
+             focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)]
+             focus:border-[var(--color-primary-500)] shadow-[var(--shadow-sm)]
+             disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-[var(--color-background-tertiary)]`,
+            error && 'border-[var(--color-status-error-border)] focus:ring-[var(--color-status-error-border)]',
             className
           )}
           ref={ref}
           {...props}
         />
         {helperText && !error && (
-          <p className="mt-1 text-sm text-gray-500">{helperText}</p>
+          <p className="mt-1 text-[var(--font-size-sm)] text-[var(--color-text-muted)]">
+            {helperText}
+          </p>
         )}
         {error && (
-          <p className="mt-1 text-sm text-red-600">{error}</p>
+          <p className="mt-1 text-[var(--font-size-sm)] text-[var(--color-status-error-text)]">
+            {error}
+          </p>
         )}
       </div>
     );

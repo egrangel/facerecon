@@ -91,33 +91,27 @@ const LiveStreamContainer: React.FC<LiveStreamContainerProps> = ({ camera, class
       </div>
 
       {/* Stream Status */}
-      <div className="p-3 bg-gray-800 flex items-center justify-between">
+      <div className="p-3 bg-[var(--color-background-tertiary)] flex items-center justify-between">
         {/* Stream Control Buttons */}
         <div className="flex items-center space-x-2">
-          <button
+          <Button
             onClick={webSocketState.isPlaying ? handleStopStream : handleStartStream}
             disabled={webSocketState.isLoading}
-            className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
+            size="sm"
+            variant="primary"
+            isLoading={webSocketState.isLoading}
           >
-            {webSocketState.isLoading ? (
-              <span className="flex items-center">
-                <div className="animate-spin rounded-full h-3 w-3 border border-white border-t-transparent mr-1"></div>
-                {webSocketState.isPlaying ? 'Stopping...' : 'Starting...'}
-              </span>
-            ) : webSocketState.isPlaying ? (
-              '⏹ Stop'
-            ) : (
-              '▶ Start Stream'
-            )}
-          </button>
+            {webSocketState.isPlaying ? '⏹ Stop' : '▶ Start Stream'}
+          </Button>
           {webSocketSession && webSocketSession.sessionId && (
-            <button
+            <Button
               onClick={handleRefreshStream}
               disabled={webSocketState.isLoading}
-              className="px-3 py-1 bg-gray-700 text-white text-xs rounded hover:bg-gray-600 disabled:opacity-50"
+              size="sm"
+              variant="secondary"
             >
               🔄 Refresh
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -189,19 +183,19 @@ const CamerasPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center h-64 bg-[var(--color-background-primary)]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-primary-500)]"></div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-h-screen bg-[var(--color-background-primary)]">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Câmeras</h1>
-          <p className="text-gray-600">Gerencie as câmeras do sistema</p>
+          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Câmeras</h1>
+          <p className="text-[var(--color-text-secondary)]">Gerencie as câmeras do sistema</p>
         </div>
         <Button onClick={() => setIsModalOpen(true)}>
           Adicionar Câmera
@@ -336,10 +330,10 @@ const CameraFormModal: React.FC<CameraFormModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-[var(--color-text-primary)] bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-[var(--color-background-secondary)] rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto shadow-[var(--shadow-xl)]">
         <div className="p-6">
-          <h2 className="text-xl font-semibold mb-4">
+          <h2 className="text-xl font-semibold mb-4 text-[var(--color-text-primary)]">
             {camera ? 'Editar Câmera' : 'Adicionar Câmera'}
           </h2>
 

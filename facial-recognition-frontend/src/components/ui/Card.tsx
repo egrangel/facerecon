@@ -26,7 +26,9 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
     <div
       ref={ref}
       className={clsx(
-        'rounded-lg border border-gray-200 bg-white shadow-soft',
+        `rounded-[var(--border-radius-lg)] border border-[var(--color-border-light)]
+         bg-[var(--color-background-secondary)] shadow-[var(--shadow-md)]
+         transition-all duration-200 hover:shadow-[var(--shadow-lg)]`,
         className
       )}
       {...props}
@@ -40,7 +42,7 @@ const CardHeader = React.forwardRef<HTMLDivElement, CardHeaderProps>(
   ({ className, children, ...props }, ref) => (
     <div
       ref={ref}
-      className={clsx('flex flex-col space-y-1.5 p-6', className)}
+      className={clsx('flex flex-col space-y-1.5 p-[var(--spacing-lg)]', className)}
       {...props}
     >
       {children}
@@ -52,7 +54,11 @@ const CardTitle = React.forwardRef<HTMLParagraphElement, CardTitleProps>(
   ({ className, children, ...props }, ref) => (
     <h3
       ref={ref}
-      className={clsx('text-lg font-semibold leading-none tracking-tight', className)}
+      className={clsx(
+        `text-[var(--font-size-lg)] font-[var(--font-weight-semibold)]
+         leading-[var(--line-height-tight)] text-[var(--color-text-primary)]`,
+        className
+      )}
       {...props}
     >
       {children}
@@ -62,7 +68,7 @@ const CardTitle = React.forwardRef<HTMLParagraphElement, CardTitleProps>(
 
 const CardContent = React.forwardRef<HTMLDivElement, CardContentProps>(
   ({ className, children, ...props }, ref) => (
-    <div ref={ref} className={clsx('p-6 pt-0', className)} {...props}>
+    <div ref={ref} className={clsx('p-[var(--spacing-lg)] pt-0', className)} {...props}>
       {children}
     </div>
   )
@@ -72,7 +78,7 @@ const CardFooter = React.forwardRef<HTMLDivElement, CardFooterProps>(
   ({ className, children, ...props }, ref) => (
     <div
       ref={ref}
-      className={clsx('flex items-center p-6 pt-0', className)}
+      className={clsx('flex items-center p-[var(--spacing-lg)] pt-0', className)}
       {...props}
     >
       {children}

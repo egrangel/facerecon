@@ -6,14 +6,22 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        brand: {
+          primary: "#FF6B35",
+          primaryHover: "#E85D2A",
+          secondary: "#FFD6A5",
+          background: "#FFF8F0",
+          text: "#2E2E2E",
+          textLight: "#5C5C5C",
+        },
         primary: {
           50: '#eff6ff',
           100: '#dbeafe',
           200: '#bfdbfe',
           300: '#93c5fd',
           400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
+          500: '#FF6B35', // Updated to use brand primary
+          600: '#E85D2A', // Updated to use brand primaryHover
           700: '#1d4ed8',
           800: '#1e40af',
           900: '#1e3a8a',

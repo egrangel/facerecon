@@ -10,20 +10,45 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', isLoading = false, children, disabled, ...props }, ref) => {
-    const baseClasses = 'inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none';
+    const baseClasses = `
+      inline-flex items-center justify-center font-medium transition-all duration-200
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary-500)]
+      focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none
+      font-[var(--font-weight-medium)]
+    `;
 
     const variants = {
-      primary: 'bg-primary-600 text-white hover:bg-primary-700 active:bg-primary-800',
-      secondary: 'bg-gray-100 text-gray-900 hover:bg-gray-200 active:bg-gray-300',
-      outline: 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 active:bg-gray-100',
-      ghost: 'text-gray-700 hover:bg-gray-100 active:bg-gray-200',
-      danger: 'bg-red-600 text-white hover:bg-red-700 active:bg-red-800'
+      primary: `
+        bg-[var(--color-primary-500)] text-[var(--color-text-inverse)]
+        hover:bg-[var(--color-primary-600)] active:bg-[var(--color-primary-700)]
+        border border-[var(--color-primary-500)] hover:border-[var(--color-primary-600)]
+        shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)]
+      `,
+      secondary: `
+        bg-[var(--color-secondary-100)] text-[var(--color-secondary-700)]
+        hover:bg-[var(--color-secondary-200)] active:bg-[var(--color-secondary-300)]
+        border border-[var(--color-secondary-200)] hover:border-[var(--color-secondary-300)]
+      `,
+      outline: `
+        border border-[var(--color-border-medium)] bg-[var(--color-background-secondary)]
+        text-[var(--color-text-primary)] hover:bg-[var(--color-background-tertiary)]
+        active:bg-[var(--color-secondary-100)] hover:border-[var(--color-border-dark)]
+      `,
+      ghost: `
+        text-[var(--color-text-primary)] hover:bg-[var(--color-background-tertiary)]
+        active:bg-[var(--color-secondary-100)] border border-transparent
+      `,
+      danger: `
+        bg-[var(--color-status-error-border)] text-[var(--color-text-inverse)]
+        hover:bg-red-700 active:bg-red-800 border border-[var(--color-status-error-border)]
+        shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)]
+      `
     };
 
     const sizes = {
-      sm: 'h-9 px-3 text-sm',
-      md: 'h-10 py-2 px-4',
-      lg: 'h-11 px-8 text-lg'
+      sm: 'h-9 px-3 text-[var(--font-size-sm)] rounded-[var(--border-radius-sm)]',
+      md: 'h-10 py-2 px-4 text-[var(--font-size-base)] rounded-[var(--border-radius-md)]',
+      lg: 'h-11 px-8 text-[var(--font-size-lg)] rounded-[var(--border-radius-lg)]'
     };
 
     return (
