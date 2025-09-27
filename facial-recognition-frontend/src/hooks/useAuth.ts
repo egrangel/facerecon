@@ -6,10 +6,12 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  authError: string | null;
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  clearAuthError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,6 +31,7 @@ interface AuthProviderProps {
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const isAuthenticated = !!user;
 
@@ -52,11 +55,25 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const login = async (credentials: LoginCredentials) => {
     setIsLoading(true);
+    setAuthError(null); // Clear any previous error
     try {
       const response = await apiClient.login(credentials);
       setUser(response.user);
-    } catch (error) {
+    } catch (error: any) {
       setIsLoading(false);
+
+      // Extract error message from the response
+      let errorMessage = 'Erro ao fazer login. Verifique suas credenciais.';
+
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      setAuthError(errorMessage);
       throw error;
     }
     setIsLoading(false);
@@ -88,14 +105,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
+  const clearAuthError = () => {
+    setAuthError(null);
+  };
+
   const value: AuthContextType = {
     user,
     isLoading,
     isAuthenticated,
+    authError,
     login,
     register,
     logout,
     refreshUser,
+    clearAuthError,
   };
 
   return React.createElement(AuthContext.Provider, { value }, children);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -8,15 +8,22 @@ import Input from '../components/ui/Input';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 
 const LoginPage: React.FC = () => {
-  const { login, isAuthenticated, isLoading } = useAuth();
+  const { login, isAuthenticated, isLoading, authError, clearAuthError } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string>('');
 
   const {
     register,
     handleSubmit,
     formState: { errors },
+    watch,
   } = useForm<LoginCredentials>();
+
+  // Clear error when user starts typing in either field
+  const handleFieldFocus = () => {
+    if (authError) {
+      clearAuthError();
+    }
+  };
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
@@ -24,23 +31,13 @@ const LoginPage: React.FC = () => {
 
   const onSubmit = async (data: LoginCredentials) => {
     setIsSubmitting(true);
-    setError('');
 
     try {
       await login(data);
       // If login succeeds, this won't be reached due to redirect
-      setIsSubmitting(false);
     } catch (err: any) {
-      // Extract error message from the response
-      let errorMessage = 'Erro ao fazer login. Verifique suas credenciais.';
-
-      if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-
-      setError(errorMessage);
+      // Error is now handled in useAuth hook
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -82,6 +79,7 @@ const LoginPage: React.FC = () => {
                   type="email"
                   autoComplete="email"
                   error={errors.email?.message}
+                  onFocus={handleFieldFocus}
                   {...register('email', {
                     required: 'Email é obrigatório',
                     pattern: {
@@ -98,6 +96,7 @@ const LoginPage: React.FC = () => {
                   type="password"
                   autoComplete="current-password"
                   error={errors.password?.message}
+                  onFocus={handleFieldFocus}
                   {...register('password', {
                     required: 'Senha é obrigatória',
                     minLength: {
@@ -110,9 +109,9 @@ const LoginPage: React.FC = () => {
 
               {/* Error message display */}
               <div className="min-h-[20px]">
-                {error && (
+                {authError && (
                   <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-2">
-                    {error}
+                    ⚠️ {authError}
                   </div>
                 )}
               </div>
