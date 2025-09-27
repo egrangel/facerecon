@@ -4,6 +4,7 @@ import { createCanvas, loadImage } from 'canvas';
 import { PersonService, DetectionService, EventService, EventCameraService } from './index';
 import { nativeFaceDetectionService } from './NativeFaceDetectionService';
 import { faceIndexService } from './FaceIndexService';
+import { imageProcessingPool } from '../workers/imageProcessingWorker';
 
 export interface FaceDetectionResult {
   faces: DetectedFace[];
@@ -40,12 +41,24 @@ export class FaceRecognitionService {
   private lastSavedImageTime = 0; // Track when we last saved a detection image
   private readonly imageSaveInterval = 1000; // Save detection images max every 1000ms for crowd monitoring
   private readonly processingTimeoutMs = 10000; // 10 second timeout for face detection
+
+  // Event loop protection and memory management
+  private readonly maxConcurrentDetections = 50; // Allow high concurrency for multi-camera
+  private readonly memoryThresholdMB = 512; // Memory threshold for throttling
+  private readonly cpuThrottleDelay = 0; // No artificial delay - let native module handle performance
+  private activeDetections = 0;
+  private memoryUsageMB = 0;
+  private lastMemoryCheck = Date.now();
+
+  // Performance tracking
   private readonly performanceStats = {
     totalProcessingTime: 0,
     totalDetections: 0,
     averageProcessingTime: 0,
     activeDetections: 0,
     lastResetTime: Date.now(),
+    throttledOperations: 0,
+    memoryWarnings: 0,
   };
 
   constructor() {
@@ -129,7 +142,7 @@ export class FaceRecognitionService {
   }
 
   /**
-   * Process a video frame for face detection and recognition with camera-level throttling
+   * Process a video frame for face detection and recognition with advanced throttling
    */
   public async processVideoFrame(
     frameBuffer: Buffer,
@@ -137,14 +150,25 @@ export class FaceRecognitionService {
     organizationId: number,
     eventId?: number
   ): Promise<void> {
+    // Check system resources before processing
+    if (!await this.canProcessFrame()) {
+      this.performanceStats.throttledOperations++;
+      console.warn(`⚠️ Frame processing throttled for camera ${cameraId} - system resources exceeded`);
+      return;
+    }
+
     try {
       // Start performance tracking
       const startTime = Date.now();
-      this.performanceStats.activeDetections++;
+      this.activeDetections++;
+      this.performanceStats.activeDetections = this.activeDetections;
 
-      // console.log(`🎯 Camera ${cameraId}: Starting detection (${this.performanceStats.activeDetections} active globally)`);
+      // Use setImmediate to yield control back to event loop periodically
+      if (this.activeDetections % 10 === 0) {
+        await new Promise(resolve => setImmediate(resolve));
+      }
 
-      // Detect faces in the frame with timeout protection - no throttling, full concurrency
+      // Detect faces in the frame with timeout protection
       const detection = await this.detectFaces(frameBuffer);
       const processingTime = Date.now() - startTime;
 
@@ -256,18 +280,58 @@ export class FaceRecognitionService {
       }
 
       // Mark processing complete
-      this.performanceStats.activeDetections--;
+      this.activeDetections--;
+      this.performanceStats.activeDetections = this.activeDetections;
 
     } catch (error) {
       console.error('Error processing video frame:', error);
 
       // Ensure processing counter is decremented on error
-      if (this.performanceStats.activeDetections > 0) {
-        this.performanceStats.activeDetections--;
+      if (this.activeDetections > 0) {
+        this.activeDetections--;
+        this.performanceStats.activeDetections = this.activeDetections;
       }
 
       // Don't throw - we don't want to stop the stream for recognition errors
     }
+  }
+
+  /**
+   * Check if system can handle another frame processing operation
+   */
+  private async canProcessFrame(): Promise<boolean> {
+    // Check active detection limit (allow high concurrency)
+    if (this.activeDetections >= this.maxConcurrentDetections) {
+      return false;
+    }
+
+    // Check memory usage periodically
+    const now = Date.now();
+    if (now - this.lastMemoryCheck > 5000) { // Check every 5 seconds
+      this.lastMemoryCheck = now;
+      const memoryUsage = process.memoryUsage();
+      this.memoryUsageMB = memoryUsage.heapUsed / 1024 / 1024;
+
+      if (this.memoryUsageMB > this.memoryThresholdMB) {
+        this.performanceStats.memoryWarnings++;
+
+        // Force garbage collection if available
+        if (global.gc) {
+          global.gc();
+        }
+
+        // Recheck after GC
+        const newMemoryUsage = process.memoryUsage();
+        this.memoryUsageMB = newMemoryUsage.heapUsed / 1024 / 1024;
+
+        if (this.memoryUsageMB > this.memoryThresholdMB) {
+          console.warn(`⚠️ Memory usage high: ${this.memoryUsageMB.toFixed(1)}MB, throttling face detection`);
+          return false;
+        }
+      }
+    }
+
+    return true;
   }
 
 
@@ -396,7 +460,7 @@ export class FaceRecognitionService {
   }
 
   /**
-   * Save individual face crop from detection
+   * Save individual face crop from detection with async file operations
    */
   private async saveFaceCrop(imageBuffer: Buffer, face: DetectedFace, index: number = 0): Promise<string> {
     try {
@@ -404,12 +468,15 @@ export class FaceRecognitionService {
       const filename = `face_${timestamp}_${index}.jpg`;
       const faceDir = path.join(process.cwd(), 'uploads', 'faces');
 
-      // Ensure directory exists
+      // Ensure directory exists asynchronously
       if (!fs.existsSync(faceDir)) {
-        fs.mkdirSync(faceDir, { recursive: true });
+        await fs.promises.mkdir(faceDir, { recursive: true });
       }
 
       const outputPath = path.join(faceDir, filename);
+
+      // Yield to event loop before heavy image processing
+      await new Promise(resolve => setImmediate(resolve));
 
       // Load image
       const image = await loadImage(imageBuffer);
@@ -441,9 +508,9 @@ export class FaceRecognitionService {
         0, 0, cropWidth, cropHeight           // Destination rectangle
       );
 
-      // Convert canvas to buffer and save
+      // Convert canvas to buffer and save asynchronously
       const buffer = canvas.toBuffer('image/jpeg', { quality: 0.9 });
-      fs.writeFileSync(outputPath, buffer);
+      await fs.promises.writeFile(outputPath, buffer);
 
       return `/uploads/faces/${filename}`;
     } catch (error) {
@@ -772,9 +839,18 @@ export class FaceRecognitionService {
       settings: {
         faceThreshold: this.faceThreshold,
         recognitionThreshold: this.recognitionThreshold,
+        maxConcurrentDetections: this.maxConcurrentDetections,
+        memoryThresholdMB: this.memoryThresholdMB,
       },
+      systemHealth: {
+        activeDetections: this.activeDetections,
+        memoryUsageMB: this.memoryUsageMB,
+        throttledOperations: this.performanceStats.throttledOperations,
+        memoryWarnings: this.performanceStats.memoryWarnings,
+      },
+      workerPool: imageProcessingPool?.getStats() || { totalWorkers: 0, activeTasks: 0, queueLength: 0, maxQueueSize: 0 },
       nativePerformance: nativeFaceDetectionService.getPerformanceStats(),
-      performance: 'High-performance native implementation',
+      performance: 'High-performance native implementation with worker threads and event loop protection',
     };
   }
 

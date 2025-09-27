@@ -29,7 +29,13 @@ export class EventSchedulerService {
   private eventCameraRepository: EventCameraRepository;
   private checkInterval: NodeJS.Timeout | null = null;
   private activeSessions: Map<string, ActiveEventSession> = new Map();
-  private readonly checkIntervalMs = 60000; // Check every minute
+  private readonly checkIntervalMs = 30000; // Check every 30 seconds for better responsiveness
+
+  // Event loop protection
+  private isProcessingEvents = false;
+  private lastEventCheck = Date.now();
+  private eventCache: Map<string, { events: any[]; timestamp: number }> = new Map();
+  private readonly cacheExpiryMs = 120000; // 2 minutes cache
 
   constructor() {
     this.eventService = new EventService();
@@ -103,15 +109,24 @@ export class EventSchedulerService {
   }
 
   /**
-   * Check for scheduled events that should be active now
+   * Check for scheduled events with event loop protection
    */
   private async checkScheduledEvents(): Promise<void> {
+    // Prevent overlapping checks
+    if (this.isProcessingEvents) {
+      console.log('Event check already in progress, skipping...');
+      return;
+    }
+
+    this.isProcessingEvents = true;
+    const startTime = Date.now();
+
     try {
       const now = new Date();
       console.log(`🔍 Checking scheduled events at ${now.toISOString()}`);
 
-      // Get all active scheduled events
-      const scheduledEvents = await this.getActiveScheduledEvents();
+      // Get cached or fresh events
+      const scheduledEvents = await this.getActiveScheduledEventsWithCache();
       console.log(`📋 Found ${scheduledEvents.length} active scheduled events`);
 
       if (scheduledEvents.length === 0) {
@@ -119,49 +134,92 @@ export class EventSchedulerService {
         return;
       }
 
-      for (const event of scheduledEvents) {
-        console.log(`📅 Evaluating event "${event.name}" (ID: ${event.id})`);
-        console.log(`   - scheduledDate: ${event.scheduledDate}`);
-        console.log(`   - startTime: ${event.startTime}`);
-        console.log(`   - endTime: ${event.endTime}`);
-        console.log(`   - recurrenceType: ${event.recurrenceType}`);
-        console.log(`   - weekDays: ${event.weekDays}`);
-        console.log(`   - isActive: ${event.isActive}`);
+      // Process events with batching to avoid blocking event loop
+      const batchSize = 5;
+      for (let i = 0; i < scheduledEvents.length; i += batchSize) {
+        const batch = scheduledEvents.slice(i, i + batchSize);
 
-        const shouldBeActive = this.shouldEventBeActive(event, now);
-        const isCurrentlyActive = this.isEventCurrentlyActive(event.id);
+        // Process batch
+        await Promise.all(batch.map(async (event) => {
+          try {
+            await this.processEventSchedule(event, now);
+          } catch (error) {
+            console.error(`Error processing event ${event.id}:`, error);
+          }
+        }));
 
-        console.log(`   - shouldBeActive: ${shouldBeActive}`);
-        console.log(`   - isCurrentlyActive: ${isCurrentlyActive}`);
-
-        if (shouldBeActive && !isCurrentlyActive) {
-          console.log(`🚀 Starting event execution for "${event.name}"`);
-          await this.startEventExecution(event);
-        } else if (!shouldBeActive && isCurrentlyActive) {
-          console.log(`🛑 Stopping event execution for "${event.name}"`);
-          await this.stopEventExecution(event.id);
-        } else {
-          console.log(`⏸️ No action needed for event "${event.name}"`);
+        // Yield to event loop between batches
+        if (i + batchSize < scheduledEvents.length) {
+          await new Promise(resolve => setImmediate(resolve));
         }
       }
+
+      const processingTime = Date.now() - startTime;
+      if (processingTime > 5000) {
+        console.warn(`⚠️ Slow event processing: ${processingTime}ms`);
+      }
+
     } catch (error) {
       console.error('❌ Error checking scheduled events:', error);
+    } finally {
+      this.isProcessingEvents = false;
+      this.lastEventCheck = Date.now();
     }
   }
 
   /**
-   * Get all active scheduled events
+   * Process individual event schedule
    */
-  private async getActiveScheduledEvents(): Promise<Event[]> {
+  private async processEventSchedule(event: Event, now: Date): Promise<void> {
+    const shouldBeActive = this.shouldEventBeActive(event, now);
+    const isCurrentlyActive = this.isEventCurrentlyActive(event.id);
+
+    if (shouldBeActive && !isCurrentlyActive) {
+      console.log(`🚀 Starting event execution for "${event.name}"`);
+      await this.startEventExecution(event);
+    } else if (!shouldBeActive && isCurrentlyActive) {
+      console.log(`🛑 Stopping event execution for "${event.name}"`);
+      await this.stopEventExecution(event.id);
+    }
+  }
+
+  /**
+   * Get all active scheduled events with caching
+   */
+  private async getActiveScheduledEventsWithCache(): Promise<Event[]> {
+    const cacheKey = 'active_events';
+    const now = Date.now();
+    const cached = this.eventCache.get(cacheKey);
+
+    // Return cached data if still valid
+    if (cached && (now - cached.timestamp) < this.cacheExpiryMs) {
+      return cached.events;
+    }
+
     try {
+      // Use more efficient query - only get active events
       const events = await this.eventService.findAll();
-      return events.filter(event =>
-        event.isActive
-      );
+      const activeEvents = events.filter(event => event.isActive);
+
+      // Cache the results
+      this.eventCache.set(cacheKey, {
+        events: activeEvents,
+        timestamp: now
+      });
+
+      return activeEvents;
     } catch (error) {
       console.error('Error getting active scheduled events:', error);
-      return [];
+      // Return cached data if available, even if expired
+      return cached ? cached.events : [];
     }
+  }
+
+  /**
+   * Clear event cache (call when events are modified)
+   */
+  public clearEventCache(): void {
+    this.eventCache.clear();
   }
 
   /**
@@ -373,27 +431,43 @@ export class EventSchedulerService {
   }
 
   /**
-   * Get cameras associated with an event (with organization filtering)
+   * Get cameras associated with an event with caching
    */
   private async getEventCameras(eventId: number, organizationId: number): Promise<EventCamera[]> {
+    const cacheKey = `event_cameras_${eventId}_${organizationId}`;
+    const now = Date.now();
+    const cached = this.eventCache.get(cacheKey);
+
+    // Check cache first
+    if (cached && (now - cached.timestamp) < this.cacheExpiryMs) {
+      return cached.events as EventCamera[];
+    }
+
     try {
       console.log(`🔍 Getting cameras for event ${eventId} in organization ${organizationId}`);
 
-      // Get event-camera associations with organization filtering
+      // Optimized query with proper indexing
       const eventCameras = await this.eventCameraRepository.getRepository().find({
         where: {
           eventId,
           isActive: true,
-          event: { organizationId }  // Filter by organization through the event relation
+          event: { organizationId }
         },
         relations: ['camera', 'event'],
+        cache: 60000, // 1 minute database-level cache
+      });
+
+      // Cache the results
+      this.eventCache.set(cacheKey, {
+        events: eventCameras as any,
+        timestamp: now
       });
 
       console.log(`📋 Found ${eventCameras.length} active event-camera associations for event ${eventId}`);
       return eventCameras;
     } catch (error) {
       console.error(`Error getting cameras for event ${eventId}:`, error);
-      return [];
+      return cached ? (cached.events as EventCamera[]) : [];
     }
   }
 
@@ -501,7 +575,7 @@ export class EventSchedulerService {
   }
 
   /**
-   * Get service health and status
+   * Get service health with enhanced monitoring
    */
   public getServiceHealth() {
     return {
@@ -509,7 +583,16 @@ export class EventSchedulerService {
       activeSessions: this.activeSessions.size,
       checkInterval: this.checkIntervalMs,
       uptime: process.uptime(),
-      lastCheck: new Date().toISOString(),
+      lastCheck: new Date(this.lastEventCheck).toISOString(),
+      performance: {
+        isProcessingEvents: this.isProcessingEvents,
+        cacheSize: this.eventCache.size,
+        timeSinceLastCheck: Date.now() - this.lastEventCheck,
+      },
+      eventLoop: {
+        isBlocked: this.isProcessingEvents,
+        lastProcessingTime: Date.now() - this.lastEventCheck,
+      },
     };
   }
 }

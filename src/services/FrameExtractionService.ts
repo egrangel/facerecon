@@ -24,6 +24,13 @@ export class FrameExtractionService {
   private readonly maxSessionAge = 3600000; // 1 hour max session age
   private readonly maxIdleTime = 300000; // 5 minutes max idle time
 
+  // Event loop and memory protection
+  private readonly maxGlobalMemoryMB = 1024; // 1GB global memory limit
+  private readonly maxSessionMemoryMB = 100; // 100MB per session limit
+  private readonly frameProcessingThrottle = 50; // Max 50 concurrent frame processes globally
+  private activeFrameProcesses = 0;
+  private lastGlobalMemoryCheck = Date.now();
+
   constructor() {
     // Start health monitoring
     this.startHealthMonitoring();
@@ -106,14 +113,25 @@ export class FrameExtractionService {
       session.isActive = true;
       this.sessions.set(sessionId, session);
 
-      // Handle stdout data - frames in memory with memory management
+      // Handle stdout data - frames in memory with advanced memory management
       let frameBuffer = Buffer.alloc(0);
       let frameNumber = 1;
-      const maxBufferSize = 10 * 1024 * 1024; // 10MB max buffer to prevent memory leaks
+      const maxBufferSize = 5 * 1024 * 1024; // Reduced to 5MB max buffer
       let lastFrameProcessTime = Date.now();
+      let lastMemoryCheck = Date.now();
 
       ffmpegProcess.stdout?.on('data', (data: Buffer) => {
         try {
+          // Check global system resources before processing
+          const now = Date.now();
+          if (now - lastMemoryCheck > 2000) { // Check every 2 seconds
+            lastMemoryCheck = now;
+            if (!this.canProcessGlobalFrame()) {
+              // Drop frame to protect system
+              return;
+            }
+          }
+
           // Prevent memory exhaustion
           if (frameBuffer.length + data.length > maxBufferSize) {
             console.warn(`⚠️ Frame buffer too large for session ${sessionId}, dropping data to prevent memory leak`);
@@ -132,9 +150,8 @@ export class FrameExtractionService {
             if (frameStart !== -1 && frameStart < endIdx) {
               const completeFrame = frameBuffer.subarray(frameStart, endIdx + 2);
 
-              // Throttle frame processing to prevent overwhelming the system
-              const now = Date.now();
-              if (now - lastFrameProcessTime < 1000) { // Min 1 second between frames
+              // Enhanced throttling based on global system load
+              if (now - lastFrameProcessTime < 1000 || this.activeFrameProcesses >= this.frameProcessingThrottle) {
                 // Skip this frame to prevent overload
                 startIdx = endIdx + 2;
                 endIdx = frameBuffer.indexOf(Buffer.from([0xFF, 0xD9]), startIdx);
@@ -147,7 +164,7 @@ export class FrameExtractionService {
               session.lastFrameTime = new Date();
               lastFrameProcessTime = now;
 
-              // Process frame immediately (with timeout protection)
+              // Process frame with global concurrency control
               this.processFrameFromMemory(completeFrame, frameNumber, session).catch(error => {
                 console.error(`Frame processing failed for session ${sessionId}, frame ${frameNumber}:`, error);
               });
@@ -223,7 +240,7 @@ export class FrameExtractionService {
   }
 
   /**
-   * Process frames from memory buffer with timeout protection
+   * Process frames from memory buffer with enhanced timeout and concurrency protection
    */
   private async processFrameFromMemory(
     frameBuffer: Buffer,
@@ -231,12 +248,13 @@ export class FrameExtractionService {
     session: FrameExtractionSession
   ): Promise<void> {
     const startTime = Date.now();
+    this.activeFrameProcesses++;
 
     try {
-      // Clean up older frames to prevent memory leaks (keep only last 10 frames - reduced)
-      if (session.frameBuffer.size > 10) {
+      // Clean up older frames to prevent memory leaks (keep only last 5 frames - further reduced)
+      if (session.frameBuffer.size > 5) {
         const frames = Array.from(session.frameBuffer.keys()).sort((a, b) => a - b);
-        const framesToDelete = frames.slice(0, frames.length - 10); // Keep only the latest 10
+        const framesToDelete = frames.slice(0, frames.length - 5); // Keep only the latest 5
         framesToDelete.forEach(frame => session.frameBuffer.delete(frame));
       }
 
@@ -249,9 +267,12 @@ export class FrameExtractionService {
         console.warn(`⚠️ FRAME EXTRACT: Could not extract event ID from session ${session.sessionId}`);
       }
 
-      // Create timeout promise (30 seconds max)
+      // Yield to event loop before intensive processing
+      await new Promise(resolve => setImmediate(resolve));
+
+      // Create timeout promise (reduced to 15 seconds max)
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Frame processing timeout')), 30000);
+        setTimeout(() => reject(new Error('Frame processing timeout')), 15000);
       });
 
       // Process frame with face detection with timeout protection
@@ -268,7 +289,7 @@ export class FrameExtractionService {
       session.lastProcessedFrame = frameNumber;
 
       const processingTime = Date.now() - startTime;
-      if (processingTime > 5000) {
+      if (processingTime > 3000) { // Reduced threshold
         console.warn(`⚠️ Slow frame processing detected: ${processingTime}ms for session ${session.sessionId}`);
       }
     } catch (error) {
@@ -280,7 +301,30 @@ export class FrameExtractionService {
       } else {
         console.error(`Failed to process frame ${frameNumber} for session ${session.sessionId}:`, error);
       }
+    } finally {
+      this.activeFrameProcesses--;
     }
+  }
+
+  /**
+   * Check if system can handle another frame processing operation globally
+   */
+  private canProcessGlobalFrame(): boolean {
+    // Check global memory usage
+    const memoryUsage = process.memoryUsage();
+    const heapUsedMB = memoryUsage.heapUsed / 1024 / 1024;
+
+    if (heapUsedMB > this.maxGlobalMemoryMB) {
+      console.warn(`⚠️ Global memory usage high: ${heapUsedMB.toFixed(1)}MB, throttling frame processing`);
+      return false;
+    }
+
+    // Check active processes
+    if (this.activeFrameProcesses >= this.frameProcessingThrottle) {
+      return false;
+    }
+
+    return true;
   }
 
   /**
@@ -513,18 +557,28 @@ export class FrameExtractionService {
   }
 
   /**
-   * Get service health
+   * Get service health with enhanced monitoring
    */
   public getServiceHealth() {
     const totalMemory = Array.from(this.sessions.values()).reduce((total, session) => {
       return total + Array.from(session.frameBuffer.values()).reduce((sessionTotal, buffer) => sessionTotal + buffer.length, 0);
     }, 0);
 
+    const systemMemory = process.memoryUsage();
+
     return {
       activeSessions: this.sessions.size,
       totalMemoryUsage: Math.round(totalMemory / 1024 / 1024), // MB
       memoryPerSession: this.sessions.size > 0 ? Math.round(totalMemory / this.sessions.size / 1024 / 1024) : 0, // MB
       healthMonitorActive: !!this.healthMonitor,
+      // Enhanced system monitoring
+      systemHealth: {
+        heapUsedMB: Math.round(systemMemory.heapUsed / 1024 / 1024),
+        heapTotalMB: Math.round(systemMemory.heapTotal / 1024 / 1024),
+        activeFrameProcesses: this.activeFrameProcesses,
+        maxConcurrentFrames: this.frameProcessingThrottle,
+        globalMemoryThresholdMB: this.maxGlobalMemoryMB,
+      },
       faceRecognitionHealth: faceRecognitionService.getServiceHealth(),
       uptime: process.uptime(),
       sessions: Array.from(this.sessions.entries()).map(([id, session]) => ({

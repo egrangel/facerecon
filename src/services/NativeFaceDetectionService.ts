@@ -28,14 +28,21 @@ interface NativeDetectionResult {
 export class NativeFaceDetectionService {
   private detector: NativeFaceDetector | null = null;
   private isInitialized = false;
-  // Remove queue system - use true parallel processing instead
+  // Enhanced timeout and safety management
+  private readonly maxConcurrentDetections = 100; // Allow high concurrency for multi-camera
+  private readonly detectionTimeoutMs = 10000; // 10 second timeout per detection
+  private readonly maxDetectionRetries = 2;
+  private activeTimeouts = new Set<NodeJS.Timeout>();
+
   private performanceStats = {
     totalDetections: 0,
     totalProcessingTime: 0,
     averageProcessingTime: 0,
     maxProcessingTime: 0,
     minProcessingTime: Infinity,
-    concurrentDetections: 0, // Track concurrent detections
+    concurrentDetections: 0,
+    timeoutErrors: 0,
+    retryCount: 0,
   };
 
   constructor() {
@@ -138,16 +145,17 @@ export class NativeFaceDetectionService {
   }
 
   /**
-   * Async face detection with true parallel processing - no queuing
+   * Async face detection with enhanced timeout protection and retry logic
    */
   public detectFacesAsync(
-    imageBuffer: Buffer
+    imageBuffer: Buffer,
+    retryCount = 0
   ): Promise<{
     faces: Array<{
       boundingBox: { x: number; y: number; width: number; height: number };
       confidence: number;
       landmarks?: any[];
-      encoding?: number[]; // Include encoding
+      encoding?: number[];
     }>;
     processingTimeMs: number;
   }> {
@@ -157,64 +165,127 @@ export class NativeFaceDetectionService {
         return;
       }
 
+      // Check concurrency limits
+      if (this.performanceStats.concurrentDetections >= this.maxConcurrentDetections) {
+        reject(new Error('Maximum concurrent detections exceeded'));
+        return;
+      }
+
       // Track concurrent detections
       this.performanceStats.concurrentDetections++;
       const startTime = Date.now();
+      let isResolved = false;
 
-      // Add timeout for safety
+      // Enhanced timeout with cleanup
       const timeoutId = setTimeout(() => {
-        this.performanceStats.concurrentDetections--;
-        reject(new Error('Face detection timeout - 15 seconds exceeded'));
-      }, 15000); // 15 second timeout
-
-      // Direct async call - no queuing, full parallelism
-      this.detector.detectFacesAsync(imageBuffer, (err, result) => {
-        try {
-          clearTimeout(timeoutId);
+        if (!isResolved) {
+          isResolved = true;
           this.performanceStats.concurrentDetections--;
+          this.performanceStats.timeoutErrors++;
+          this.activeTimeouts.delete(timeoutId);
 
-          if (err) {
-            reject(err);
-            return;
+          // Retry logic for timeouts
+          if (retryCount < this.maxDetectionRetries) {
+            this.performanceStats.retryCount++;
+            console.warn(`⚠️ Face detection timeout, retrying (${retryCount + 1}/${this.maxDetectionRetries})`);
+            this.detectFacesAsync(imageBuffer, retryCount + 1)
+              .then(resolve)
+              .catch(reject);
+          } else {
+            reject(new Error(`Face detection timeout - ${this.detectionTimeoutMs}ms exceeded after ${this.maxDetectionRetries} retries`));
           }
-
-          if (!result.success) {
-            reject(new Error(`Face detection failed: ${result.error}`));
-            return;
-          }
-
-          // Update performance statistics
-          this.updatePerformanceStats(result.processingTimeMs);
-
-          const processedFaces = result.faces.map(face => ({
-            boundingBox: face.boundingBox,
-            confidence: face.confidence,
-            landmarks: [],
-            encoding: face.encoding || [], // Include face encoding from C++
-          }));
-
-          // Debug logging for encoding issues
-          if (processedFaces.length > 0) {
-            const faceWithEncoding = processedFaces.find(f => f.encoding && f.encoding.length > 0);
-            if (!faceWithEncoding) {
-              console.warn('⚠️ NATIVE DETECTOR ASYNC: No encodings found in detected faces - C++ module may not be generating encodings');
-            } else {
-              console.log(`✅ NATIVE DETECTOR ASYNC: Found ${processedFaces.length} face(s) with encodings (${faceWithEncoding.encoding!.length} dimensions)`);
-            }
-          }
-
-          const processedResult = {
-            faces: processedFaces,
-            processingTimeMs: result.processingTimeMs,
-          };
-
-          resolve(processedResult);
-        } catch (error) {
-          this.performanceStats.concurrentDetections--;
-          reject(error);
         }
-      });
+      }, this.detectionTimeoutMs);
+
+      this.activeTimeouts.add(timeoutId);
+
+      // Direct async call with enhanced error handling
+      try {
+        this.detector.detectFacesAsync(imageBuffer, (err, result) => {
+          if (!isResolved) {
+            isResolved = true;
+            clearTimeout(timeoutId);
+            this.activeTimeouts.delete(timeoutId);
+            this.performanceStats.concurrentDetections--;
+
+            if (err) {
+              // Retry on specific errors
+              if (retryCount < this.maxDetectionRetries && this.isRetryableError(err)) {
+                this.performanceStats.retryCount++;
+                console.warn(`⚠️ Face detection error, retrying (${retryCount + 1}/${this.maxDetectionRetries}):`, err.message);
+                this.detectFacesAsync(imageBuffer, retryCount + 1)
+                  .then(resolve)
+                  .catch(reject);
+                return;
+              }
+              reject(err);
+              return;
+            }
+
+            if (!result.success) {
+              const error = new Error(`Face detection failed: ${result.error}`);
+              if (retryCount < this.maxDetectionRetries) {
+                this.performanceStats.retryCount++;
+                console.warn(`⚠️ Face detection failed, retrying (${retryCount + 1}/${this.maxDetectionRetries}):`, result.error);
+                this.detectFacesAsync(imageBuffer, retryCount + 1)
+                  .then(resolve)
+                  .catch(reject);
+                return;
+              }
+              reject(error);
+              return;
+            }
+
+            // Update performance statistics
+            this.updatePerformanceStats(result.processingTimeMs);
+
+            const processedFaces = result.faces.map(face => ({
+              boundingBox: face.boundingBox,
+              confidence: face.confidence,
+              landmarks: [],
+              encoding: face.encoding || [],
+            }));
+
+            // Debug logging for encoding issues (reduced frequency)
+            if (processedFaces.length > 0 && Math.random() < 0.01) { // 1% sampling
+              const faceWithEncoding = processedFaces.find(f => f.encoding && f.encoding.length > 0);
+              if (!faceWithEncoding) {
+                console.warn('⚠️ NATIVE DETECTOR ASYNC: No encodings found in detected faces');
+              }
+            }
+
+            resolve({
+              faces: processedFaces,
+              processingTimeMs: result.processingTimeMs,
+            });
+          }
+        });
+      } catch (syncError) {
+        if (!isResolved) {
+          isResolved = true;
+          clearTimeout(timeoutId);
+          this.activeTimeouts.delete(timeoutId);
+          this.performanceStats.concurrentDetections--;
+          reject(syncError);
+        }
+      }
     });
+  }
+
+  /**
+   * Check if an error is retryable
+   */
+  private isRetryableError(error: Error): boolean {
+    const retryableMessages = [
+      'timeout',
+      'memory',
+      'resource temporarily unavailable',
+      'connection',
+      'temporary'
+    ];
+
+    const errorMessage = error.message.toLowerCase();
+    return retryableMessages.some(msg => errorMessage.includes(msg));
   }
 
   /**
@@ -234,13 +305,25 @@ export class NativeFaceDetectionService {
   }
 
   /**
-   * Get performance statistics
+   * Get performance statistics with enhanced safety metrics
    */
   public getPerformanceStats() {
     return {
       ...this.performanceStats,
       isNativeDetector: true,
       detectorType: 'C++ OpenCV',
+      safetyMetrics: {
+        maxConcurrentDetections: this.maxConcurrentDetections,
+        detectionTimeoutMs: this.detectionTimeoutMs,
+        maxRetries: this.maxDetectionRetries,
+        activeTimeouts: this.activeTimeouts.size,
+        timeoutErrorRate: this.performanceStats.totalDetections > 0
+          ? (this.performanceStats.timeoutErrors / this.performanceStats.totalDetections * 100).toFixed(2) + '%'
+          : '0%',
+        retryRate: this.performanceStats.totalDetections > 0
+          ? (this.performanceStats.retryCount / this.performanceStats.totalDetections * 100).toFixed(2) + '%'
+          : '0%',
+      },
     };
   }
 
@@ -270,11 +353,34 @@ export class NativeFaceDetectionService {
   }
 
   /**
-   * Cleanup resources
+   * Cleanup resources with timeout management
    */
   public dispose(): void {
+    // Clear all active timeouts
+    this.activeTimeouts.forEach(timeoutId => {
+      clearTimeout(timeoutId);
+    });
+    this.activeTimeouts.clear();
+
+    // Reset concurrent detection counter
+    this.performanceStats.concurrentDetections = 0;
+
     // The C++ detector will clean up automatically when GC'd
     this.isInitialized = false;
+    console.log('🔄 Native face detector disposed with enhanced cleanup');
+  }
+
+  /**
+   * Emergency cleanup - force stop all operations
+   */
+  public emergencyStop(): void {
+    console.warn('😨 Emergency stop triggered for native face detector');
+    this.dispose();
+
+    // Force garbage collection if available
+    if (global.gc) {
+      global.gc();
+    }
   }
 }
 

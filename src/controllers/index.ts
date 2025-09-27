@@ -895,7 +895,7 @@ export class DetectionController extends BaseController<any> {
     // When disassociating, faceStatus changes back to 'unrecognized' since no person is associated
     try {
       const updatedDetection = await this.detectionService.repository.update(parseInt(detectionId), {
-        personFaceId: null,
+        personFaceId: null as any,
         faceStatus: 'unrecognized', // No person associated = unrecognized
         detectionStatus: 'pending',
       });
