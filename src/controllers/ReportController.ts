@@ -59,7 +59,7 @@ export class ReportController {
         INNER JOIN person_faces pf ON d.personface_id = pf.id
         INNER JOIN people p ON pf.person_id = p.id
         WHERE p.organization_id = ?
-          AND d.status IN ('recognized', 'confirmed')
+          AND d.detectionStatus IN ('confirmed')
           AND d.personface_id IS NOT NULL
           ${eventCondition}
         GROUP BY p.id, p.name
@@ -144,7 +144,7 @@ export class ReportController {
         LEFT JOIN person_faces pf ON d.personface_id = pf.id
         LEFT JOIN people p ON pf.person_id = p.id
         WHERE e.organization_id = ?
-          AND d.status IN ('recognized', 'confirmed')
+          AND d.detectionStatus IN ('confirmed')
           AND d.personface_id IS NOT NULL
           ${eventCondition}
         GROUP BY e.id, e.name

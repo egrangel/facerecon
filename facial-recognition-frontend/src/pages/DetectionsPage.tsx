@@ -11,6 +11,7 @@ const DeteccoesPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [dateFilter, setDateFilter] = useState<string>('');
+  const [unrecognizedFilter, setUnrecognizedFilter] = useState(false);
   const [selectedDetection, setSelectedDetection] = useState<Detection | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
@@ -32,10 +33,13 @@ const DeteccoesPage: React.FC = () => {
     queryParams.search = searchTerm;
   }
   if (statusFilter) {
-    queryParams.status = statusFilter;
+    queryParams.detectionStatus = statusFilter;
   }
   if (dateFilter) {
     queryParams.date = dateFilter;
+  }
+  if (unrecognizedFilter) {
+    queryParams.faceStatus = 'unrecognized';
   }
 
   const { data: detectionsResponse, isLoading, isFetching } = useQuery({
@@ -71,6 +75,7 @@ const DeteccoesPage: React.FC = () => {
     setSearchTerm('');
     setStatusFilter('');
     setDateFilter('');
+    setUnrecognizedFilter(false);
     setCurrentPage(1);
   };
 
@@ -197,9 +202,6 @@ const DeteccoesPage: React.FC = () => {
               className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             >
               <option value="">Todos os status</option>
-              <option value="unrecognized">Face Não Reconhecida</option>
-              <option value="detected">Face Detectada</option>
-              <option value="recognized">Face Reconhecida</option>
               <option value="pending">Pendente de Confirmação</option>
               <option value="confirmed">Confirmado</option>
             </select>
@@ -213,6 +215,25 @@ const DeteccoesPage: React.FC = () => {
               }}
               placeholder="Filtrar por data"
             />
+
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="unrecognized-filter"
+                checked={unrecognizedFilter}
+                onChange={(e) => {
+                  setUnrecognizedFilter(e.target.checked);
+                  setCurrentPage(1);
+                }}
+                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+              />
+              <label
+                htmlFor="unrecognized-filter"
+                className="text-sm font-medium text-gray-700 whitespace-nowrap"
+              >
+                Faces não reconhecidas
+              </label>
+            </div>
 
             <Button
               variant="outline"
@@ -344,7 +365,7 @@ const DeteccoesPage: React.FC = () => {
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Confiança:</span>
                     <span className={`font-medium ${getConfidenceColor(detection.confidence)}`}>
-                      {detection.confidence.toFixed(1)}%
+                      {(detection.confidence * 100).toFixed(1)}%
                     </span>
                   </div>
 

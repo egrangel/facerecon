@@ -142,7 +142,7 @@ export class FaceRecognitionService {
       const startTime = Date.now();
       this.performanceStats.activeDetections++;
 
-      console.log(`🎯 Camera ${cameraId}: Starting detection (${this.performanceStats.activeDetections} active globally)`);
+      // console.log(`🎯 Camera ${cameraId}: Starting detection (${this.performanceStats.activeDetections} active globally)`);
 
       // Detect faces in the frame with timeout protection - no throttling, full concurrency
       const detection = await this.detectFaces(frameBuffer);
@@ -153,7 +153,7 @@ export class FaceRecognitionService {
       this.performanceStats.totalProcessingTime += processingTime;
       this.performanceStats.averageProcessingTime = this.performanceStats.totalProcessingTime / this.performanceStats.totalDetections;
 
-      console.log(`✅ Camera ${cameraId}: Detection completed in ${processingTime}ms, found ${detection.faces.length} faces (avg: ${this.performanceStats.averageProcessingTime.toFixed(1)}ms)`);
+      // console.log(`✅ Camera ${cameraId}: Detection completed in ${processingTime}ms, found ${detection.faces.length} faces (avg: ${this.performanceStats.averageProcessingTime.toFixed(1)}ms)`);
 
       if (detection.faces.length === 0) {
         this.performanceStats.activeDetections--;
@@ -192,11 +192,9 @@ export class FaceRecognitionService {
           if (recognition.isMatch && recognition.personId) {
             // Known person detected - use existing PersonFace ID
             personFaceId = recognition.personId;
-            console.log(`✅ Known person detected: PersonFace ID ${personFaceId}`);
           } else {
             // Unknown person - store embedding in detection without creating person record
             personFaceId = undefined; // No person association for unknown faces
-            console.log(`❓ Unknown face detected - storing biometric data in detection without creating person record`);
           }
 
           // Save individual face crop
@@ -217,7 +215,8 @@ export class FaceRecognitionService {
             // Face was recognized with sufficient similarity - set faceStatus to 'recognized'
             faceStatus = 'recognized';
             // Auto-confirm if confidence is 100%, otherwise set to pending
-            detectionStatus = recognition.confidence === 1.0 ? 'confirmed' : 'pending';
+            // console.log(`Auto-confirming detection for PersonFace ID ${personFaceId} with confidence ${(recognition.confidence * 100).toFixed(1)}%`);
+            detectionStatus = recognition.confidence >= 0.8 ? 'confirmed' : 'pending';
           } else if (recognition.confidence === 0) {
             // Face was detected but 0% similarity - set faceStatus to 'unrecognized'
             faceStatus = 'unrecognized';
@@ -231,7 +230,7 @@ export class FaceRecognitionService {
           // Record the detection with enhanced metadata
           await this.detectionService.create({
             detectedAt: new Date(),
-            confidence: face.confidence,
+            confidence: recognition.isMatch ? recognition.confidence : 0, // Use recognition confidence for consistency
             faceStatus,
             detectionStatus,
             imageUrl: faceImageUrl, // Use face crop URL instead of full detection image
@@ -312,14 +311,12 @@ export class FaceRecognitionService {
     try {
       // Check if we have encoding data for the detected face
       if (!face.encoding || face.encoding.length === 0) {
-        console.warn(`⚠️ FACE RECOGNITION: Cannot recognize face - no encoding data available (encoding: ${face.encoding ? 'empty array' : 'null/undefined'})`);
+        // console.warn(`⚠️ FACE RECOGNITION: Cannot recognize face - no encoding data available (encoding: ${face.encoding ? 'empty array' : 'null/undefined'})`);
         return {
           confidence: 0,
           isMatch: false,
         };
       }
-
-      console.log(`🔍 FACE RECOGNITION: Starting ANN-based recognition with ${face.encoding.length}-dimensional encoding`);
 
       // Convert encoding to Float32Array for ANN search
       const queryEmbedding = new Float32Array(face.encoding);
@@ -328,7 +325,6 @@ export class FaceRecognitionService {
       const similarFaces = await faceIndexService.searchSimilarFaces(queryEmbedding, 5);
 
       if (similarFaces.length === 0) {
-        console.log('❓ RECOGNITION: No similar faces found in ANN index');
         return {
           confidence: 0,
           isMatch: false,
@@ -339,13 +335,13 @@ export class FaceRecognitionService {
       const bestMatch = similarFaces[0];
 
       if (bestMatch.isMatch) {
-        console.log(`✅ RECOGNITION: ANN Match found! Person: ${bestMatch.personName}, similarity: ${(bestMatch.similarity * 100).toFixed(1)}% (PersonFace ID: ${bestMatch.personFaceId})`);
+        // console.log(`✅ RECOGNITION: ANN Match found! Person: ${bestMatch.personName}, similarity: ${(bestMatch.similarity * 100).toFixed(1)}% (PersonFace ID: ${bestMatch.personFaceId})`);
 
         // Log additional candidates for debugging
-        if (similarFaces.length > 1) {
-          const otherCandidates = similarFaces.slice(1, 3).map(c => `${c.personName}: ${(c.similarity * 100).toFixed(1)}%`).join(', ');
-          console.log(`🔍 Other candidates: ${otherCandidates}`);
-        }
+        // if (similarFaces.length > 1) {
+          // const otherCandidates = similarFaces.slice(1, 3).map(c => `${c.personName}: ${(c.similarity * 100).toFixed(1)}%`).join(', ');
+          // console.log(`🔍 Other candidates: ${otherCandidates}`);
+        // }
 
         return {
           personId: bestMatch.personFaceId, // Return PersonFace ID for database consistency
@@ -354,9 +350,6 @@ export class FaceRecognitionService {
           isMatch: true,
         };
       } else {
-        const bestSimilarity = (bestMatch.similarity * 100).toFixed(1);
-        console.log(`❓ RECOGNITION: Best match below threshold - ${bestMatch.personName}: ${bestSimilarity}% (threshold: ${(faceIndexService.getStats().similarityThreshold * 100).toFixed(0)}%)`);
-
         return {
           confidence: bestMatch.similarity,
           isMatch: false,
@@ -370,35 +363,13 @@ export class FaceRecognitionService {
       };
     }
   }
-
-  /**
-   * Create an unknown person entry
-   */
-  private async createUnknownPerson(organizationId: number): Promise<number> {
-    try {
-      console.log(`🆕 Creating unknown person for organization ${organizationId}`);
-
-      const unknownPerson = await this.personService.create({
-        name: `Pessoa não cadastrada ${Date.now()}`,
-        status: 'unidentified' as any,
-        organizationId,
-      });
-
-      console.log(`✅ Created unknown person: ${unknownPerson.name} (ID: ${unknownPerson.id})`);
-      return unknownPerson.id;
-    } catch (error) {
-      console.error('❌ Failed to create unknown person:', error);
-      throw error;
-    }
-  }
-
+  
   /**
    * Insert PersonFace for any person (unknown or known)
    */
   private async insertPersonFace(personId: number, face: DetectedFace, personName: string): Promise<number> {
     try {
       const encodingData = face.encoding || [];
-      console.log(`🔍 Adding PersonFace for ${personName} (Person ID: ${personId}) with encoding length: ${encodingData.length}`);
 
       const personFace = await this.personService.addFace(personId, {
         biometricParameters: JSON.stringify(face.boundingBox ? { boundingBox: face.boundingBox } : {}),
@@ -412,12 +383,9 @@ export class FaceRecognitionService {
         }),
       } as any);
 
-      console.log(`✅ Created PersonFace: ID ${personFace.id} for person ${personName}`);
-
       // Add the new face to the ANN index for future recognition
       if (encodingData.length > 0) {
         await faceIndexService.addFace(personFace);
-        console.log(`📊 Added PersonFace to ANN index: ${personName} (PersonFace ID: ${personFace.id})`);
       }
 
       return personFace.id;
@@ -720,36 +688,31 @@ export class FaceRecognitionService {
 
     // Much stricter confidence threshold - faces should be very clear
     if (face.confidence < 0.18) {
-      console.log(`🚫 Face rejected: confidence too low (${face.confidence.toFixed(2)})`);
+      // console.log(`🚫 Face rejected: confidence too low (${face.confidence.toFixed(2)})`);
       return false;
     }
 
     // Stricter size validation for realistic face sizes
     if (width < 30 || height < 30) {
-      console.log(`🚫 Face rejected: too small (${width}x${height})`);
+      // console.log(`🚫 Face rejected: too small (${width}x${height})`);
       return false;
     }
-
-    // if (width > 300 || height > 300) {
-    //   console.log(`🚫 Face rejected: too large (${width}x${height})`);
-    //   return false;
-    // }
 
     // Much stricter aspect ratio for realistic faces
     const aspectRatio = width / height;
     if (aspectRatio < 0.7 || aspectRatio > 1.5) {
-      console.log(`🚫 Face rejected: unrealistic aspect ratio (${aspectRatio.toFixed(2)})`);
+      // console.log(`🚫 Face rejected: unrealistic aspect ratio (${aspectRatio.toFixed(2)})`);
       return false;
     }
 
     // Minimum size requirements for reasonable face detection
     const faceArea = width * height;
     if (faceArea < 1000) { // Minimum 1000 pixels area
-      console.log(`🚫 Face rejected: area too small (${faceArea}px²)`);
+      // console.log(`🚫 Face rejected: area too small (${faceArea}px²)`);
       return false;
     }
 
-    console.log(`✅ Face validated: ${width}x${height}, confidence: ${face.confidence.toFixed(2)}, area: ${faceArea}px²`);
+    // console.log(`✅ Face validated: ${width}x${height}, confidence: ${face.confidence.toFixed(2)}, area: ${faceArea}px²`);
     return true;
   }
 

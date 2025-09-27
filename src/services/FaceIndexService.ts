@@ -27,7 +27,7 @@ export class FaceIndexService {
    */
   async initialize(): Promise<void> {
     try {
-      console.log('🔍 Initializing Face Recognition ANN Index...');
+      // console.log('🔍 Initializing Face Recognition ANN Index...');
 
       // Load all person faces with their person information
       const personFaces = await this.personFaceRepository.getRepository()
@@ -37,7 +37,7 @@ export class FaceIndexService {
         .andWhere('personFace.embedding IS NOT NULL')
         .getMany();
 
-      console.log(`📊 Found ${personFaces.length} active person faces with embeddings`);
+      // console.log(`📊 Found ${personFaces.length} active person faces with embeddings`);
 
       if (personFaces.length === 0) {
         console.log('⚠️ No person faces with embeddings found - index will be empty');
@@ -52,11 +52,11 @@ export class FaceIndexService {
           // Convert buffer to Float32Array to get dimension
           const floatArray = new Float32Array(face.embedding.buffer);
           embeddingDim = floatArray.length;
-          console.log(`📏 Detected embedding dimension: ${embeddingDim}`);
+          // console.log(`📏 Detected embedding dimension: ${embeddingDim}`);
 
           // Update the instance dimension to match data
           if (embeddingDim !== this.EMBEDDING_DIMENSION) {
-            console.log(`🔧 Updating EMBEDDING_DIMENSION from ${this.EMBEDDING_DIMENSION} to ${embeddingDim}`);
+            // console.log(`🔧 Updating EMBEDDING_DIMENSION from ${this.EMBEDDING_DIMENSION} to ${embeddingDim}`);
             this.EMBEDDING_DIMENSION = embeddingDim;
           }
           break;
@@ -69,7 +69,7 @@ export class FaceIndexService {
       const initialCapacity = Math.max(personFaces.length * 2, 100); // Reasonable initial capacity
       // initIndex(capacity, M = 16, efConstruction = 200, randomSeed = 100)
       this.index.initIndex(initialCapacity, 16, 200);
-      console.log(`📊 Initialized HNSW index with capacity: ${initialCapacity}`);
+      // console.log(`📊 Initialized HNSW index with capacity: ${initialCapacity}`);
 
       let validFaceCount = 0;
 
@@ -77,7 +77,7 @@ export class FaceIndexService {
       for (const face of personFaces) {
         try {
           if (!face.embedding || face.embedding.length === 0) {
-            console.warn(`⚠️ PersonFace ${face.id} has no embedding data - skipping`);
+            // console.warn(`⚠️ PersonFace ${face.id} has no embedding data - skipping`);
             continue;
           }
 
@@ -85,7 +85,7 @@ export class FaceIndexService {
           const embedding = new Float32Array(face.embedding.buffer);
 
           if (embedding.length !== embeddingDim) {
-            console.warn(`⚠️ PersonFace ${face.id} has wrong embedding dimension (${embedding.length} vs ${embeddingDim}) - skipping`);
+            // console.warn(`⚠️ PersonFace ${face.id} has wrong embedding dimension (${embedding.length} vs ${embeddingDim}) - skipping`);
             continue;
           }
 
@@ -108,8 +108,8 @@ export class FaceIndexService {
         }
       }
 
-      console.log(`✅ Successfully indexed ${validFaceCount} faces in ANN index`);
-      console.log(`🎯 Using similarity threshold: ${this.SIMILARITY_THRESHOLD}`);
+      // console.log(`✅ Successfully indexed ${validFaceCount} faces in ANN index`);
+      // console.log(`🎯 Using similarity threshold: ${this.SIMILARITY_THRESHOLD}`);
 
       this.isInitialized = true;
     } catch (error) {
@@ -174,25 +174,25 @@ export class FaceIndexService {
     // Sort by similarity
     matches.sort((a, b) => b.similarity - a.similarity);
 
-    if (matches.length > 0) {
+    // if (matches.length > 0) {
       const best = matches[0];
-      const modelType = best.similarity >= 0.9 ? 'ArcFace-like' : 'FaceNet-like';
-      console.log(`🔍 Found ${matches.length} candidates. Best: ${best.personName} ${(best.similarity * 100).toFixed(1)}% ${best.isMatch ? '✅' : '❌'} (${modelType})`);
-      console.log(`🎯 Current threshold: ${(this.SIMILARITY_THRESHOLD * 100).toFixed(1)}%`);
+      // const modelType = best.similarity >= 0.9 ? 'ArcFace-like' : 'FaceNet-like';
+      // console.log(`🔍 Found ${matches.length} candidates. Best: ${best.personName} ${(best.similarity * 100).toFixed(1)}% ${best.isMatch ? '✅' : '❌'} (${modelType})`);
+      // console.log(`🎯 Current threshold: ${(this.SIMILARITY_THRESHOLD * 100).toFixed(1)}%`);
 
       // Debug info for all matches to see the similarity distribution
-      matches.forEach((match, idx) => {
-        const status = match.isMatch ? '✅' : '❌';
-        console.log(`   ${idx + 1}. ${match.personName}: ${(match.similarity * 100).toFixed(1)}% ${status}`);
-      });
+      // matches.forEach((match, idx) => {
+        // const status = match.isMatch ? '✅' : '❌';
+        // console.log(`   ${idx + 1}. ${match.personName}: ${(match.similarity * 100).toFixed(1)}% ${status}`);
+      // });
 
       // Show if we're close to threshold
-      if (!best.isMatch && best.similarity >= 0.5) {
-        console.log(`💡 Best match is ${(best.similarity * 100).toFixed(1)}% - consider lowering threshold if this should match`);
-      }
-    } else {
-      console.log(`🔍 No candidates found in index`);
-    }
+      // if (!best.isMatch && best.similarity >= 0.5) {
+        // console.log(`💡 Best match is ${(best.similarity * 100).toFixed(1)}% - consider lowering threshold if this should match`);
+      // }
+    // } else {
+      // console.log(`🔍 No candidates found in index`);
+    // }
 
     return matches;
   } catch (error: any) {
@@ -286,7 +286,7 @@ export class FaceIndexService {
         this.index.addPoint(Array.from(embedding), personFace.id);
         this.indexedFaces.set(personFace.id, indexedFace);
 
-        console.log(`✅ Added PersonFace ${personFace.id} (${indexedFace.personName}) to ANN index`);
+        // console.log(`✅ Added PersonFace ${personFace.id} (${indexedFace.personName}) to ANN index`);
         return true;
       } catch (indexError: any) {
         // If we hit capacity limit, rebuild the index with more capacity
@@ -298,7 +298,7 @@ export class FaceIndexService {
           try {
             this.index!.addPoint(Array.from(embedding), personFace.id);
             this.indexedFaces.set(personFace.id, indexedFace);
-            console.log(`✅ Added PersonFace ${personFace.id} (${indexedFace.personName}) to rebuilt ANN index`);
+            // console.log(`✅ Added PersonFace ${personFace.id} (${indexedFace.personName}) to rebuilt ANN index`);
             return true;
           } catch (retryError) {
             console.error(`❌ Failed to add face ${personFace.id} even after rebuild:`, retryError);
