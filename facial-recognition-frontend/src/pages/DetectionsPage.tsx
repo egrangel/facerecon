@@ -102,7 +102,7 @@ const DeteccoesPage: React.FC = () => {
     },
   });
 
-  // Disassociate person mutation (sets detectionStatus to pending and removes person association)
+  // Disassociate person mutation (sets faceStatus to unrecognized, detectionStatus to pending, and removes person association)
   const disassociateMutation = useMutation({
     mutationFn: async (detectionId: number) => {
       return await apiClient.unmatchPersonFromDetection(detectionId);

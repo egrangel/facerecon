@@ -891,12 +891,17 @@ export class DetectionController extends BaseController<any> {
       return;
     }
 
-    // Update detection to remove person association and set detectionStatus to pending
-    // faceStatus remains unchanged (immutable once set)
-    const updatedDetection = await this.detectionService.repository.update(parseInt(detectionId), {
-      personFaceId: undefined,
-      detectionStatus: 'pending',
-    });
+    // Update detection to remove person association and set back to unrecognized
+    // When disassociating, faceStatus changes back to 'unrecognized' since no person is associated
+    try {
+      const updatedDetection = await this.detectionService.repository.update(parseInt(detectionId), {
+        personFaceId: null,
+        faceStatus: 'unrecognized', // No person associated = unrecognized
+        detectionStatus: 'pending',
+      });
+    } catch (error) {
+      console.error('Error unmatching person from detection:', error);
+    }
 
     const detectionWithRelations = await this.detectionService.findById(parseInt(detectionId), [
       'camera', 'personFace', 'personFace.person', 'event'
