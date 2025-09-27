@@ -43,8 +43,8 @@ export class FaceRecognitionService {
   private readonly processingTimeoutMs = 10000; // 10 second timeout for face detection
 
   // Event loop protection and memory management
-  private readonly maxConcurrentDetections = 50; // Allow high concurrency for multi-camera
-  private readonly memoryThresholdMB = 512; // Memory threshold for throttling
+  private readonly maxConcurrentDetections = 500; // Allow high concurrency for multi-camera
+  private readonly memoryThresholdMB = 2048; // Memory threshold for throttling
   private readonly cpuThrottleDelay = 0; // No artificial delay - let native module handle performance
   private activeDetections = 0;
   private memoryUsageMB = 0;
