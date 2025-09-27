@@ -210,7 +210,7 @@ const EventosPage: React.FC = () => {
         </div>
         <Button
           onClick={() => setShowEventModal(true)}
-          className="bg-primary-600 text-white hover:bg-primary-700"
+          variant="primary"
         >
           Adicionar Evento
         </Button>
@@ -248,24 +248,24 @@ const EventosPage: React.FC = () => {
       {/* Events List */}
       <Card>
         <CardContent className="p-0">
-          <div className="divide-y divide-gray-200">
+          <div className="divide-y divide-[var(--color-border-light)]">
             {isLoading ? (
               <div className="p-12 text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-primary-500)] mx-auto"></div>
               </div>
             ) : filteredEvents.length === 0 ? (
-              <div className="p-12 text-center text-gray-500">
+              <div className="p-12 text-center text-[var(--color-text-secondary)]">
                 Nenhum evento encontrado
               </div>
             ) : (
               filteredEvents.map((event: Event) => (
                 <div
                   key={event.id}
-                  className="p-6 hover:bg-gray-50 cursor-pointer transition-colors"
+                  className="p-6 hover:bg-[var(--color-background-tertiary)] cursor-pointer transition-colors"
                   onClick={() => setSelectedEvent(event)}
                 >
                   <div className="flex items-start space-x-4">
-                    <div className="p-2 rounded-lg bg-blue-100 text-blue-800 border">
+                    <div className="p-2 rounded-lg bg-[var(--color-primary-100)] text-[var(--color-primary-700)] border border-[var(--color-border-light)]">
                       <div className="text-current">
                         {getEventIcon()}
                       </div>
@@ -274,26 +274,26 @@ const EventosPage: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center space-x-3">
-                          <h3 className="text-sm font-medium text-gray-900">
+                          <h3 className="text-sm font-medium text-[var(--color-text-primary)]">
                             {event.name}
                           </h3>
                           <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${
                             event.isActive
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-100 text-gray-800'
+                              ? 'bg-[var(--color-status-success-bg)] text-[var(--color-status-success-text)]'
+                              : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]'
                           }`}>
                             <div className={`w-2 h-2 rounded-full mr-1 ${
-                              event.isActive ? 'bg-green-500' : 'bg-gray-400'
+                              event.isActive ? 'bg-[var(--color-status-success-border)]' : 'bg-[var(--color-text-tertiary)]'
                             }`}></div>
                             {event.isActive ? 'Ativo' : 'Inativo'}
                           </span>
                           {event.description && (
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-[var(--color-text-secondary)]">
                               {event.description}
                             </span>
                           )}
                         </div>
-                        <span className="text-sm text-gray-500">
+                        <span className="text-sm text-[var(--color-text-secondary)]">
                           {event.occurredAt ? formatTimestamp(event.occurredAt) : 'Evento agendado'}
                         </span>
                       </div>
@@ -301,23 +301,16 @@ const EventosPage: React.FC = () => {
 
                     <div className="flex-shrink-0 flex space-x-2">
                       <Button
-                        size="sm"
-                        variant="outline"
+                        variant={event.isActive ? "outline" : "primary"}
                         onClick={(e) => {
                           e.stopPropagation();
                           toggleEventStatusMutation.mutate(event.id);
                         }}
-                        className={`${
-                          event.isActive
-                            ? 'text-orange-600 border-orange-300 hover:bg-orange-50'
-                            : 'text-green-600 border-green-300 hover:bg-green-50'
-                        }`}
                         isLoading={loadingEventIds.has(event.id)}
                       >
                         {event.isActive ? 'Desativar' : 'Ativar'}
                       </Button>
                       <Button
-                        size="sm"
                         variant="outline"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -327,13 +320,11 @@ const EventosPage: React.FC = () => {
                         Editar
                       </Button>
                       <Button
-                        size="sm"
-                        variant="outline"
+                        variant="danger"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteEvent(event);
                         }}
-                        className="text-red-600 border-red-300 hover:bg-red-50"
                       >
                         Excluir
                       </Button>
@@ -480,15 +471,15 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ event, onClose, onSubmi
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-          <h3 className="text-lg font-medium text-gray-900">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-[var(--color-background-primary)] rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-4 border-b border-[var(--color-border-light)] flex justify-between items-center">
+          <h3 className="text-lg font-medium text-[var(--color-text-primary)]">
             {event ? 'Editar Evento' : 'Criar Novo Evento'}
           </h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -499,7 +490,7 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ event, onClose, onSubmi
         <form onSubmit={handleSubmit(onFormSubmit)} className="p-6 space-y-6">
           {/* Basic Information */}
           <div className="space-y-4">
-            <h4 className="text-lg font-medium text-gray-900 border-b pb-2">Informações Básicas</h4>
+            <h4 className="text-lg font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2">Informações Básicas</h4>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
@@ -513,13 +504,13 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ event, onClose, onSubmi
               </div>
 
               <div className="md:col-span-2">
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="description" className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
                   Descrição
                 </label>
                 <textarea
                   id="description"
                   rows={3}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                  className="mt-1 block w-full px-3 py-2 border border-[var(--color-border-medium)] bg-[var(--color-background-secondary)] text-[var(--color-text-primary)] rounded-md shadow-sm focus:outline-none focus:ring-[var(--color-primary-500)] focus:border-[var(--color-primary-500)]"
                   {...register('description')}
                 />
               </div>
@@ -530,9 +521,9 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ event, onClose, onSubmi
                   <input
                     type="checkbox"
                     {...register('isActive')}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    className="rounded border-[var(--color-border-medium)] text-[var(--color-primary-500)] focus:ring-[var(--color-primary-500)]"
                   />
-                  <span className="text-sm font-medium text-gray-700">Evento ativo</span>
+                  <span className="text-sm font-medium text-[var(--color-text-secondary)]">Evento ativo</span>
                 </label>
               </div>
             </div>
@@ -541,16 +532,16 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ event, onClose, onSubmi
           {/* Scheduling Section */}
           {true && (
             <div className="space-y-4">
-              <h4 className="text-lg font-medium text-gray-900 border-b pb-2">Configurações de Agendamento</h4>
+              <h4 className="text-lg font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2">Configurações de Agendamento</h4>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="recurrenceType" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="recurrenceType" className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
                     Tipo de Recorrência
                   </label>
                   <select
                     id="recurrenceType"
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                    className="mt-1 block w-full px-3 py-2 border border-[var(--color-border-medium)] bg-[var(--color-background-secondary)] text-[var(--color-text-primary)] rounded-md shadow-sm focus:outline-none focus:ring-[var(--color-primary-500)] focus:border-[var(--color-primary-500)]"
                     {...register('recurrenceType')}
                   >
                     <option value="once">Uma vez</option>
@@ -588,7 +579,7 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ event, onClose, onSubmi
 
                 {recurrenceType === 'weekly' && (
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
                       Dias da Semana
                     </label>
                     <div className="grid grid-cols-7 gap-2">
@@ -606,9 +597,9 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ event, onClose, onSubmi
                             type="checkbox"
                             value={day.value}
                             {...register('weekDays')}
-                            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                            className="rounded border-[var(--color-border-medium)] text-[var(--color-primary-500)] focus:ring-[var(--color-primary-500)]"
                           />
-                          <span className="text-xs text-gray-600">{day.label}</span>
+                          <span className="text-xs text-[var(--color-text-tertiary)]">{day.label}</span>
                         </label>
                       ))}
                     </div>
@@ -620,13 +611,13 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ event, onClose, onSubmi
 
           {/* Camera Selection */}
           <div className="space-y-4">
-            <h4 className="text-lg font-medium text-gray-900 border-b pb-2">Câmeras Associadas</h4>
+            <h4 className="text-lg font-medium text-[var(--color-text-primary)] border-b border-[var(--color-border-light)] pb-2">Câmeras Associadas</h4>
 
-            <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-md p-3">
+            <div className="max-h-40 overflow-y-auto border border-[var(--color-border-light)] rounded-md p-3 bg-[var(--color-background-secondary)]">
               {camerasResponse?.data.length ? (
                 <div className="space-y-2">
                   {camerasResponse.data.map((camera: Camera) => (
-                    <label key={camera.id} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
+                    <label key={camera.id} className="flex items-center space-x-3 p-2 hover:bg-[var(--color-background-tertiary)] rounded">
                       <input
                         type="checkbox"
                         checked={selectedCameraIds.includes(camera.id)}
@@ -637,18 +628,18 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ event, onClose, onSubmi
                             setSelectedCameraIds(selectedCameraIds.filter(id => id !== camera.id));
                           }
                         }}
-                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        className="rounded border-[var(--color-border-medium)] text-[var(--color-primary-500)] focus:ring-[var(--color-primary-500)]"
                       />
                       <div className="flex-1">
-                        <div className="text-sm font-medium text-gray-900">{camera.name}</div>
+                        <div className="text-sm font-medium text-[var(--color-text-primary)]">{camera.name}</div>
                         {camera.description && (
-                          <div className="text-xs text-gray-500">{camera.description}</div>
+                          <div className="text-xs text-[var(--color-text-tertiary)]">{camera.description}</div>
                         )}
                       </div>
                       <div className={`px-2 py-1 text-xs rounded-full ${
                         camera.status === 'active'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
+                          ? 'bg-[var(--color-status-success-bg)] text-[var(--color-status-success-text)]'
+                          : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]'
                       }`}>
                         {camera.status}
                       </div>
@@ -656,18 +647,18 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ event, onClose, onSubmi
                   ))}
                 </div>
               ) : (
-                <div className="text-center text-gray-500 py-4">
+                <div className="text-center text-[var(--color-text-secondary)] py-4">
                   Nenhuma câmera disponível
                 </div>
               )}
             </div>
 
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-[var(--color-text-secondary)]">
               {selectedCameraIds.length} câmera(s) selecionada(s)
             </div>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+          <div className="flex justify-end space-x-3 pt-4 border-t border-[var(--color-border-light)]">
             <Button
               type="button"
               variant="outline"
@@ -696,15 +687,15 @@ interface EventoModalProps {
 const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose }) => {
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-          <h3 className="text-lg font-medium text-gray-900">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-[var(--color-background-primary)] rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-4 border-b border-[var(--color-border-light)] flex justify-between items-center">
+          <h3 className="text-lg font-medium text-[var(--color-text-primary)]">
             Detalhes do Evento
           </h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -715,14 +706,14 @@ const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose }) => {
         <div className="p-6 space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
-            <h4 className="text-xl font-semibold text-gray-900">
+            <h4 className="text-xl font-semibold text-[var(--color-text-primary)]">
               {evento.name}
             </h4>
             <div className="flex space-x-2">
               <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${
                 evento.isActive
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-gray-100 text-gray-800'
+                  ? 'bg-[var(--color-status-success-bg)] text-[var(--color-status-success-text)]'
+                  : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]'
               }`}>
                 {evento.isActive ? 'Ativo' : 'Inativo'}
               </span>
@@ -732,21 +723,21 @@ const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose }) => {
           {/* Informa��es principais */}
           <div className="space-y-4">
             <div>
-              <h5 className="text-sm font-medium text-gray-700 mb-2">Descri��o</h5>
-              <p className="text-gray-900">{evento.description}</p>
+              <h5 className="text-sm font-medium text-[var(--color-text-secondary)] mb-2">Descri��o</h5>
+              <p className="text-[var(--color-text-primary)]">{evento.description}</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <h5 className="text-sm font-medium text-gray-700 mb-2">Data e Hora</h5>
-                <p className="text-gray-900">
+                <h5 className="text-sm font-medium text-[var(--color-text-secondary)] mb-2">Data e Hora</h5>
+                <p className="text-[var(--color-text-primary)]">
                   {evento.occurredAt ? new Date(evento.occurredAt).toLocaleString('pt-BR') : 'Evento agendado'}
                 </p>
               </div>
 
               <div>
-                <h5 className="text-sm font-medium text-gray-700 mb-2">ID do Evento</h5>
-                <p className="text-gray-900">#{evento.id}</p>
+                <h5 className="text-sm font-medium text-[var(--color-text-secondary)] mb-2">ID do Evento</h5>
+                <p className="text-[var(--color-text-primary)]">#{evento.id}</p>
               </div>
             </div>
 
@@ -754,9 +745,9 @@ const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose }) => {
 
             {evento.metadata && (
               <div>
-                <h5 className="text-sm font-medium text-gray-700 mb-2">Metadados</h5>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <pre className="text-xs text-gray-600 whitespace-pre-wrap">
+                <h5 className="text-sm font-medium text-[var(--color-text-secondary)] mb-2">Metadados</h5>
+                <div className="bg-[var(--color-background-tertiary)] rounded-lg p-3">
+                  <pre className="text-xs text-[var(--color-text-secondary)] whitespace-pre-wrap">
                     {JSON.stringify(evento.metadata, null, 2)}
                   </pre>
                 </div>
@@ -765,7 +756,7 @@ const EventoModal: React.FC<EventoModalProps> = ({ evento, onClose }) => {
           </div>
 
           {/* Ações */}
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+          <div className="flex justify-end space-x-3 pt-4 border-t border-[var(--color-border-light)]">
             <Button variant="outline" onClick={onClose}>
               Fechar
             </Button>

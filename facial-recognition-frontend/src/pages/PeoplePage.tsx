@@ -301,14 +301,12 @@ const PessoasPage: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                         <Button
                           variant="outline"
-                          size="sm"
                           onClick={() => handleEdit(person)}
                         >
                           Editar
                         </Button>
                         <Button
                           variant="outline"
-                          size="sm"
                           onClick={() => handleDelete(person.id)}
                           className="text-red-600 hover:text-red-700"
                         >
@@ -445,10 +443,10 @@ const PersonModal: React.FC<PersonModalProps> = ({ person, onClose, onSave, isLo
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-[var(--color-background-primary)] rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div className="px-6 py-4 border-b border-[var(--color-border-light)]">
+          <h3 className="text-lg font-medium text-[var(--color-text-primary)]">
             {person ? 'Editar Pessoa' : 'Nova Pessoa'}
           </h3>
         </div>

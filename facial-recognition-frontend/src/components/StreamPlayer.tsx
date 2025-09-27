@@ -102,7 +102,7 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
                     Starting...
                   </div>
                 ) : (
-                  'Start Stream'
+                  'Play'
                 )}
               </button>
             )}

@@ -97,11 +97,10 @@ const LiveStreamContainer: React.FC<LiveStreamContainerProps> = ({ camera, class
           <Button
             onClick={webSocketState.isPlaying ? handleStopStream : handleStartStream}
             disabled={webSocketState.isLoading}
-            size="sm"
             variant="primary"
             isLoading={webSocketState.isLoading}
           >
-            {webSocketState.isPlaying ? '⏹ Stop' : '▶ Start Stream'}
+            {webSocketState.isPlaying ? '⏹ Stop' : '▶ Play'}
           </Button>
           {webSocketSession && webSocketSession.sessionId && (
             <Button
@@ -225,22 +224,14 @@ const CamerasPage: React.FC = () => {
               {/* Camera Details */}
               <div className="p-4">
                 <div className="flex justify-between items-start mb-2">
-                  {/* <div>
-                    <h3 className="font-semibold text-lg">{camera.name}</h3>
-                    {camera.description && (
-                      <p className="text-sm text-gray-600">{camera.description}</p>
-                    )}
-                  </div> */}
                   <div className="flex space-x-1">
                     <Button
-                      size="sm"
                       variant="outline"
                       onClick={() => handleEdit(camera)}
                     >
                       Editar
                     </Button>
                     <Button
-                      size="sm"
                       variant="outline"
                       className="text-red-600 hover:text-red-700"
                       onClick={() => handleDelete(camera.id)}
@@ -250,7 +241,7 @@ const CamerasPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="text-sm text-gray-600 space-y-1">
+                <div className="text-sm text-[var(--color-text-secondary)] space-y-1">
                   <div className="flex items-center">
                     <span className="font-medium">Descrição:</span>
                     <span className="ml-1">{camera.name}</span>
@@ -274,7 +265,7 @@ const CamerasPage: React.FC = () => {
 
       {filteredCameras.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-gray-500">Nenhuma câmera encontrada</p>
+          <p className="text-[var(--color-text-secondary)]">Nenhuma câmera encontrada</p>
         </div>
       )}
 
@@ -330,8 +321,8 @@ const CameraFormModal: React.FC<CameraFormModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-[var(--color-text-primary)] bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-[var(--color-background-secondary)] rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto shadow-[var(--shadow-xl)]">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-[var(--color-background-primary)] rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto shadow-[var(--shadow-xl)]">
         <div className="p-6">
           <h2 className="text-xl font-semibold mb-4 text-[var(--color-text-primary)]">
             {camera ? 'Editar Câmera' : 'Adicionar Câmera'}
@@ -339,7 +330,7 @@ const CameraFormModal: React.FC<CameraFormModalProps> = ({
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
                 Nome *
               </label>
               <Input
@@ -351,7 +342,7 @@ const CameraFormModal: React.FC<CameraFormModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
                 Descrição
               </label>
               <Input
@@ -363,7 +354,7 @@ const CameraFormModal: React.FC<CameraFormModalProps> = ({
 
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
                 URL do Stream
               </label>
               <Input
@@ -376,7 +367,7 @@ const CameraFormModal: React.FC<CameraFormModalProps> = ({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
                   Usuário
                 </label>
                 <Input
@@ -387,7 +378,7 @@ const CameraFormModal: React.FC<CameraFormModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
                   Senha
                 </label>
                 <Input
@@ -401,7 +392,7 @@ const CameraFormModal: React.FC<CameraFormModalProps> = ({
 
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
                 Ativo
               </label>
               <label className="flex items-center">
@@ -411,7 +402,7 @@ const CameraFormModal: React.FC<CameraFormModalProps> = ({
                   onChange={(e) => handleChange('isActive', e.target.checked)}
                   className="mr-2"
                 />
-                <span className="text-sm text-gray-700">Câmera ativa</span>
+                <span className="text-sm text-[var(--color-text-secondary)]">Câmera ativa</span>
               </label>
             </div>
 

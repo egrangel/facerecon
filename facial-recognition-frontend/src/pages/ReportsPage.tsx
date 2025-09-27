@@ -117,41 +117,41 @@ const ReportsPage: React.FC = () => {
       {/* Report Type and Filters */}
       <Card>
         <CardContent className="p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-6">
+          <h3 className="text-lg font-medium text-[var(--color-text-primary)] mb-6">
             📊 Configurar Relatório
           </h3>
 
           <div className="space-y-6">
             {/* Report Type Selection */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
+              <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-3">
                 Tipo de Relatório
               </label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <label className="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                <label className="flex items-center p-3 border border-[var(--color-border-light)] rounded-lg cursor-pointer hover:bg-[var(--color-background-tertiary)]">
                   <input
                     type="radio"
                     value="participant-frequency"
                     checked={selectedReportType === 'participant-frequency'}
                     onChange={(e) => setSelectedReportType(e.target.value as ReportType)}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500"
+                    className="h-4 w-4 text-[var(--color-primary-500)] focus:ring-[var(--color-primary-500)]"
                   />
                   <div className="ml-3">
-                    <div className="text-sm font-medium text-gray-700">Frequência por Participante</div>
-                    <div className="text-xs text-gray-500">Quantas vezes cada pessoa foi detectada</div>
+                    <div className="text-sm font-medium text-[var(--color-text-primary)]">Frequência por Participante</div>
+                    <div className="text-xs text-[var(--color-text-secondary)]">Quantas vezes cada pessoa foi detectada</div>
                   </div>
                 </label>
-                <label className="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                <label className="flex items-center p-3 border border-[var(--color-border-light)] rounded-lg cursor-pointer hover:bg-[var(--color-background-tertiary)]">
                   <input
                     type="radio"
                     value="event-frequency"
                     checked={selectedReportType === 'event-frequency'}
                     onChange={(e) => setSelectedReportType(e.target.value as ReportType)}
-                    className="h-4 w-4 text-primary-600 focus:ring-primary-500"
+                    className="h-4 w-4 text-[var(--color-primary-500)] focus:ring-[var(--color-primary-500)]"
                   />
                   <div className="ml-3">
-                    <div className="text-sm font-medium text-gray-700">Frequência por Evento</div>
-                    <div className="text-xs text-gray-500">Quantas pessoas participaram de cada evento</div>
+                    <div className="text-sm font-medium text-[var(--color-text-primary)]">Frequência por Evento</div>
+                    <div className="text-xs text-[var(--color-text-secondary)]">Quantas pessoas participaram de cada evento</div>
                   </div>
                 </label>
               </div>
@@ -160,33 +160,33 @@ const ReportsPage: React.FC = () => {
             {/* Event Selection */}
             <div className="flex flex-col space-y-3">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-[var(--color-text-secondary)]">
                   Selecionar Eventos
                 </label>
                 <div className="flex space-x-2">
                   <button
                     type="button"
                     onClick={handleSelectAll}
-                    className="text-sm text-primary-600 hover:text-primary-800 font-medium"
+                    className="text-sm text-[var(--color-primary-600)] hover:text-[var(--color-primary-700)] font-medium"
                   >
                     {selectedEventIds.length === events.length ? 'Desmarcar Todos' : 'Selecionar Todos'}
                   </button>
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-[var(--color-text-secondary)]">
                     ({selectedEventIds.length} de {events.length} selecionados)
                   </span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-60 overflow-y-auto border border-gray-200 rounded-md p-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-60 overflow-y-auto border border-[var(--color-border-light)] rounded-md p-3 bg-[var(--color-background-secondary)]">
                 {events.map((event: any) => (
-                  <label key={event.id} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                  <label key={event.id} className="flex items-center space-x-2 cursor-pointer hover:bg-[var(--color-background-tertiary)] p-2 rounded">
                     <input
                       type="checkbox"
                       checked={selectedEventIds.includes(event.id)}
                       onChange={() => handleEventToggle(event.id)}
-                      className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-[var(--color-primary-500)] focus:ring-[var(--color-primary-500)] border-[var(--color-border-medium)] rounded"
                     />
-                    <span className="text-sm text-gray-700">{event.name}</span>
+                    <span className="text-sm text-[var(--color-text-primary)]">{event.name}</span>
                   </label>
                 ))}
               </div>
@@ -197,7 +197,7 @@ const ReportsPage: React.FC = () => {
               <Button
                 onClick={handleGenerateReport}
                 disabled={isLoading}
-                className="bg-primary-600 hover:bg-primary-700"
+                variant="primary"
               >
                 {isLoading ? 'Gerando...' : 'Gerar Relatório'}
               </Button>
@@ -213,13 +213,13 @@ const ReportsPage: React.FC = () => {
       {selectedReportType === 'participant-frequency' && attendance.length > 0 && (
         <Card>
           <CardContent className="p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-6">
+            <h3 className="text-lg font-medium text-[var(--color-text-primary)] mb-6">
               📊 Frequência por Participante
             </h3>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Pie Chart */}
-              <div className="bg-white rounded-lg border p-6">
-                <h4 className="text-lg font-medium text-gray-900 mb-4">
+              <div className="bg-[var(--color-background-secondary)] rounded-lg border border-[var(--color-border-light)] p-6">
+                <h4 className="text-lg font-medium text-[var(--color-text-primary)] mb-4">
                   Distribuição de Frequência
                 </h4>
                 <div style={{ width: '100%', height: '400px' }}>
@@ -248,8 +248,8 @@ const ReportsPage: React.FC = () => {
               </div>
 
               {/* Bar Chart */}
-              <div className="bg-white rounded-lg border p-6">
-                <h4 className="text-lg font-medium text-gray-900 mb-4">
+              <div className="bg-[var(--color-background-secondary)] rounded-lg border border-[var(--color-border-light)] p-6">
+                <h4 className="text-lg font-medium text-[var(--color-text-primary)] mb-4">
                   Gráfico de Barras
                 </h4>
                 <div style={{ width: '100%', height: '400px' }}>
@@ -277,43 +277,43 @@ const ReportsPage: React.FC = () => {
             </div>
 
             {/* Data Table */}
-            <div className="mt-6 bg-white rounded-lg border p-6">
+            <div className="mt-6 bg-[var(--color-background-secondary)] rounded-lg border border-[var(--color-border-light)] p-6">
               <h4 className="text-lg font-medium text-gray-900 mb-4">
                 Detalhes por Participante
               </h4>
               <div className="overflow-y-auto max-h-96">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-[var(--color-border-light)]">
+                  <thead className="bg-[var(--color-background-tertiary)]">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
                         Participante
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
                         Detecções
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
                         Porcentagem
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-[var(--color-background-secondary)] divide-y divide-[var(--color-border-light)]">
                     {attendance.map((item, index) => (
-                      <tr key={item.personId} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <tr key={item.personId} className={index % 2 === 0 ? 'bg-[var(--color-background-secondary)]' : 'bg-[var(--color-background-tertiary)]'}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div
                               className="w-4 h-4 rounded-full mr-3"
                               style={{ backgroundColor: COLORS[index % COLORS.length] }}
                             ></div>
-                            <div className="text-sm font-medium text-gray-900">
+                            <div className="text-sm font-medium text-[var(--color-text-primary)]">
                               {item.personName}
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-text-primary)]">
                           {item.count}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-text-primary)]">
                           {item.percentage.toFixed(1)}%
                         </td>
                       </tr>
@@ -329,13 +329,13 @@ const ReportsPage: React.FC = () => {
       {selectedReportType === 'event-frequency' && eventAttendance.length > 0 && (
         <Card>
           <CardContent className="p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-6">
+            <h3 className="text-lg font-medium text-[var(--color-text-primary)] mb-6">
               📅 Frequência por Evento
             </h3>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Pie Chart */}
-              <div className="bg-white rounded-lg border p-6">
-                <h4 className="text-lg font-medium text-gray-900 mb-4">
+              <div className="bg-[var(--color-background-secondary)] rounded-lg border border-[var(--color-border-light)] p-6">
+                <h4 className="text-lg font-medium text-[var(--color-text-primary)] mb-4">
                   Distribuição por Evento
                 </h4>
                 <div style={{ width: '100%', height: '400px' }}>
@@ -364,8 +364,8 @@ const ReportsPage: React.FC = () => {
               </div>
 
               {/* Bar Chart */}
-              <div className="bg-white rounded-lg border p-6">
-                <h4 className="text-lg font-medium text-gray-900 mb-4">
+              <div className="bg-[var(--color-background-secondary)] rounded-lg border border-[var(--color-border-light)] p-6">
+                <h4 className="text-lg font-medium text-[var(--color-text-primary)] mb-4">
                   Gráfico de Barras
                 </h4>
                 <div style={{ width: '100%', height: '400px' }}>
@@ -393,43 +393,43 @@ const ReportsPage: React.FC = () => {
             </div>
 
             {/* Data Table */}
-            <div className="mt-6 bg-white rounded-lg border p-6">
+            <div className="mt-6 bg-[var(--color-background-secondary)] rounded-lg border border-[var(--color-border-light)] p-6">
               <h4 className="text-lg font-medium text-gray-900 mb-4">
                 Detalhes por Evento
               </h4>
               <div className="overflow-y-auto max-h-96">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-[var(--color-border-light)]">
+                  <thead className="bg-[var(--color-background-tertiary)]">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
                         Evento
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
                         Participantes
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
                         Porcentagem
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-[var(--color-background-secondary)] divide-y divide-[var(--color-border-light)]">
                     {eventAttendance.map((item, index) => (
-                      <tr key={item.eventId} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <tr key={item.eventId} className={index % 2 === 0 ? 'bg-[var(--color-background-secondary)]' : 'bg-[var(--color-background-tertiary)]'}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div
                               className="w-4 h-4 rounded-full mr-3"
                               style={{ backgroundColor: COLORS[index % COLORS.length] }}
                             ></div>
-                            <div className="text-sm font-medium text-gray-900">
+                            <div className="text-sm font-medium text-[var(--color-text-primary)]">
                               {item.eventName}
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-text-primary)]">
                           {item.count}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-text-primary)]">
                           {item.percentage.toFixed(1)}%
                         </td>
                       </tr>
@@ -449,11 +449,11 @@ const ReportsPage: React.FC = () => {
         <Card>
           <CardContent className="p-6">
             <div className="text-center py-12">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="mx-auto h-12 w-12 text-[var(--color-text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
-              <h3 className="mt-2 text-sm font-medium text-gray-900">Nenhum dado encontrado</h3>
-              <p className="mt-1 text-sm text-gray-500">
+              <h3 className="mt-2 text-sm font-medium text-[var(--color-text-primary)]">Nenhum dado encontrado</h3>
+              <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
                 Selecione eventos e clique em "Gerar Relatório" para visualizar os dados.
               </p>
             </div>

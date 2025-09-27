@@ -330,14 +330,12 @@ const SettingsPage: React.FC = () => {
                       </div>
                       <div className="flex space-x-2">
                         <Button
-                          size="sm"
                           variant="outline"
                           onClick={() => handleEditUser(user)}
                         >
                           Editar
                         </Button>
                         <Button
-                          size="sm"
                           variant="outline"
                           onClick={() => handleDeleteUser(user)}
                           className="text-[var(--color-status-error-text)] border-[var(--color-status-error-border)] hover:bg-[var(--color-status-error-bg)]"
