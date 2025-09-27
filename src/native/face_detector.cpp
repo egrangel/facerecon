@@ -90,7 +90,7 @@ bool is_file_exist(const std::string& path) {
 }
 
 FaceDetector::FaceDetector()
-    : useDeepLearning(true), useUltraFace(false), confidenceThreshold(0.6f), nmsThreshold(0.3f), initialized(false), faceRecognitionInitialized(false) {
+    : useDeepLearning(true), useUltraFace(false), confidenceThreshold(0.6f), nmsThreshold(0.3f), initialized(false), faceRecognitionInitialized(false), useArcFace(false) {
 
     // Safely initialize the thread pool
     instanceCount++;
@@ -122,24 +122,44 @@ bool FaceDetector::initialize(const std::string& modelPath, bool useDL) {
 
     std::cout << "Initializing face detector..." << std::endl;
 
-    // --- FaceNet Model for Recognition ---
+    // --- ArcFace Model for Recognition (try ArcFace first, fallback to FaceNet) ---
+    std::string arcFaceModel = modelPath + "/arcface/arcface.onnx";
     std::string faceNetModel = modelPath + "/facenet/facenet.onnx";
-    std::cout << "Checking for FaceNet model at: " << faceNetModel << std::endl;
-    if (is_file_exist(faceNetModel)) {
+
+    std::cout << "Checking for ArcFace model at: " << arcFaceModel << std::endl;
+    if (is_file_exist(arcFaceModel)) {
         try {
-            std::cout << "Attempting to load FaceNet model..." << std::endl;
-            faceRecognitionNet = cv::dnn::readNetFromONNX(faceNetModel);
+            std::cout << "Attempting to load ArcFace model..." << std::endl;
+            faceRecognitionNet = cv::dnn::readNetFromONNX(arcFaceModel);
             if (!faceRecognitionNet.empty()) {
                 faceRecognitionNet.setPreferableBackend(cv::dnn::DNN_BACKEND_OPENCV);
                 faceRecognitionNet.setPreferableTarget(cv::dnn::DNN_TARGET_CPU);
-                std::cout << "FaceNet model loaded successfully for face recognition." << std::endl;
+                std::cout << "ArcFace model loaded successfully for face recognition." << std::endl;
                 faceRecognitionInitialized = true;
+                useArcFace = true;
             }
         } catch (const std::exception& e) {
-            std::cerr << "FaceNet model loading failed: " << e.what() << std::endl;
+            std::cerr << "ArcFace model loading failed: " << e.what() << std::endl;
         }
     } else {
-        std::cout << "FaceNet model file not found - face recognition will be disabled." << std::endl;
+        std::cout << "ArcFace model not found, checking for FaceNet model at: " << faceNetModel << std::endl;
+        if (is_file_exist(faceNetModel)) {
+            try {
+                std::cout << "Attempting to load FaceNet model..." << std::endl;
+                faceRecognitionNet = cv::dnn::readNetFromONNX(faceNetModel);
+                if (!faceRecognitionNet.empty()) {
+                    faceRecognitionNet.setPreferableBackend(cv::dnn::DNN_BACKEND_OPENCV);
+                    faceRecognitionNet.setPreferableTarget(cv::dnn::DNN_TARGET_CPU);
+                    std::cout << "FaceNet model loaded successfully for face recognition." << std::endl;
+                    faceRecognitionInitialized = true;
+                    useArcFace = false;
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "FaceNet model loading failed: " << e.what() << std::endl;
+            }
+        } else {
+            std::cout << "No face recognition model found - face recognition will be disabled." << std::endl;
+        }
     }
 
     if (useDeepLearning) {
@@ -369,7 +389,7 @@ std::vector<float> FaceDetector::extractFaceEncoding(const cv::Mat& frame, const
     std::vector<float> encoding;
 
     if (!faceRecognitionInitialized || faceRecognitionNet.empty()) {
-        std::cout << "FaceNet not initialized - returning empty encoding" << std::endl;
+        std::cout << "Face recognition model not initialized - returning empty encoding" << std::endl;
         return encoding;
     }
 
@@ -387,13 +407,30 @@ std::vector<float> FaceDetector::extractFaceEncoding(const cv::Mat& frame, const
             return encoding;
         }
 
-        // FaceNet typically expects 160x160 input images
-        cv::Mat resizedFace;
-        cv::resize(faceImage, resizedFace, cv::Size(160, 160));
+        cv::Mat resizedFace, blob;
+        cv::Size inputSize;
 
-        // Create blob from the face image
-        // FaceNet usually expects normalized input [0,1] or [-1,1]
-        cv::Mat blob = cv::dnn::blobFromImage(resizedFace, 1.0/255.0, cv::Size(160, 160), cv::Scalar(0, 0, 0), true, false);
+        if (useArcFace) {
+            // ArcFace expects 112x112 input with RGB format and normalization
+            inputSize = cv::Size(112, 112);
+            cv::resize(faceImage, resizedFace, inputSize);
+
+            // ArcFace preprocessing: BGR->RGB, normalize to [-1,1], and reorder to CHW
+            cv::Mat rgbFace;
+            cv::cvtColor(resizedFace, rgbFace, cv::COLOR_BGR2RGB);
+            blob = cv::dnn::blobFromImage(rgbFace, 1.0/127.5, inputSize, cv::Scalar(127.5, 127.5, 127.5), false, false);
+
+            std::cout << "Using ArcFace model for encoding extraction..." << std::endl;
+        } else {
+            // FaceNet expects 160x160 input with standard normalization
+            inputSize = cv::Size(160, 160);
+            cv::resize(faceImage, resizedFace, inputSize);
+
+            // FaceNet preprocessing: normalize to [0,1]
+            blob = cv::dnn::blobFromImage(resizedFace, 1.0/255.0, inputSize, cv::Scalar(0, 0, 0), true, false);
+
+            std::cout << "Using FaceNet model for encoding extraction..." << std::endl;
+        }
 
         // Set input to the network
         faceRecognitionNet.setInput(blob);
@@ -405,9 +442,26 @@ std::vector<float> FaceDetector::extractFaceEncoding(const cv::Mat& frame, const
         if (output.type() == CV_32F && output.total() > 0) {
             float* data = (float*)output.data;
             encoding.assign(data, data + output.total());
-            std::cout << "Successfully extracted face encoding with " << encoding.size() << " dimensions" << std::endl;
+
+            if (useArcFace) {
+                // Normalize ArcFace embeddings (L2 normalization)
+                float norm = 0.0f;
+                for (float val : encoding) {
+                    norm += val * val;
+                }
+                norm = std::sqrt(norm);
+
+                if (norm > 0) {
+                    for (float& val : encoding) {
+                        val /= norm;
+                    }
+                }
+                std::cout << "Successfully extracted ArcFace encoding with " << encoding.size() << " dimensions (normalized)" << std::endl;
+            } else {
+                std::cout << "Successfully extracted FaceNet encoding with " << encoding.size() << " dimensions" << std::endl;
+            }
         } else {
-            std::cout << "Invalid FaceNet output format - returning empty encoding" << std::endl;
+            std::cout << "Invalid model output format - returning empty encoding" << std::endl;
         }
 
     } catch (const std::exception& e) {

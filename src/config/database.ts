@@ -19,6 +19,22 @@ import {
 
 dotenv.config();
 
+// SQL Logging Configuration
+const getSqlLoggingConfig = () => {
+  const enableSqlLogging = process.env.ENABLE_SQL_LOGGING?.toLowerCase() === 'true';
+
+  if (!enableSqlLogging) {
+    return false;
+  }
+
+  // Configure what types of SQL to log
+  const logTypes = (process.env.SQL_LOG_TYPES || 'query,error').split(',').map(t => t.trim());
+
+  console.log(`🔍 SQL Logging enabled. Logging types: ${logTypes.join(', ')}`);
+
+  return logTypes as any;
+};
+
 const databaseConfig = process.env.DB_TYPE === 'sqlite' ? {
   type: 'sqlite' as const,
   database: process.env.DB_DATABASE || './data/facial_recognition.db',
@@ -34,7 +50,7 @@ const databaseConfig = process.env.DB_TYPE === 'sqlite' ? {
 export const AppDataSource = new DataSource({
   ...databaseConfig,
   synchronize: process.env.NODE_ENV === 'development',
-  logging: false, // Disabled to prevent embedding data from appearing in logs
+  logging: getSqlLoggingConfig(), // Configurable SQL logging
   entities: [
     Organization,
     Person,

@@ -4,7 +4,7 @@ import { Card, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { apiClient } from '../services/api';
-import { Person } from '../types/api';
+import { Person, Detection } from '../types/api';
 
 interface PersonFormData {
   name: string;
@@ -30,6 +30,7 @@ const PessoasPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [personLatestDetections, setPersonLatestDetections] = useState<Map<number, Detection>>(new Map());
   const queryClient = useQueryClient();
 
   // Debounce search term
@@ -68,6 +69,33 @@ const PessoasPage: React.FC = () => {
   const people = peopleResponse?.data || [];
   const totalPages = Math.ceil((peopleResponse?.total || 0) / pageSize);
   const totalPeople = peopleResponse?.total || 0;
+
+  // Fetch latest detection for each person when people data changes
+  useEffect(() => {
+    if (people.length > 0) {
+      const fetchLatestDetections = async () => {
+        const newLatestDetections = new Map<number, Detection>();
+
+        // Fetch latest detection for each person
+        await Promise.all(
+          people.map(async (person) => {
+            try {
+              const response = await apiClient.getLatestDetectionForPerson(person.id);
+              if (response.data) {
+                newLatestDetections.set(person.id, response.data);
+              }
+            } catch (error) {
+              console.log(`No latest detection found for person ${person.id}`);
+            }
+          })
+        );
+
+        setPersonLatestDetections(newLatestDetections);
+      };
+
+      fetchLatestDetections();
+    }
+  }, [people]);
 
   const createPersonMutation = useMutation({
     mutationFn: async (data: PersonFormData) => {
@@ -219,10 +247,33 @@ const PessoasPage: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="h-10 w-10 flex-shrink-0">
-                            <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
-                              <span className="text-sm font-medium text-primary-600">
-                                {person.name.charAt(0).toUpperCase()}
-                              </span>
+                            <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden">
+                              {(() => {
+                                const latestDetection = personLatestDetections.get(person.id);
+                                return latestDetection?.imageUrl ? (
+                                  <img
+                                    src={`${process.env.REACT_APP_API_URL?.replace('/api/v1', '')}${latestDetection.imageUrl}`}
+                                    alt={person.name || 'Face detectada'}
+                                    className="w-full h-full object-cover rounded-full"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement;
+                                      target.style.display = 'none';
+                                      const container = target.parentElement;
+                                      if (container) {
+                                        container.innerHTML = `
+                                          <span class="text-sm font-medium text-primary-600">
+                                            ${person.name?.charAt(0).toUpperCase() || '?'}
+                                          </span>
+                                        `;
+                                      }
+                                    }}
+                                  />
+                                ) : (
+                                  <span className="text-sm font-medium text-primary-600">
+                                    {person.name?.charAt(0).toUpperCase() || '?'}
+                                  </span>
+                                );
+                              })()}
                             </div>
                           </div>
                           <div className="ml-4">

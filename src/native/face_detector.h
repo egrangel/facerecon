@@ -83,7 +83,7 @@ public:
 private:
     cv::Ptr<cv::FaceDetectorYN> yunetDetector;
     cv::dnn::Net faceNet; // For face detection (UltraFace)
-    cv::dnn::Net faceRecognitionNet; // For face recognition (FaceNet)
+    cv::dnn::Net faceRecognitionNet; // For face recognition (ArcFace/FaceNet)
     cv::CascadeClassifier faceCascade;
 
     bool useDeepLearning;
@@ -91,6 +91,7 @@ private:
     bool initialized;
     bool useUltraFace;
     bool faceRecognitionInitialized;
+    bool useArcFace; // Flag to track which model is loaded
 
     float confidenceThreshold;
     float nmsThreshold;

@@ -101,6 +101,7 @@ eventRoutes.patch('/:eventId/cameras/:cameraId/toggle', authorize(['admin', 'ope
 eventRoutes.get('/scheduler/health', authorize(['admin', 'operator']), eventController.getSchedulerHealth);
 eventRoutes.get('/scheduler/sessions', authorize(['admin', 'operator']), eventController.getActiveSessions);
 eventRoutes.get('/scheduled', authorize(['admin', 'operator']), eventController.findScheduledEvents);
+eventRoutes.get('/:eventId/diagnosis', authorize(['admin', 'operator']), eventController.diagnosisEventScheduling);
 eventRoutes.post('/:eventId/start', authorize(['admin', 'operator']), eventController.manuallyStartEvent);
 eventRoutes.post('/:eventId/stop', authorize(['admin', 'operator']), eventController.manuallyStopEvent);
 eventRoutes.patch('/:eventId/toggle-status', authorize(['admin', 'operator']), eventController.toggleEventStatus);

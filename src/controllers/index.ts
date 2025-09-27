@@ -495,6 +495,122 @@ export class EventController extends BaseController<any> {
     });
   });
 
+  // Diagnostic endpoint to debug event scheduling
+  diagnosisEventScheduling = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { eventId } = req.params;
+    const id = parseInt(eventId);
+
+    // Get event details
+    const event = await this.eventService.findById(id);
+    if (!event) {
+      res.status(404).json({
+        success: false,
+        message: 'Event not found',
+      });
+      return;
+    }
+
+    // Get current time and scheduling info
+    const now = new Date();
+    const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
+    const currentDate = now.toISOString().slice(0, 10); // YYYY-MM-DD format
+    const currentWeekDay = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][now.getDay()];
+
+    // Check if event should be active
+    let shouldBeActive = false;
+    let reason = '';
+
+    if (!event.isActive) {
+      reason = 'Event is not active (isActive = false)';
+    } else if (!event.startTime || !event.endTime) {
+      reason = 'Event has no start time or end time specified';
+    } else if (currentTime < event.startTime || currentTime > event.endTime) {
+      reason = `Current time ${currentTime} is outside event time range ${event.startTime} - ${event.endTime}`;
+    } else {
+      // Check recurrence
+      switch (event.recurrenceType) {
+        case 'once':
+          if (event.scheduledDate) {
+            const scheduledDate = new Date(event.scheduledDate).toISOString().slice(0, 10);
+            shouldBeActive = currentDate === scheduledDate;
+            reason = shouldBeActive ? 'Event matches scheduled date' : `Event scheduled for ${scheduledDate}, current date is ${currentDate}`;
+          } else {
+            reason = 'One-time event has no scheduled date';
+          }
+          break;
+        case 'daily':
+          shouldBeActive = true;
+          reason = 'Daily event within time range';
+          break;
+        case 'weekly':
+          if (event.weekDays) {
+            try {
+              const allowedDays = event.weekDays.startsWith('[') ? JSON.parse(event.weekDays) : event.weekDays.split(',').map(d => d.trim().toLowerCase());
+              shouldBeActive = allowedDays.includes(currentWeekDay);
+              reason = shouldBeActive ? `Current day ${currentWeekDay} is in allowed days ${JSON.stringify(allowedDays)}` : `Current day ${currentWeekDay} is not in allowed days ${JSON.stringify(allowedDays)}`;
+            } catch (e) {
+              reason = `Error parsing weekDays: ${event.weekDays}`;
+            }
+          } else {
+            reason = 'Weekly event has no weekDays specified';
+          }
+          break;
+        default:
+          reason = `Unknown recurrence type: ${event.recurrenceType}`;
+      }
+    }
+
+    // Get event cameras
+    const eventCameras = await this.eventCameraService.findByEventId(id);
+    const activeCameras = eventCameras.filter(ec => ec.isActive);
+
+    // Get current active sessions
+    const activeSessions = eventSchedulerService.getActiveSessions().filter(session => session.eventId === id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Event scheduling diagnosis completed',
+      data: {
+        event: {
+          id: event.id,
+          name: event.name,
+          isActive: event.isActive,
+          startTime: event.startTime,
+          endTime: event.endTime,
+          scheduledDate: event.scheduledDate,
+          recurrenceType: event.recurrenceType,
+          weekDays: event.weekDays,
+        },
+        currentTime: {
+          time: currentTime,
+          date: currentDate,
+          weekday: currentWeekDay,
+          timestamp: now.toISOString(),
+        },
+        scheduling: {
+          shouldBeActive,
+          reason,
+        },
+        cameras: {
+          total: eventCameras.length,
+          active: activeCameras.length,
+          details: eventCameras.map(ec => ({
+            cameraId: ec.cameraId,
+            isActive: ec.isActive,
+            camera: ec.camera,
+          })),
+        },
+        activeSessions: activeSessions.map(session => ({
+          eventId: session.eventId,
+          cameraId: session.cameraId,
+          videoSessionId: session.videoSessionId,
+          faceRecognitionSessionId: session.faceRecognitionSessionId,
+          startedAt: session.startedAt,
+        })),
+      },
+    });
+  });
+
   // Toggle event active status
   toggleEventStatus = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { eventId } = req.params;
@@ -754,7 +870,7 @@ export class DetectionController extends BaseController<any> {
     });
   });
 
-  // Unmatch person from detection
+  // Unmatch/Disassociate person from detection (sets detectionStatus to pending and removes person association)
   unmatchPerson = asyncHandler(async (req: OrganizationRequest, res: Response): Promise<void> => {
     const { detectionId } = req.params;
 
@@ -775,10 +891,11 @@ export class DetectionController extends BaseController<any> {
       return;
     }
 
-    // Update detection to remove person association and set status to detected
+    // Update detection to remove person association and set detectionStatus to pending
+    // faceStatus remains unchanged (immutable once set)
     const updatedDetection = await this.detectionService.repository.update(parseInt(detectionId), {
       personFaceId: undefined,
-      status: 'detectada'
+      detectionStatus: 'pending',
     });
 
     const detectionWithRelations = await this.detectionService.findById(parseInt(detectionId), [
@@ -787,12 +904,12 @@ export class DetectionController extends BaseController<any> {
 
     res.status(200).json({
       success: true,
-      message: 'Person unmatched from detection successfully',
+      message: 'Person disassociated from detection successfully',
       data: detectionWithRelations,
     });
   });
 
-  // Confirm detection
+  // Confirm detection (sets detectionStatus to confirmed)
   confirmDetection = asyncHandler(async (req: OrganizationRequest, res: Response): Promise<void> => {
     const { detectionId } = req.params;
 
@@ -813,18 +930,20 @@ export class DetectionController extends BaseController<any> {
       return;
     }
 
-    // Only allow confirming detections with 'reconhecida' status
-    if (detection.status !== 'reconhecida') {
+    // Only allow confirming detections with 'pending' detectionStatus
+    if (detection.detectionStatus !== 'pending') {
       res.status(400).json({
         success: false,
-        message: 'Only recognized detections can be confirmed',
+        message: 'Only pending detections can be confirmed',
       });
       return;
     }
 
-    // Update detection status to 'confirmada'
+
+    // Update detectionStatus to 'confirmed'
+    // faceStatus remains unchanged (immutable once set)
     const updatedDetection = await this.detectionService.repository.update(parseInt(detectionId), {
-      status: 'confirmada'
+      detectionStatus: 'confirmed',
     });
 
     const detectionWithRelations = await this.detectionService.findById(parseInt(detectionId), [

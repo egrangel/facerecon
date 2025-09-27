@@ -73,17 +73,14 @@ export interface PersonAddress extends BaseEntity {
 export interface Event extends BaseEntity {
   name: string;
   description?: string;
-  type: string;
   occurredAt?: string;
   // Scheduling fields
-  isScheduled: boolean;
   isActive: boolean;
   scheduledDate?: string;
   startTime?: string;
   endTime?: string;
   weekDays?: string;
   recurrenceType: string;
-  status: string;
   notes?: string;
   metadata?: string;
   organizationId: number;
@@ -117,7 +114,9 @@ export interface Camera extends BaseEntity {
 export interface Detection extends BaseEntity {
   detectedAt: string;
   confidence: number;
-  status: string;
+  status: string; // Deprecated - kept for backward compatibility
+  faceStatus: 'unrecognized' | 'detected' | 'recognized';
+  detectionStatus: 'pending' | 'confirmed';
   imageUrl?: string;
   metadata?: string;
   embedding?: Blob

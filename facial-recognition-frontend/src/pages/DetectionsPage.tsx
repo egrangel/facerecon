@@ -102,17 +102,56 @@ const DeteccoesPage: React.FC = () => {
     },
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'confirmada':
-        return 'bg-green-100 text-green-800';
-      case 'rejeitada':
-        return 'bg-red-100 text-red-800';
-      case 'pendente':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  // Disassociate person mutation (sets detectionStatus to pending and removes person association)
+  const disassociateMutation = useMutation({
+    mutationFn: async (detectionId: number) => {
+      return await apiClient.unmatchPersonFromDetection(detectionId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['detections'] });
+      setSelectedDetection(null);
+    },
+    onError: (error) => {
+      console.error('Error disassociating person from detection:', error);
+    },
+  });
+
+  const getStatusColor = (faceStatus: string, detectionStatus: string) => {
+    if (detectionStatus === 'confirmed') {
+      return 'bg-green-100 text-green-800';
     }
+    if (detectionStatus === 'pending') {
+      return 'bg-yellow-100 text-yellow-800';
+    }
+    if (faceStatus === 'unrecognized') {
+      return 'bg-red-100 text-red-800';
+    }
+    if (faceStatus === 'detected') {
+      return 'bg-gray-100 text-gray-800';
+    }
+    if (faceStatus === 'recognized') {
+      return 'bg-blue-100 text-blue-800';
+    }
+    return 'bg-gray-100 text-gray-800';
+  };
+
+  const getStatusLabel = (faceStatus: string, detectionStatus: string) => {
+    if (detectionStatus === 'confirmed') {
+      return 'Confirmado';
+    }
+    if (detectionStatus === 'pending') {
+      return 'Pendente';
+    }
+    if (faceStatus === 'unrecognized') {
+      return 'Não Reconhecido';
+    }
+    if (faceStatus === 'detected') {
+      return 'Detectado';
+    }
+    if (faceStatus === 'recognized') {
+      return 'Reconhecido';
+    }
+    return 'Indefinido';
   };
 
   const getConfidenceColor = (confidence: number) => {
@@ -158,9 +197,11 @@ const DeteccoesPage: React.FC = () => {
               className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             >
               <option value="">Todos os status</option>
-              <option value="pendente">Pendente</option>
-              <option value="confirmada">Confirmada</option>
-              <option value="rejeitada">Rejeitada</option>
+              <option value="unrecognized">Face Não Reconhecida</option>
+              <option value="detected">Face Detectada</option>
+              <option value="recognized">Face Reconhecida</option>
+              <option value="pending">Pendente de Confirmação</option>
+              <option value="confirmed">Confirmado</option>
             </select>
 
             <Input
@@ -293,8 +334,8 @@ const DeteccoesPage: React.FC = () => {
                       <p className="text-sm text-gray-500">{detection.camera?.name || 'N/A'}</p>
                     </div>
                   </div>
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(detection.status)}`}>
-                    {detection.status}
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(detection.faceStatus, detection.detectionStatus)}`}>
+                    {getStatusLabel(detection.faceStatus, detection.detectionStatus)}
                   </span>
                 </div>
 
@@ -345,6 +386,7 @@ const DeteccoesPage: React.FC = () => {
           onCreateNew={() => setShowNewPersonForm(true)}
           onUnmatch={() => unmatchMutation.mutate(selectedDetection.id)}
           onConfirm={() => confirmMutation.mutate(selectedDetection.id)}
+          onDisassociate={() => disassociateMutation.mutate(selectedDetection.id)}
         />
       )}
 
@@ -384,28 +426,52 @@ interface DetectionModalProps {
   onCreateNew: () => void;
   onUnmatch: () => void;
   onConfirm: () => void;
+  onDisassociate: () => void;
 }
 
-const DetectionModal: React.FC<DetectionModalProps> = ({ detection, onClose, onAssociateExisting, onCreateNew, onUnmatch, onConfirm }) => {
+const DetectionModal: React.FC<DetectionModalProps> = ({ detection, onClose, onAssociateExisting, onCreateNew, onUnmatch, onConfirm, onDisassociate }) => {
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 90) return 'text-green-600';
     if (confidence >= 75) return 'text-yellow-600';
     return 'text-red-600';
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'confirmada':
-        return 'bg-green-100 text-green-800';
-      case 'reconhecida':
-        return 'bg-blue-100 text-blue-800';
-      case 'rejeitada':
-        return 'bg-red-100 text-red-800';
-      case 'pendente':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  const getStatusColor = (faceStatus: string, detectionStatus: string) => {
+    if (detectionStatus === 'confirmed') {
+      return 'bg-green-100 text-green-800';
     }
+    if (detectionStatus === 'pending') {
+      return 'bg-yellow-100 text-yellow-800';
+    }
+    if (faceStatus === 'unrecognized') {
+      return 'bg-red-100 text-red-800';
+    }
+    if (faceStatus === 'detected') {
+      return 'bg-gray-100 text-gray-800';
+    }
+    if (faceStatus === 'recognized') {
+      return 'bg-blue-100 text-blue-800';
+    }
+    return 'bg-gray-100 text-gray-800';
+  };
+
+  const getStatusLabel = (faceStatus: string, detectionStatus: string) => {
+    if (detectionStatus === 'confirmed') {
+      return 'Confirmado';
+    }
+    if (detectionStatus === 'pending') {
+      return 'Pendente';
+    }
+    if (faceStatus === 'unrecognized') {
+      return 'Não Reconhecido';
+    }
+    if (faceStatus === 'detected') {
+      return 'Detectado';
+    }
+    if (faceStatus === 'recognized') {
+      return 'Reconhecido';
+    }
+    return 'Indefinido';
   };
 
   return (
@@ -431,8 +497,8 @@ const DetectionModal: React.FC<DetectionModalProps> = ({ detection, onClose, onA
             <h4 className="text-xl font-semibold text-gray-900">
               {detection.personFace?.person?.name || 'Face Detectada'}
             </h4>
-            <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(detection.status)}`}>
-              {detection.status}
+            <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(detection.faceStatus, detection.detectionStatus)}`}>
+              {getStatusLabel(detection.faceStatus, detection.detectionStatus)}
             </span>
           </div>
 
@@ -550,14 +616,14 @@ const DetectionModal: React.FC<DetectionModalProps> = ({ detection, onClose, onA
             </div>
           </div>
 
-          {/* Person Association Actions */}
-          {!detection.personFace?.person && (
+          {/* Person Association Actions - Show when faceStatus = detected (no person associated) */}
+          {detection.faceStatus === 'detected' && (
             <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <h5 className="text-sm font-medium text-yellow-800 mb-3">
-                🔍 Pessoa não identificada
+                🔍 Face detectada - Pessoa não identificada
               </h5>
               <p className="text-sm text-yellow-700 mb-4">
-                Esta face não foi associada a uma pessoa conhecida. Os dados biométricos foram salvos para futura identificação. Você pode:
+                Uma face foi detectada mas não foi associada a uma pessoa conhecida. Os dados biométricos foram salvos para futura identificação. Você pode:
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -577,34 +643,77 @@ const DetectionModal: React.FC<DetectionModalProps> = ({ detection, onClose, onA
             </div>
           )}
 
+          {/* Unrecognized Face Info - Show when faceStatus = unrecognized */}
+          {detection.faceStatus === 'unrecognized' && (
+            <div className="mt-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <h5 className="text-sm font-medium text-orange-800 mb-3">
+                🔍 Face não reconhecida
+              </h5>
+              <p className="text-sm text-orange-700 mb-4">
+                Uma face foi detectada mas não foi reconhecida (0% de similaridade com pessoas cadastradas). Os dados biométricos foram salvos para futura identificação. Você pode:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onAssociateExisting}
+                >
+                  Associar a pessoa existente
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={onCreateNew}
+                >
+                  Criar nova pessoa
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Recognition Status Info */}
+          {detection.faceStatus === 'recognized' && detection.personFace?.person && (
+            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h5 className="text-sm font-medium text-blue-800 mb-3">
+                ✅ Face reconhecida automaticamente
+              </h5>
+              <p className="text-sm text-blue-700 mb-2">
+                Esta face foi automaticamente reconhecida e associada a <strong>{detection.personFace.person.name}</strong>.
+              </p>
+              {detection.detectionStatus === 'pending' && (
+                <p className="text-sm text-blue-700">
+                  Como a confiança é menor que 100%, a detecção precisa ser confirmada manualmente.
+                </p>
+              )}
+              {detection.detectionStatus === 'confirmed' && (
+                <p className="text-sm text-blue-700">
+                  A detecção foi confirmada e está válida.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Ações */}
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
             <Button variant="outline" onClick={onClose}>
               Fechar
             </Button>
-            {detection.status === 'pending' && (
-              <>
-                <Button variant="outline" className="text-red-600 hover:text-red-700">
-                  Rejeitar
-                </Button>
-                <Button>
-                  Confirmar
-                </Button>
-              </>
-            )}
-            {detection.status === 'reconhecida' && detection.confidence < 100 && (
+
+            {/* Show Confirm button when detectionStatus = pending */}
+            {detection.detectionStatus === 'pending' && (
               <Button
                 className="bg-green-600 hover:bg-green-700 text-white"
                 onClick={onConfirm}
               >
-                Confirmar Detecção
+                Confirmar
               </Button>
             )}
-            {(detection.status === 'confirmada' || detection.status === 'reconhecida') && detection.personFace && (
+
+            {/* Show Disassociate Person button when detectionStatus = pending OR confirmed (and person is associated) */}
+            {(detection.detectionStatus === 'pending' || detection.detectionStatus === 'confirmed') && detection.personFace && (
               <Button
                 variant="outline"
                 className="text-orange-600 hover:text-orange-700 border-orange-200 hover:border-orange-300"
-                onClick={onUnmatch}
+                onClick={onDisassociate}
               >
                 Desassociar Pessoa
               </Button>

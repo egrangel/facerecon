@@ -157,7 +157,7 @@ export class EventService extends BaseService<Event> {
 
   async findScheduledEvents(): Promise<Event[]> {
     return (this.repository as EventRepository).getRepository().find({
-      where: { isScheduled: true, isActive: true },
+      where: { isActive: true },
       relations: ['eventCameras', 'eventCameras.camera'],
     });
   }
@@ -165,9 +165,7 @@ export class EventService extends BaseService<Event> {
   async findActiveScheduledEvents(): Promise<Event[]> {
     return (this.repository as EventRepository).getRepository().find({
       where: {
-        isScheduled: true,
-        isActive: true,
-        type: 'scheduled'
+        isActive: true
       },
       relations: ['eventCameras', 'eventCameras.camera'],
     });
@@ -177,9 +175,9 @@ export class EventService extends BaseService<Event> {
     this.validateRequiredField(data.name, 'name');
     this.validateRequiredField(data.organizationId, 'organizationId');
 
-    // Make occurredAt optional for scheduled events
-    if (!data.isScheduled) {
-      this.validateRequiredField(data.occurredAt, 'occurredAt');
+    // Make occurredAt optional for events
+    if (data.occurredAt === undefined) {
+      data.occurredAt = new Date();
     }
 
     return super.create(data);
@@ -298,10 +296,11 @@ export class DetectionService extends BaseService<Detection> {
       console.warn(`⚠️ Cannot add PersonFace ${personFace.id} to ANN index - no embedding data available`);
     }
 
-    // Update the detection to point to this PersonFace
+    // Update the detection to point to this PersonFace and set appropriate states
     const updatedDetection = await this.repository.update(detectionId, {
       personFaceId: personFace.id,
-      status: 'confirmada'
+      faceStatus: 'recognized', // Face is now recognized since it's associated with a person
+      detectionStatus: 'confirmed', // Manual association means confirmed
     });
 
     // Return the updated detection with relations
@@ -348,10 +347,11 @@ export class DetectionService extends BaseService<Detection> {
       console.log(`📊 Added PersonFace ${personFace.id} to ANN index`);
     }
 
-    // Update the detection to point to this PersonFace
+    // Update the detection to point to this PersonFace and set appropriate states
     await this.repository.update(detectionId, {
       personFaceId: personFace.id,
-      status: 'confirmada'
+      faceStatus: 'recognized', // Face is now recognized since it's associated with a person
+      detectionStatus: 'confirmed', // Manual association means confirmed
     });
 
     // Return the updated detection with relations

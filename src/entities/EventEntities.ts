@@ -24,14 +24,6 @@ class Event extends BaseEntity {
   @IsString()
   description?: string;
 
-  @Column({
-    type: 'varchar',
-    length: 100,
-    nullable: false
-  })
-  @IsString()
-  @Length(1, 100)
-  type!: string; // entry, exit, detection, scheduled, etc.
 
   @Column({
     type: 'datetime',
@@ -41,13 +33,6 @@ class Event extends BaseEntity {
   @IsDateString()
   occurredAt?: Date; // For occurred events
 
-  // Scheduling fields
-  @Column({
-    type: 'boolean',
-    nullable: false,
-    default: false
-  })
-  isScheduled!: boolean; // If true, this is a scheduled event
 
   @Column({
     type: 'boolean',
@@ -95,15 +80,6 @@ class Event extends BaseEntity {
   })
   @IsString()
   recurrenceType!: string; // 'once', 'daily', 'weekly', 'monthly'
-
-  @Column({
-    type: 'varchar',
-    length: 50,
-    nullable: false,
-    default: 'active'
-  })
-  @IsString()
-  status!: string;
 
   @Column({
     type: 'text',
@@ -272,7 +248,25 @@ class Detection extends BaseEntity {
     default: 'detected'
   })
   @IsString()
-  status!: string;
+  status!: string; // Deprecated - kept for backward compatibility
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    nullable: false,
+    default: 'unrecognized'
+  })
+  @IsString()
+  faceStatus!: 'unrecognized' | 'detected' | 'recognized'; // Immutable once set
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    nullable: false,
+    default: 'pending'
+  })
+  @IsString()
+  detectionStatus!: 'pending' | 'confirmed'; // User-controlled
 
   @Column({
     type: 'varchar',

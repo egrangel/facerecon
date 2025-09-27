@@ -108,25 +108,44 @@ export class EventSchedulerService {
   private async checkScheduledEvents(): Promise<void> {
     try {
       const now = new Date();
-      console.log(`Checking scheduled events at ${now.toISOString()}`);
+      console.log(`🔍 Checking scheduled events at ${now.toISOString()}`);
 
       // Get all active scheduled events
       const scheduledEvents = await this.getActiveScheduledEvents();
+      console.log(`📋 Found ${scheduledEvents.length} active scheduled events`);
+
+      if (scheduledEvents.length === 0) {
+        console.log(`⚠️ No active events found - nothing to schedule`);
+        return;
+      }
 
       for (const event of scheduledEvents) {
+        console.log(`📅 Evaluating event "${event.name}" (ID: ${event.id})`);
+        console.log(`   - scheduledDate: ${event.scheduledDate}`);
+        console.log(`   - startTime: ${event.startTime}`);
+        console.log(`   - endTime: ${event.endTime}`);
+        console.log(`   - recurrenceType: ${event.recurrenceType}`);
+        console.log(`   - weekDays: ${event.weekDays}`);
+        console.log(`   - isActive: ${event.isActive}`);
+
         const shouldBeActive = this.shouldEventBeActive(event, now);
         const isCurrentlyActive = this.isEventCurrentlyActive(event.id);
 
+        console.log(`   - shouldBeActive: ${shouldBeActive}`);
+        console.log(`   - isCurrentlyActive: ${isCurrentlyActive}`);
+
         if (shouldBeActive && !isCurrentlyActive) {
-          // Start event
+          console.log(`🚀 Starting event execution for "${event.name}"`);
           await this.startEventExecution(event);
         } else if (!shouldBeActive && isCurrentlyActive) {
-          // Stop event
+          console.log(`🛑 Stopping event execution for "${event.name}"`);
           await this.stopEventExecution(event.id);
+        } else {
+          console.log(`⏸️ No action needed for event "${event.name}"`);
         }
       }
     } catch (error) {
-      console.error('Error checking scheduled events:', error);
+      console.error('❌ Error checking scheduled events:', error);
     }
   }
 
@@ -137,9 +156,7 @@ export class EventSchedulerService {
     try {
       const events = await this.eventService.findAll();
       return events.filter(event =>
-        event.isScheduled &&
-        event.isActive &&
-        event.type === 'scheduled'
+        event.isActive
       );
     } catch (error) {
       console.error('Error getting active scheduled events:', error);
@@ -156,41 +173,60 @@ export class EventSchedulerService {
       const currentDate = this.formatDate(now);
       const currentWeekDay = this.getWeekDay(now);
 
+      console.log(`     🕐 Current time: ${currentTime}, date: ${currentDate}, weekday: ${currentWeekDay}`);
+
       // Check time range
       if (event.startTime && event.endTime) {
+        console.log(`     ⏰ Event time range: ${event.startTime} - ${event.endTime}`);
         if (currentTime < event.startTime || currentTime > event.endTime) {
+          console.log(`     ❌ Current time ${currentTime} is outside event time range`);
           return false;
+        } else {
+          console.log(`     ✅ Current time ${currentTime} is within event time range`);
         }
+      } else {
+        console.log(`     ⚠️ Event has no time range specified`);
       }
 
       // Check recurrence type
+      console.log(`     🔄 Checking recurrence type: ${event.recurrenceType}`);
       switch (event.recurrenceType) {
         case 'once':
           if (event.scheduledDate) {
             const scheduledDate = this.formatDate(new Date(event.scheduledDate));
-            return currentDate === scheduledDate;
+            console.log(`     📅 Scheduled date: ${scheduledDate}, current date: ${currentDate}`);
+            const isDateMatch = currentDate === scheduledDate;
+            console.log(`     ${isDateMatch ? '✅' : '❌'} Date match: ${isDateMatch}`);
+            return isDateMatch;
           }
+          console.log(`     ❌ 'once' event has no scheduled date`);
           return false;
 
         case 'daily':
+          console.log(`     ✅ Daily event - should be active every day within time range`);
           return true; // Active every day within time range
 
         case 'weekly':
           if (event.weekDays) {
             const allowedDays = this.parseWeekDays(event.weekDays);
-            return allowedDays.includes(currentWeekDay);
+            console.log(`     📅 Allowed days: ${JSON.stringify(allowedDays)}, current day: ${currentWeekDay}`);
+            const isDayAllowed = allowedDays.includes(currentWeekDay);
+            console.log(`     ${isDayAllowed ? '✅' : '❌'} Day allowed: ${isDayAllowed}`);
+            return isDayAllowed;
           }
+          console.log(`     ❌ Weekly event has no weekDays specified`);
           return false;
 
         case 'monthly':
-          // Could implement monthly recurrence based on day of month
+          console.log(`     ❌ Monthly recurrence not implemented yet`);
           return false;
 
         default:
+          console.log(`     ❌ Unknown recurrence type: ${event.recurrenceType}`);
           return false;
       }
     } catch (error) {
-      console.error('Error checking if event should be active:', error);
+      console.error('❌ Error checking if event should be active:', error);
       return false;
     }
   }
@@ -423,7 +459,7 @@ export class EventSchedulerService {
         console.log(`Event ${eventId} set to active - checking if it should be started`);
         // Check if the event should be running now based on schedule
         const event = await this.eventService.findById(eventId);
-        if (event && event.isScheduled) {
+        if (event) {
           const shouldBeActive = this.shouldEventBeActive(event, new Date());
           if (shouldBeActive) {
             await this.startEventExecution(event);

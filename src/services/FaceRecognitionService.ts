@@ -157,7 +157,7 @@ export class FaceRecognitionService {
 
       if (detection.faces.length === 0) {
         this.performanceStats.activeDetections--;
-        return; // No faces detected
+        return; // No faces detected - skip recording
       }
 
       // Use provided eventId or get the active event for this camera
@@ -209,18 +209,31 @@ export class FaceRecognitionService {
             embeddingBuffer = Buffer.from(float32Array.buffer);
           }
 
-          // Determine detection status based on recognition result and confidence
-          let detectionStatus = 'detectada'; // Default for unknown faces
+          // Determine faceStatus and detectionStatus based on recognition result
+          let faceStatus: 'unrecognized' | 'detected' | 'recognized';
+          let detectionStatus: 'pending' | 'confirmed' = 'pending'; // Default state
+
           if (recognition.isMatch) {
-            // For recognized faces, auto-confirm if confidence is 100%, otherwise set to 'reconhecida'
-            detectionStatus = recognition.confidence === 1.0 ? 'confirmada' : 'reconhecida';
+            // Face was recognized with sufficient similarity - set faceStatus to 'recognized'
+            faceStatus = 'recognized';
+            // Auto-confirm if confidence is 100%, otherwise set to pending
+            detectionStatus = recognition.confidence === 1.0 ? 'confirmed' : 'pending';
+          } else if (recognition.confidence === 0) {
+            // Face was detected but 0% similarity - set faceStatus to 'unrecognized'
+            faceStatus = 'unrecognized';
+            detectionStatus = 'pending';
+          } else {
+            // Face was detected but similarity < threshold - set faceStatus to 'detected'
+            faceStatus = 'detected';
+            detectionStatus = 'pending';
           }
 
           // Record the detection with enhanced metadata
           await this.detectionService.create({
             detectedAt: new Date(),
             confidence: face.confidence,
-            status: detectionStatus,
+            faceStatus,
+            detectionStatus,
             imageUrl: faceImageUrl, // Use face crop URL instead of full detection image
             embedding: embeddingBuffer, // Store the face embedding for future recognition
             metadata: JSON.stringify({

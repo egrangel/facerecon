@@ -210,15 +210,27 @@ class ApiClient {
   }
 
   async getEvent(id: number): Promise<Event> {
-    return this.get<Event>(`/events/${id}`);
+    const response = await this.get<ApiResponse<Event>>(`/events/${id}`);
+    if (!response.data) {
+      throw new Error('Event not found');
+    }
+    return response.data;
   }
 
   async createEvent(data: Omit<Event, keyof BaseEntity>): Promise<Event> {
-    return this.post<Event>('/events', data);
+    const response = await this.post<ApiResponse<Event>>('/events', data);
+    if (!response.data) {
+      throw new Error('Failed to create event');
+    }
+    return response.data;
   }
 
   async updateEvent(id: number, data: Partial<Event>): Promise<Event> {
-    return this.put<Event>(`/events/${id}`, data);
+    const response = await this.put<ApiResponse<Event>>(`/events/${id}`, data);
+    if (!response.data) {
+      throw new Error('Failed to update event');
+    }
+    return response.data;
   }
 
   async deleteEvent(id: number): Promise<void> {

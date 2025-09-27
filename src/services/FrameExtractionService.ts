@@ -20,8 +20,14 @@ export class FrameExtractionService {
   private static instance: FrameExtractionService;
   private sessions: Map<string, FrameExtractionSession> = new Map();
   private readonly defaultInterval = 1; // Extract frame every 1 second
+  private healthMonitor?: NodeJS.Timeout;
+  private readonly maxSessionAge = 3600000; // 1 hour max session age
+  private readonly maxIdleTime = 300000; // 5 minutes max idle time
 
-  constructor() {}
+  constructor() {
+    // Start health monitoring
+    this.startHealthMonitoring();
+  }
 
   public static getInstance(): FrameExtractionService {
     if (!FrameExtractionService.instance) {
@@ -100,44 +106,75 @@ export class FrameExtractionService {
       session.isActive = true;
       this.sessions.set(sessionId, session);
 
-      // Handle stdout data - frames in memory
+      // Handle stdout data - frames in memory with memory management
       let frameBuffer = Buffer.alloc(0);
       let frameNumber = 1;
+      const maxBufferSize = 10 * 1024 * 1024; // 10MB max buffer to prevent memory leaks
+      let lastFrameProcessTime = Date.now();
 
       ffmpegProcess.stdout?.on('data', (data: Buffer) => {
-        frameBuffer = Buffer.concat([frameBuffer, data]);
-
-        // Look for JPEG markers to separate frames
-        let startIdx = 0;
-        let endIdx = frameBuffer.indexOf(Buffer.from([0xFF, 0xD9]), startIdx); // JPEG end marker
-
-        while (endIdx !== -1) {
-          const frameStart = frameBuffer.indexOf(Buffer.from([0xFF, 0xD8]), startIdx); // JPEG start marker
-          if (frameStart !== -1 && frameStart < endIdx) {
-            const completeFrame = frameBuffer.subarray(frameStart, endIdx + 2);
-
-            // Store frame in memory dictionary
-            session.frameBuffer.set(frameNumber, completeFrame);
-            session.frameCount++;
-            session.lastFrameTime = new Date();
-
-            // Process frame immediately
-            this.processFrameFromMemory(completeFrame, frameNumber, session);
-
-            frameNumber++;
-            startIdx = endIdx + 2;
-          } else {
-            startIdx = endIdx + 2;
+        try {
+          // Prevent memory exhaustion
+          if (frameBuffer.length + data.length > maxBufferSize) {
+            console.warn(`⚠️ Frame buffer too large for session ${sessionId}, dropping data to prevent memory leak`);
+            frameBuffer = Buffer.alloc(0); // Reset buffer to prevent memory issues
+            return;
           }
 
-          endIdx = frameBuffer.indexOf(Buffer.from([0xFF, 0xD9]), startIdx);
-        }
+          frameBuffer = Buffer.concat([frameBuffer, data]);
 
-        // Keep remaining incomplete data
-        if (startIdx < frameBuffer.length) {
-          frameBuffer = frameBuffer.subarray(startIdx);
-        } else {
-          frameBuffer = Buffer.alloc(0);
+          // Look for JPEG markers to separate frames
+          let startIdx = 0;
+          let endIdx = frameBuffer.indexOf(Buffer.from([0xFF, 0xD9]), startIdx); // JPEG end marker
+
+          while (endIdx !== -1) {
+            const frameStart = frameBuffer.indexOf(Buffer.from([0xFF, 0xD8]), startIdx); // JPEG start marker
+            if (frameStart !== -1 && frameStart < endIdx) {
+              const completeFrame = frameBuffer.subarray(frameStart, endIdx + 2);
+
+              // Throttle frame processing to prevent overwhelming the system
+              const now = Date.now();
+              if (now - lastFrameProcessTime < 1000) { // Min 1 second between frames
+                // Skip this frame to prevent overload
+                startIdx = endIdx + 2;
+                endIdx = frameBuffer.indexOf(Buffer.from([0xFF, 0xD9]), startIdx);
+                continue;
+              }
+
+              // Store frame in memory dictionary with size limits
+              session.frameBuffer.set(frameNumber, completeFrame);
+              session.frameCount++;
+              session.lastFrameTime = new Date();
+              lastFrameProcessTime = now;
+
+              // Process frame immediately (with timeout protection)
+              this.processFrameFromMemory(completeFrame, frameNumber, session).catch(error => {
+                console.error(`Frame processing failed for session ${sessionId}, frame ${frameNumber}:`, error);
+              });
+
+              frameNumber++;
+              startIdx = endIdx + 2;
+            } else {
+              startIdx = endIdx + 2;
+            }
+
+            endIdx = frameBuffer.indexOf(Buffer.from([0xFF, 0xD9]), startIdx);
+          }
+
+          // Keep remaining incomplete data with size limit
+          if (startIdx < frameBuffer.length) {
+            const remainingData = frameBuffer.subarray(startIdx);
+            if (remainingData.length < maxBufferSize / 2) { // Only keep if under half max size
+              frameBuffer = remainingData;
+            } else {
+              frameBuffer = Buffer.alloc(0); // Reset if too large
+            }
+          } else {
+            frameBuffer = Buffer.alloc(0);
+          }
+        } catch (error) {
+          console.error(`Error processing frame data for session ${sessionId}:`, error);
+          frameBuffer = Buffer.alloc(0); // Reset buffer on error
         }
       });
 
@@ -186,19 +223,21 @@ export class FrameExtractionService {
   }
 
   /**
-   * Process frames from memory buffer
+   * Process frames from memory buffer with timeout protection
    */
   private async processFrameFromMemory(
     frameBuffer: Buffer,
     frameNumber: number,
     session: FrameExtractionSession
   ): Promise<void> {
+    const startTime = Date.now();
+
     try {
-      // Clean up older frames to prevent memory leaks (keep only last 20 frames)
-      if (session.frameBuffer.size > 20) {
-        const frames = Array.from(session.frameBuffer.keys());
-        const oldestFrame = Math.min(...frames);
-        session.frameBuffer.delete(oldestFrame);
+      // Clean up older frames to prevent memory leaks (keep only last 10 frames - reduced)
+      if (session.frameBuffer.size > 10) {
+        const frames = Array.from(session.frameBuffer.keys()).sort((a, b) => a - b);
+        const framesToDelete = frames.slice(0, frames.length - 10); // Keep only the latest 10
+        framesToDelete.forEach(frame => session.frameBuffer.delete(frame));
       }
 
       // Extract event ID from session ID
@@ -210,17 +249,61 @@ export class FrameExtractionService {
         console.warn(`⚠️ FRAME EXTRACT: Could not extract event ID from session ${session.sessionId}`);
       }
 
-      // Process frame with face detection
-      await faceRecognitionService.processVideoFrame(
-        frameBuffer,
-        session.cameraId,
-        session.organizationId,
-        eventId
-      );
+      // Create timeout promise (30 seconds max)
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Frame processing timeout')), 30000);
+      });
+
+      // Process frame with face detection with timeout protection
+      await Promise.race([
+        faceRecognitionService.processVideoFrame(
+          frameBuffer,
+          session.cameraId,
+          session.organizationId,
+          eventId
+        ),
+        timeoutPromise
+      ]);
 
       session.lastProcessedFrame = frameNumber;
+
+      const processingTime = Date.now() - startTime;
+      if (processingTime > 5000) {
+        console.warn(`⚠️ Slow frame processing detected: ${processingTime}ms for session ${session.sessionId}`);
+      }
     } catch (error) {
-      console.error(`Failed to process frame ${frameNumber}:`, error);
+      const processingTime = Date.now() - startTime;
+      if (error instanceof Error && error.message === 'Frame processing timeout') {
+        console.error(`❌ Frame processing timeout (${processingTime}ms) for session ${session.sessionId}, frame ${frameNumber}`);
+        // Force cleanup and restart of face recognition service on timeout
+        this.handleProcessingTimeout(session);
+      } else {
+        console.error(`Failed to process frame ${frameNumber} for session ${session.sessionId}:`, error);
+      }
+    }
+  }
+
+  /**
+   * Handle processing timeout by cleaning up resources
+   */
+  private async handleProcessingTimeout(session: FrameExtractionSession): Promise<void> {
+    console.warn(`🔄 Handling processing timeout for session ${session.sessionId}`);
+
+    try {
+      // Clear frame buffer to free memory
+      session.frameBuffer.clear();
+
+      // Force garbage collection if available
+      if (global.gc) {
+        global.gc();
+        console.log(`🗑️ Forced garbage collection for session ${session.sessionId}`);
+      }
+
+      // Reset face recognition service to clear any stuck state
+      await faceRecognitionService.initialize();
+      console.log(`🔄 Reinitialized face recognition service for session ${session.sessionId}`);
+    } catch (error) {
+      console.error(`Error handling timeout for session ${session.sessionId}:`, error);
     }
   }
 
@@ -317,17 +400,142 @@ export class FrameExtractionService {
     this.sessions.forEach((session, sessionId) => {
       this.stopFrameExtraction(sessionId);
     });
+
+    // Stop health monitoring
+    if (this.healthMonitor) {
+      clearInterval(this.healthMonitor);
+      this.healthMonitor = undefined;
+    }
+  }
+
+  /**
+   * Start health monitoring to detect and recover from stuck sessions
+   */
+  private startHealthMonitoring(): void {
+    this.healthMonitor = setInterval(() => {
+      this.checkSessionHealth();
+    }, 60000); // Check every minute
+
+    console.log('🏥 Frame extraction health monitoring started');
+  }
+
+  /**
+   * Check health of all sessions and recover stuck ones
+   */
+  private checkSessionHealth(): void {
+    const now = Date.now();
+    let totalMemory = 0;
+
+    for (const [sessionId, session] of this.sessions.entries()) {
+      try {
+        const sessionAge = now - session.lastFrameTime.getTime();
+        const bufferSize = session.frameBuffer.size;
+        const memoryUsage = Array.from(session.frameBuffer.values()).reduce((total, buffer) => total + buffer.length, 0);
+        totalMemory += memoryUsage;
+
+        // Check for stuck sessions
+        if (sessionAge > this.maxIdleTime) {
+          console.warn(`⚠️ Session ${sessionId} idle for ${Math.round(sessionAge / 1000)}s, restarting...`);
+          this.restartSession(sessionId, session);
+          continue;
+        }
+
+        // Check for memory bloat
+        if (memoryUsage > 50 * 1024 * 1024) { // 50MB per session
+          console.warn(`⚠️ Session ${sessionId} using excessive memory (${Math.round(memoryUsage / 1024 / 1024)}MB), cleaning up...`);
+          this.cleanupSessionMemory(session);
+        }
+
+        // Check for process health
+        if (session.process && session.process.killed) {
+          console.warn(`⚠️ Session ${sessionId} process died, restarting...`);
+          this.restartSession(sessionId, session);
+        }
+
+      } catch (error) {
+        console.error(`Error checking health for session ${sessionId}:`, error);
+        this.restartSession(sessionId, session);
+      }
+    }
+
+    // Log overall health
+    if (this.sessions.size > 0) {
+      console.log(`🏥 Health check: ${this.sessions.size} sessions, ${Math.round(totalMemory / 1024 / 1024)}MB total memory`);
+    }
+
+    // Force garbage collection if memory usage is high
+    if (totalMemory > 200 * 1024 * 1024 && global.gc) { // 200MB threshold
+      console.log('🗑️ High memory usage detected, forcing garbage collection');
+      global.gc();
+    }
+  }
+
+  /**
+   * Restart a stuck session
+   */
+  private async restartSession(sessionId: string, session: FrameExtractionSession): Promise<void> {
+    try {
+      console.log(`🔄 Restarting session ${sessionId}`);
+
+      // Stop current session
+      this.stopFrameExtraction(sessionId);
+
+      // Wait a moment for cleanup
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Restart session
+      await this.startFrameExtraction(
+        sessionId,
+        session.cameraId,
+        session.organizationId,
+        session.rtspUrl,
+        session.extractionInterval
+      );
+
+      console.log(`✅ Session ${sessionId} restarted successfully`);
+    } catch (error) {
+      console.error(`❌ Failed to restart session ${sessionId}:`, error);
+    }
+  }
+
+  /**
+   * Clean up session memory without restarting
+   */
+  private cleanupSessionMemory(session: FrameExtractionSession): void {
+    // Clear old frames, keep only the latest 3
+    const frames = Array.from(session.frameBuffer.keys()).sort((a, b) => b - a);
+    const framesToKeep = frames.slice(0, 3);
+    const framesToDelete = frames.slice(3);
+
+    framesToDelete.forEach(frame => session.frameBuffer.delete(frame));
+
+    console.log(`🧹 Cleaned up ${framesToDelete.length} old frames for session ${session.sessionId}`);
   }
 
   /**
    * Get service health
    */
   public getServiceHealth() {
+    const totalMemory = Array.from(this.sessions.values()).reduce((total, session) => {
+      return total + Array.from(session.frameBuffer.values()).reduce((sessionTotal, buffer) => sessionTotal + buffer.length, 0);
+    }, 0);
+
     return {
       activeSessions: this.sessions.size,
-      memoryFrameBuffers: Array.from(this.sessions.values()).reduce((total, session) => total + session.frameBuffer.size, 0),
+      totalMemoryUsage: Math.round(totalMemory / 1024 / 1024), // MB
+      memoryPerSession: this.sessions.size > 0 ? Math.round(totalMemory / this.sessions.size / 1024 / 1024) : 0, // MB
+      healthMonitorActive: !!this.healthMonitor,
       faceRecognitionHealth: faceRecognitionService.getServiceHealth(),
       uptime: process.uptime(),
+      sessions: Array.from(this.sessions.entries()).map(([id, session]) => ({
+        sessionId: id,
+        cameraId: session.cameraId,
+        isActive: session.isActive,
+        frameCount: session.frameCount,
+        lastFrameAge: Math.round((Date.now() - session.lastFrameTime.getTime()) / 1000), // seconds
+        bufferSize: session.frameBuffer.size,
+        memoryUsage: Math.round(Array.from(session.frameBuffer.values()).reduce((total, buffer) => total + buffer.length, 0) / 1024 / 1024), // MB
+      }))
     };
   }
 }

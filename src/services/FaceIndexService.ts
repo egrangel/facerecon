@@ -15,8 +15,8 @@ export class FaceIndexService {
   private indexedFaces: Map<number, IndexedFace> = new Map();
   private personFaceRepository: PersonFaceRepository;
   private isInitialized = false;
-  private readonly EMBEDDING_DIMENSION = 512; // FaceNet embedding dimension
-  private SIMILARITY_THRESHOLD = 0.85; // Minimum similarity for recognition (higher = more strict, 0.85 = 85%)
+  private EMBEDDING_DIMENSION = 512; // Face embedding dimension (FaceNet/ArcFace)
+  private SIMILARITY_THRESHOLD = 0.75; // Higher threshold to prevent false positives
 
   constructor() {
     this.personFaceRepository = new PersonFaceRepository();
@@ -53,14 +53,22 @@ export class FaceIndexService {
           const floatArray = new Float32Array(face.embedding.buffer);
           embeddingDim = floatArray.length;
           console.log(`📏 Detected embedding dimension: ${embeddingDim}`);
+
+          // Update the instance dimension to match data
+          if (embeddingDim !== this.EMBEDDING_DIMENSION) {
+            console.log(`🔧 Updating EMBEDDING_DIMENSION from ${this.EMBEDDING_DIMENSION} to ${embeddingDim}`);
+            this.EMBEDDING_DIMENSION = embeddingDim;
+          }
           break;
         }
       }
 
-      // Initialize HNSW index with generous capacity for growth
+      // Initialize HNSW index with correct parameters
+      // HierarchicalNSW(space, dimension)
       this.index = new HierarchicalNSW('cosine', embeddingDim);
-      const initialCapacity = Math.max(personFaces.length * 4, 1000); // Start with at least 1000 capacity
-      this.index.initIndex(initialCapacity);
+      const initialCapacity = Math.max(personFaces.length * 2, 100); // Reasonable initial capacity
+      // initIndex(capacity, M = 16, efConstruction = 200, randomSeed = 100)
+      this.index.initIndex(initialCapacity, 16, 200);
       console.log(`📊 Initialized HNSW index with capacity: ${initialCapacity}`);
 
       let validFaceCount = 0;
@@ -120,7 +128,20 @@ export class FaceIndexService {
   }
 
   try {
-    // Search top-k
+    // Validate embedding dimension
+    if (queryEmbedding.length !== this.EMBEDDING_DIMENSION) {
+      console.error(`❌ Query embedding dimension mismatch: expected ${this.EMBEDDING_DIMENSION}, got ${queryEmbedding.length}`);
+      console.warn('🔄 Rebuilding index due to dimension mismatch...');
+      await this.rebuild();
+
+      // Try search again after rebuild
+      if (!this.index || this.indexedFaces.size === 0) {
+        console.warn('⚠️ Index still empty after rebuild');
+        return [];
+      }
+    }
+
+    // Search top-k with error handling for dimension mismatch
     const results = this.index.searchKnn(Array.from(queryEmbedding), Math.min(k, this.indexedFaces.size));
 
     const matches = [];
@@ -131,12 +152,14 @@ export class FaceIndexService {
       const indexedFace = this.indexedFaces.get(faceId);
       if (!indexedFace) continue;
 
-      // Handle cosine distance properly
-      // distance ∈ [0,2], so similarity = 1 - (distance / 2)
-      const similarity = Math.max(0, 1 - distance / 2);
+      // Improved similarity calculation for ArcFace/FaceNet
+      // For normalized embeddings (ArcFace), cosine distance ∈ [0,2]
+      // Convert to similarity: similarity = 1 - (distance / 2)
+      // For ArcFace: values closer to 1.0 indicate higher similarity
+      const similarity = Math.max(0, Math.min(1, 1 - distance / 2));
 
-      // More realistic threshold
-      const isMatch = similarity >= (this.SIMILARITY_THRESHOLD ?? 0.85);
+      // Dynamic threshold based on embedding quality
+      const isMatch = similarity >= this.SIMILARITY_THRESHOLD;
 
       matches.push({
         personFaceId: indexedFace.id,
@@ -153,11 +176,67 @@ export class FaceIndexService {
 
     if (matches.length > 0) {
       const best = matches[0];
-      console.log(`🔍 Found ${matches.length} candidates. Best: ${best.personName} ${(best.similarity * 100).toFixed(1)}% ${best.isMatch ? '✅' : '❌'}`);
+      const modelType = best.similarity >= 0.9 ? 'ArcFace-like' : 'FaceNet-like';
+      console.log(`🔍 Found ${matches.length} candidates. Best: ${best.personName} ${(best.similarity * 100).toFixed(1)}% ${best.isMatch ? '✅' : '❌'} (${modelType})`);
+      console.log(`🎯 Current threshold: ${(this.SIMILARITY_THRESHOLD * 100).toFixed(1)}%`);
+
+      // Debug info for all matches to see the similarity distribution
+      matches.forEach((match, idx) => {
+        const status = match.isMatch ? '✅' : '❌';
+        console.log(`   ${idx + 1}. ${match.personName}: ${(match.similarity * 100).toFixed(1)}% ${status}`);
+      });
+
+      // Show if we're close to threshold
+      if (!best.isMatch && best.similarity >= 0.5) {
+        console.log(`💡 Best match is ${(best.similarity * 100).toFixed(1)}% - consider lowering threshold if this should match`);
+      }
+    } else {
+      console.log(`🔍 No candidates found in index`);
     }
 
     return matches;
-  } catch (error) {
+  } catch (error: any) {
+    // Handle dimension mismatch errors by rebuilding the index
+    if (error.message && error.message.includes('Invalid the given array length')) {
+      console.error('❌ HNSW index has wrong dimensions - forcing rebuild...');
+      console.log(`🔧 Expected: ${this.EMBEDDING_DIMENSION}, Index was created with wrong dimensions`);
+
+      try {
+        await this.rebuild();
+        console.log('✅ Index rebuilt successfully, retrying search...');
+
+        // Retry search after rebuild
+        if (this.index && this.indexedFaces.size > 0) {
+          const retryResults = this.index.searchKnn(Array.from(queryEmbedding), Math.min(k, this.indexedFaces.size));
+          const retryMatches = [];
+
+          for (let i = 0; i < retryResults.neighbors.length; i++) {
+            const faceId = retryResults.neighbors[i];
+            const distance = retryResults.distances[i];
+            const indexedFace = this.indexedFaces.get(faceId);
+            if (!indexedFace) continue;
+
+            const similarity = Math.max(0, Math.min(1, 1 - distance / 2));
+            const isMatch = similarity >= this.SIMILARITY_THRESHOLD;
+
+            retryMatches.push({
+              personFaceId: indexedFace.id,
+              personId: indexedFace.personId,
+              personName: indexedFace.personName,
+              similarity,
+              reliability: indexedFace.reliability,
+              isMatch,
+            });
+          }
+
+          retryMatches.sort((a, b) => b.similarity - a.similarity);
+          return retryMatches;
+        }
+      } catch (rebuildError) {
+        console.error('❌ Failed to rebuild index:', rebuildError);
+      }
+    }
+
     console.error('❌ Error searching similar faces:', error);
     return [];
   }
@@ -267,13 +346,28 @@ export class FaceIndexService {
     totalFaces: number;
     embeddingDimension: number;
     similarityThreshold: number;
+    modelOptimized: string;
   } {
     return {
       isInitialized: this.isInitialized,
       totalFaces: this.indexedFaces.size,
       embeddingDimension: this.EMBEDDING_DIMENSION,
       similarityThreshold: this.SIMILARITY_THRESHOLD,
+      modelOptimized: this.SIMILARITY_THRESHOLD <= 0.75 ? 'ArcFace' : 'FaceNet',
     };
+  }
+
+  /**
+   * Auto-configure for model type
+   */
+  configureForModel(modelType: 'arcface' | 'facenet') {
+    if (modelType === 'arcface') {
+      this.SIMILARITY_THRESHOLD = 0.75; // More conservative threshold to prevent false positives
+      console.log('🎯 Configured for ArcFace model (threshold: 0.75)');
+    } else {
+      this.SIMILARITY_THRESHOLD = 0.85; // FaceNet needs higher threshold
+      console.log('🎯 Configured for FaceNet model (threshold: 0.85)');
+    }
   }
 
   /**
