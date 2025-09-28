@@ -100,7 +100,7 @@ const DashboardLayout: React.FC = () => {
       {/* Sidebar for mobile */}
       {sidebarOpen && (
         <div className="fixed inset-0 flex z-40 lg:hidden">
-          <div className="fixed inset-0 bg-[var(--color-text-primary)] bg-opacity-75" onClick={() => setSidebarOpen(false)} />
+          <div className="fixed inset-0 bg-[var(--color-text-primary)] bg-opacity-20" onClick={() => setSidebarOpen(false)} />
           <div className="relative flex-1 flex flex-col max-w-xs w-full bg-[var(--color-background-secondary)]">
             <div className="absolute top-0 right-0 -mr-12 pt-2">
               <button
@@ -113,7 +113,7 @@ const DashboardLayout: React.FC = () => {
                 </svg>
               </button>
             </div>
-            <SidebarContent navigation={navWithCurrent} />
+            <SidebarContent navigation={navWithCurrent} onNavigate={() => setSidebarOpen(false)} />
           </div>
         </div>
       )}
@@ -180,16 +180,32 @@ const DashboardLayout: React.FC = () => {
 
 interface SidebarContentProps {
   navigation: NavItem[];
+  onNavigate?: () => void;
 }
 
-const SidebarContent: React.FC<SidebarContentProps> = ({ navigation }) => {
+const SidebarContent: React.FC<SidebarContentProps> = ({ navigation, onNavigate }) => {
   return (
     <div className="flex flex-col h-0 flex-1 border-r border-[var(--color-border-light)] bg-[var(--color-background-secondary)]">
       <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
         <div className="flex items-center flex-shrink-0 px-4">
           <div className="h-8 w-8 bg-[var(--color-primary-500)] rounded-lg flex items-center justify-center">
             <svg className="h-5 w-5 text-[var(--color-text-inverse)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              {/* Church building base */}
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 20h16V10l-8-6-8 6v10z" />
+              {/* Church bell tower */}
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 4V2h4v2" />
+              {/* Cross on top */}
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 2V1M11 1.5h2" />
+              {/* Church door */}
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 20v-4a1 1 0 011-1h2a1 1 0 011 1v4" />
+              {/* Eye in the center - pupil */}
+              <circle cx="12" cy="12" r="2.5" strokeWidth={1.5} fill="currentColor" />
+              {/* Eye in the center - iris */}
+              <circle cx="12" cy="12" r="1.2" strokeWidth={0} fill="var(--color-primary-500)" />
+              {/* Eye highlight */}
+              <circle cx="12.5" cy="11.5" r="0.3" strokeWidth={0} fill="currentColor" />
+              {/* Church windows */}
+              {/* <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 14v-1.5M16 14v-1.5" /> */}
             </svg>
           </div>
           <h1 className="ml-3 text-xl font-semibold text-[var(--color-text-primary)]">
@@ -201,6 +217,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ navigation }) => {
             <Link
               key={item.name}
               to={item.href}
+              onClick={onNavigate}
               className={`
                 group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors
                 ${item.current

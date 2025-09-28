@@ -51,14 +51,40 @@ const LoginPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[var(--color-background-primary)] py-12 px-4 sm:px-6 lg:px-8">
+    <div
+      className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
+      style={{
+        background: `linear-gradient(135deg,
+          var(--color-primary-50) 0%,
+          var(--color-background-primary) 25%,
+          var(--color-primary-25) 50%,
+          var(--color-background-primary) 75%,
+          var(--color-primary-50) 100%
+        )`
+      }}
+    >
       <div className="max-w-md w-full">
         <div className="bg-[var(--color-background-secondary)] rounded-[20px] shadow-lg p-8" style={{ boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
           {/* Header */}
           <div className="text-center mb-8">
             <div className="mx-auto h-16 w-16 bg-[var(--color-primary-500)] rounded-2xl flex items-center justify-center mb-6">
               <svg className="h-10 w-10 text-[var(--color-text-inverse)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                {/* Church building base */}
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 20h16V10l-8-6-8 6v10z" />
+                {/* Church bell tower */}
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 4V2h4v2" />
+                {/* Cross on top */}
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 2V1M11 1.5h2" />
+                {/* Church door */}
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 20v-4a1 1 0 011-1h2a1 1 0 011 1v4" />
+                {/* Eye in the center - pupil */}
+                <circle cx="12" cy="12" r="2.5" strokeWidth={1.5} fill="currentColor" />
+                {/* Eye in the center - iris */}
+                <circle cx="12" cy="12" r="1.2" strokeWidth={0} fill="var(--color-primary-500)" />
+                {/* Eye highlight */}
+                <circle cx="12.5" cy="11.5" r="0.3" strokeWidth={0} fill="currentColor" />
+                {/* Church windows */}
+                {/* <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 14v-1.5M16 14v-1.5" /> */}
               </svg>
             </div>
             <h1 className="text-[28px] font-bold text-[var(--color-text-primary)] leading-tight" style={{ fontFamily: 'Inter, sans-serif' }}>
