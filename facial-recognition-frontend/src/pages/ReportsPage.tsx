@@ -23,10 +23,18 @@ interface EventAttendanceData {
 }
 
 type ReportType = 'participant-frequency' | 'event-frequency';
+type SortOrder = 'asc' | 'desc';
+
+// Define a color palette for charts
+const COLORS = [
+  '#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#A28FD0', '#FF6666', '#FFB6B9', '#B5EAD7', '#C7CEEA', '#FFD6E0',
+  '#B2F7EF', '#F6DFEB', '#F3E9DD', '#F9F871', '#A0CED9', '#FFB347', '#B39EB5', '#77DD77', '#CFCFC4', '#836953'
+];
 
 const ReportsPage: React.FC = () => {
   const [selectedEventIds, setSelectedEventIds] = useState<number[]>([]);
   const [selectedReportType, setSelectedReportType] = useState<ReportType>('participant-frequency');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
   // Get available events for filter
   const { data: eventsResponse } = useQuery({
@@ -63,12 +71,14 @@ const ReportsPage: React.FC = () => {
   const eventAttendance: EventAttendanceData[] = eventAttendanceData?.data || [];
   const isLoading = isLoadingParticipants || isLoadingEvents;
 
-  // Colors for pie chart
-  const COLORS = [
-    '#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8',
-    '#82CA9D', '#FFC658', '#FF7C7C', '#8DD1E1', '#D084D0',
-    '#FFB347', '#87CEEB', '#DDA0DD', '#98FB98', '#F0E68C'
-  ];
+  // Sort attendance data based on frequency count
+  const sortedAttendance = [...attendance].sort((a, b) => {
+    if (sortOrder === 'desc') {
+      return b.count - a.count;
+    } else {
+      return a.count - b.count;
+    }
+  });
 
   const handleGenerateReport = () => {
     // Trigger the appropriate query based on selected report type
@@ -117,9 +127,15 @@ const ReportsPage: React.FC = () => {
       {/* Report Type and Filters */}
       <Card>
         <CardContent className="p-6">
-          <h3 className="text-lg font-medium text-[var(--color-text-primary)] mt-3 mb-6">
-            📊 Configurar Relatório
-          </h3>
+          <div className="flex items-center mt-3 mb-6">
+            <svg className="w-5 h-5 mr-3 text-[var(--color-primary-600)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <h3 className="text-lg font-medium text-[var(--color-text-primary)]">
+              Configurar Relatório
+            </h3>
+          </div>
 
           <div className="space-y-6">
             {/* Report Type Selection */}
@@ -213,113 +229,74 @@ const ReportsPage: React.FC = () => {
       {selectedReportType === 'participant-frequency' && attendance.length > 0 && (
         <Card>
           <CardContent className="p-6">
-            <h3 className="text-lg font-medium text-[var(--color-text-primary)] mt-3 mb-6">
-              📊 Frequência por Participante
-            </h3>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Pie Chart */}
-              <div className="bg-[var(--color-background-secondary)] rounded-lg border border-[var(--color-border-light)] p-6">
-                <h4 className="text-lg font-medium text-[var(--color-text-primary)] mb-4">
-                  Distribuição de Frequência
-                </h4>
-                <div style={{ width: '100%', height: '400px' }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={attendance as any}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ percentage }: any) => `${percentage.toFixed(1)}%`}
-                        outerRadius={120}
-                        fill="#8884d8"
-                        dataKey="count"
-                        nameKey="personName"
-                      >
-                        {attendance.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value: any, name: any) => [value, 'Detecções']} />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
+            <div className="flex justify-between items-center mt-3 mb-3">
+              <div className="flex items-center">
+                <svg className="w-5 h-5 mr-3 text-[var(--color-primary-600)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                <h3 className="text-lg font-medium text-[var(--color-text-primary)]">
+                  Frequência por Participante
+                </h3>
               </div>
 
-              {/* Bar Chart */}
-              <div className="bg-[var(--color-background-secondary)] rounded-lg border border-[var(--color-border-light)] p-6">
-                <h4 className="text-lg font-medium text-[var(--color-text-primary)] mb-4">
-                  Gráfico de Barras
-                </h4>
-                <div style={{ width: '100%', height: '400px' }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={attendance} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis
-                        dataKey="personName"
-                        angle={-45}
-                        textAnchor="end"
-                        height={80}
-                        interval={0}
-                        fontSize={12}
-                      />
-                      <YAxis />
-                      <Tooltip
-                        formatter={(value: any, name: any) => [value, 'Detecções']}
-                        labelFormatter={(label: any) => `Participante: ${label}`}
-                      />
-                      <Bar dataKey="count" fill="#0088FE" />
-                    </BarChart>
-                  </ResponsiveContainer>
+              {/* Sort Controls */}
+              <div className="flex items-center space-x-3">
+                <span className="text-sm text-[var(--color-text-secondary)]">Ordenar por frequência:</span>
+                <div className="flex space-x-2">
+                  <Button
+                    variant={sortOrder === 'desc' ? 'primary' : 'outline'}
+                    onClick={() => setSortOrder('desc')}
+                    className="text-xs px-3 py-1"
+                  >
+                    ↓ Maior
+                  </Button>
+                  <Button
+                    variant={sortOrder === 'asc' ? 'primary' : 'outline'}
+                    onClick={() => setSortOrder('asc')}
+                    className="text-xs px-3 py-1"
+                  >
+                    ↑ Menor
+                  </Button>
                 </div>
               </div>
             </div>
 
-            {/* Data Table */}
-            <div className="mt-6 bg-[var(--color-background-secondary)] rounded-lg border border-[var(--color-border-light)] p-6">
-              <h4 className="text-lg font-medium text-[var(--color-text-primary)] mb-6">
-                Detalhes por Participante
+            {/* Attendants List */}
+            <div>
+              <h4 className="text-lg font-medium text-[var(--color-text-primary)] mb-4">
+                Lista de Participantes ({sortedAttendance.length} total)
               </h4>
-              <div className="overflow-y-auto max-h-96">
-                <table className="min-w-full divide-y divide-[var(--color-border-light)]">
-                  <thead className="bg-[var(--color-background-tertiary)]">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
-                        Participante
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
-                        Detecções
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wider">
-                        Porcentagem
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-[var(--color-background-secondary)] divide-y divide-[var(--color-border-light)]">
-                    {attendance.map((item, index) => (
-                      <tr key={item.personId} className={index % 2 === 0 ? 'bg-[var(--color-background-secondary)]' : 'bg-[var(--color-background-tertiary)]'}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div
-                              className="w-4 h-4 rounded-full mr-3"
-                              style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                            ></div>
-                            <div className="text-sm font-medium text-[var(--color-text-primary)]">
-                              {item.personName}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-text-primary)]">
-                          {item.count}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-text-primary)]">
-                          {item.percentage.toFixed(1)}%
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+
+              <div className="max-h-96 overflow-y-auto">
+                {sortedAttendance.map((item, index) => (
+                  <div
+                    key={item.personId}
+                    className="flex items-center justify-between py-3 px-2 border-b border-[var(--color-border-light)] hover:bg-[var(--color-background-secondary)] transition-colors"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <span className="text-sm font-medium text-[var(--color-text-secondary)] w-8">
+                        {index + 1}.
+                      </span>
+                      <div>
+                        <span className="text-base font-medium text-[var(--color-text-primary)]">
+                          {item.personName}
+                        </span>
+                        <span className="text-sm text-[var(--color-text-secondary)] ml-2">
+                          (ID: {item.personId})
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-4">
+                      <span className="text-lg font-bold text-[var(--color-primary-600)]">
+                        {item.count}
+                      </span>
+                      <span className="text-sm text-[var(--color-text-secondary)] w-16 text-right">
+                        {item.percentage.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </CardContent>
