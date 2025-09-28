@@ -59,7 +59,24 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setIsLoading(false);
     };
 
+    // Handle auth expiration event from API client
+    const handleAuthExpired = () => {
+      setUser(null);
+      setAuthError('Sua sessão expirou. Por favor, faça login novamente.');
+
+      // Dispatch auth state change event
+      window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: null }));
+
+      // Redirect to login page
+      window.location.href = '/login';
+    };
+
+    window.addEventListener('auth-expired', handleAuthExpired);
     initAuth();
+
+    return () => {
+      window.removeEventListener('auth-expired', handleAuthExpired);
+    };
   }, []);
 
   const login = async (credentials: LoginCredentials) => {

@@ -57,10 +57,12 @@ class ApiClient {
             // Retry original request
             return this.client.request(error.config);
           } catch (refreshError) {
-            // Refresh failed, redirect to login
+            // Refresh failed, clear tokens and dispatch auth expiration event
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
-            window.location.href = '/login';
+
+            // Dispatch auth expiration event for the auth context to handle
+            window.dispatchEvent(new CustomEvent('auth-expired', { detail: null }));
           }
         }
         return Promise.reject(error);
