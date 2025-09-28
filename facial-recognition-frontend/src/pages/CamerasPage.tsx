@@ -106,7 +106,6 @@ const LiveStreamContainer: React.FC<LiveStreamContainerProps> = ({ camera, class
             <Button
               onClick={handleRefreshStream}
               disabled={webSocketState.isLoading}
-              size="sm"
               variant="secondary"
             >
               🔄 Refresh
@@ -233,7 +232,7 @@ const CamerasPage: React.FC = () => {
                     </Button>
                     <Button
                       variant="outline"
-                      className="text-red-600 hover:text-red-700"
+                      className="text-[var(--color-status-error-text)] hover:text-[var(--color-status-error-text)] border-[var(--color-status-error-border)] hover:border-[var(--color-status-error-border)]"
                       onClick={() => handleDelete(camera.id)}
                     >
                       Excluir

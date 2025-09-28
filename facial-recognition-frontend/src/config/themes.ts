@@ -363,8 +363,130 @@ export const darkTheme: Theme = {
   },
 };
 
+export const lightGreenTheme: Theme = {
+  id: 'light-green',
+  name: 'Light Green Theme',
+  colors: {
+    primary: {
+      50: '#F0FDF4',
+      100: '#DCFCE7',
+      200: '#BBF7D0',
+      300: '#86EFAC',
+      400: '#4ADE80',
+      500: '#22C55E',
+      600: '#16A34A',
+      700: '#15803D',
+      800: '#166534',
+      900: '#14532D',
+    },
+    secondary: {
+      50: '#F8FAFC',
+      100: '#F1F5F9',
+      200: '#E2E8F0',
+      300: '#CBD5E1',
+      400: '#94A3B8',
+      500: '#64748B',
+      600: '#475569',
+      700: '#334155',
+      800: '#1E293B',
+      900: '#0F172A',
+    },
+    background: {
+      primary: '#FFFFFF',
+      secondary: '#F8FAFC',
+      tertiary: '#F1F5F9',
+    },
+    text: {
+      primary: '#1F2937',
+      secondary: '#4B5563',
+      muted: '#6B7280',
+      inverse: '#FFFFFF',
+    },
+    border: {
+      light: '#E5E7EB',
+      medium: '#D1D5DB',
+      dark: '#9CA3AF',
+    },
+    status: {
+      success: {
+        bg: '#F0FDF4',
+        text: '#166534',
+        border: '#22C55E',
+      },
+      warning: {
+        bg: '#FFFBEB',
+        text: '#92400E',
+        border: '#F59E0B',
+      },
+      error: {
+        bg: '#FEF2F2',
+        text: '#DC2626',
+        border: '#EF4444',
+      },
+      info: {
+        bg: '#EFF6FF',
+        text: '#1D4ED8',
+        border: '#3B82F6',
+      },
+    },
+  },
+  typography: {
+    fontFamily: {
+      sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+      mono: ['ui-monospace', 'SFMono-Regular', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', 'monospace'],
+    },
+    fontSize: {
+      xs: '0.75rem',
+      sm: '0.875rem',
+      base: '1rem',
+      lg: '1.125rem',
+      xl: '1.25rem',
+      '2xl': '1.5rem',
+      '3xl': '1.875rem',
+      '4xl': '2.25rem',
+    },
+    fontWeight: {
+      normal: 400,
+      medium: 500,
+      semibold: 600,
+      bold: 700,
+    },
+    lineHeight: {
+      tight: 1.25,
+      normal: 1.5,
+      relaxed: 1.75,
+    },
+  },
+  spacing: {
+    borderRadius: {
+      none: '0',
+      sm: '0.125rem',
+      md: '0.375rem',
+      lg: '0.5rem',
+      xl: '0.75rem',
+      full: '9999px',
+    },
+    spacing: {
+      xs: '0.5rem',
+      sm: '0.75rem',
+      md: '1rem',
+      lg: '1.5rem',
+      xl: '2rem',
+      '2xl': '3rem',
+      '3xl': '4rem',
+    },
+    shadows: {
+      sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+      md: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+      lg: '0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)',
+      xl: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
+    },
+  },
+};
+
 export const predefinedThemes: Theme[] = [
   brandTheme,
   lightTheme,
   darkTheme,
+  lightGreenTheme,
 ];

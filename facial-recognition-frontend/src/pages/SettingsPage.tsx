@@ -5,6 +5,7 @@ import { apiClient } from '../services/api';
 import { Organization, User } from '../types/api';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
+import Select from '../components/ui/Select';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import ThemeConfiguration from '../components/ThemeConfiguration';
 
@@ -251,17 +252,15 @@ const SettingsPage: React.FC = () => {
               </div>
 
               <div>
-                <label htmlFor="status" className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
-                  Status
-                </label>
-                <select
+                <Select
                   id="status"
-                  className="mt-1 block w-full px-3 py-2 border border-[var(--color-border-medium)] rounded-[var(--border-radius-md)] shadow-[var(--shadow-sm)] bg-[var(--color-background-secondary)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:border-[var(--color-primary-500)] transition-all duration-200"
+                  label="Status"
+                  options={[
+                    { value: 'active', label: 'Ativo' },
+                    { value: 'inactive', label: 'Inativo' },
+                  ]}
                   {...registerOrg('status')}
-                >
-                  <option value="active">Ativo</option>
-                  <option value="inactive">Inativo</option>
-                </select>
+                />
               </div>
 
               <Button
@@ -359,7 +358,7 @@ const SettingsPage: React.FC = () => {
 
       {/* User Modal */}
       {showUserModal && (
-        <div className="fixed inset-0 bg-[var(--color-text-primary)] bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border border-[var(--color-border-light)] w-96 shadow-[var(--shadow-xl)] rounded-[var(--border-radius-lg)] bg-[var(--color-background-secondary)]">
             <div className="mt-3">
               <h3 className="text-lg font-medium text-[var(--color-text-primary)] mb-4">
@@ -409,18 +408,16 @@ const SettingsPage: React.FC = () => {
                 )}
 
                 <div>
-                  <label htmlFor="role" className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
-                    Perfil
-                  </label>
-                  <select
+                  <Select
                     id="role"
-                    className="mt-1 block w-full px-3 py-2 border border-[var(--color-border-medium)] rounded-[var(--border-radius-md)] shadow-[var(--shadow-sm)] bg-[var(--color-background-secondary)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-500)] focus:border-[var(--color-primary-500)] transition-all duration-200"
+                    label="Perfil"
+                    options={[
+                      { value: 'user', label: 'Usuário' },
+                      { value: 'operator', label: 'Operador' },
+                      { value: 'admin', label: 'Admin' },
+                    ]}
                     {...registerUser('role')}
-                  >
-                    <option value="user">Usuário</option>
-                    <option value="operator">Operador</option>
-                    <option value="admin">Admin</option>
-                  </select>
+                  />
                 </div>
 
                 <div className="flex justify-end space-x-3 pt-4">

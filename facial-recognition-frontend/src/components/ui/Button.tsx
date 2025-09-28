@@ -40,7 +40,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       `,
       danger: `
         bg-[var(--color-status-error-border)] text-[var(--color-text-inverse)]
-        hover:bg-red-700 active:bg-red-800 border border-[var(--color-status-error-border)]
+        hover:bg-[var(--color-status-error-text)] active:bg-[var(--color-status-error-text)] border border-[var(--color-status-error-border)]
         shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)]
       `
     };

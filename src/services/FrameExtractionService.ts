@@ -389,8 +389,15 @@ export class FrameExtractionService {
   /**
    * Get active frame extraction sessions
    */
-  public getActiveSessions(): FrameExtractionSession[] {
-    return Array.from(this.sessions.values()).filter(session => session.isActive);
+  public getActiveSessions(organizationId?: number): FrameExtractionSession[] {
+    const activeSessions = Array.from(this.sessions.values()).filter(session => session.isActive);
+
+    // Filter by organizationId if provided
+    if (organizationId !== undefined) {
+      return activeSessions.filter(session => session.organizationId === organizationId);
+    }
+
+    return activeSessions;
   }
 
   /**

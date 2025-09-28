@@ -117,7 +117,7 @@ const ReportsPage: React.FC = () => {
       {/* Report Type and Filters */}
       <Card>
         <CardContent className="p-6">
-          <h3 className="text-lg font-medium text-[var(--color-text-primary)] mb-6">
+          <h3 className="text-lg font-medium text-[var(--color-text-primary)] mt-3 mb-6">
             📊 Configurar Relatório
           </h3>
 
@@ -213,7 +213,7 @@ const ReportsPage: React.FC = () => {
       {selectedReportType === 'participant-frequency' && attendance.length > 0 && (
         <Card>
           <CardContent className="p-6">
-            <h3 className="text-lg font-medium text-[var(--color-text-primary)] mb-6">
+            <h3 className="text-lg font-medium text-[var(--color-text-primary)] mt-3 mb-6">
               📊 Frequência por Participante
             </h3>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -278,7 +278,7 @@ const ReportsPage: React.FC = () => {
 
             {/* Data Table */}
             <div className="mt-6 bg-[var(--color-background-secondary)] rounded-lg border border-[var(--color-border-light)] p-6">
-              <h4 className="text-lg font-medium text-gray-900 mb-4">
+              <h4 className="text-lg font-medium text-[var(--color-text-primary)] mb-6">
                 Detalhes por Participante
               </h4>
               <div className="overflow-y-auto max-h-96">

@@ -78,7 +78,7 @@ const DashboardLayout: React.FC = () => {
       ),
     },
     {
-      name: 'Settings',
+      name: 'Configurações',
       href: '/dashboard/settings',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -147,15 +147,7 @@ const DashboardLayout: React.FC = () => {
                 <div className="w-full flex lg:ml-0">
                   <div className="relative w-full text-[var(--color-text-muted)] focus-within:text-[var(--color-text-secondary)]">
                     <div className="absolute inset-y-0 left-0 flex items-center pointer-events-none">
-                      <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                      </svg>
                     </div>
-                    <input
-                      className="block w-full h-full pl-8 pr-3 py-2 border-transparent text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:placeholder-[var(--color-text-muted)] focus:ring-0 focus:border-transparent bg-transparent"
-                      placeholder="Buscar..."
-                      type="search"
-                    />
                   </div>
                 </div>
               </div>
@@ -164,7 +156,7 @@ const DashboardLayout: React.FC = () => {
                   <span className="text-sm font-medium text-[var(--color-text-primary)] mr-4">
                     {user?.name}
                   </span>
-                  <Button variant="outline" size="sm" onClick={handleLogout}>
+                  <Button variant="outline" onClick={handleLogout}>
                     Sair
                   </Button>
                 </div>
@@ -201,7 +193,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ navigation }) => {
             </svg>
           </div>
           <h1 className="ml-3 text-xl font-semibold text-[var(--color-text-primary)]">
-            FaceRec
+            PastorIA
           </h1>
         </div>
         <nav className="mt-5 flex-1 px-2 space-y-1">

@@ -43,7 +43,6 @@ export class FaceRecognitionService {
   private readonly processingTimeoutMs = 10000; // 10 second timeout for face detection
 
   // Event loop protection and memory management
-  private readonly maxConcurrentDetections = 500; // Allow high concurrency for multi-camera
   private readonly memoryThresholdMB = 2048; // Memory threshold for throttling
   private readonly cpuThrottleDelay = 0; // No artificial delay - let native module handle performance
   private activeDetections = 0;
@@ -300,11 +299,6 @@ export class FaceRecognitionService {
    * Check if system can handle another frame processing operation
    */
   private async canProcessFrame(): Promise<boolean> {
-    // Check active detection limit (allow high concurrency)
-    if (this.activeDetections >= this.maxConcurrentDetections) {
-      return false;
-    }
-
     // Check memory usage periodically
     const now = Date.now();
     if (now - this.lastMemoryCheck > 5000) { // Check every 5 seconds
@@ -839,7 +833,6 @@ export class FaceRecognitionService {
       settings: {
         faceThreshold: this.faceThreshold,
         recognitionThreshold: this.recognitionThreshold,
-        maxConcurrentDetections: this.maxConcurrentDetections,
         memoryThresholdMB: this.memoryThresholdMB,
       },
       systemHealth: {

@@ -116,6 +116,11 @@ class ApiClient {
     return response.data.data;
   }
 
+  async updateCurrentUser(data: Partial<User>): Promise<User> {
+    const response: AxiosResponse<{ success: boolean; data: User }> = await this.client.put('/auth/me', data);
+    return response.data.data;
+  }
+
   // Generic CRUD methods
   private async get<T>(endpoint: string, params?: QueryParams): Promise<T> {
     const response: AxiosResponse<T> = await this.client.get(endpoint, { params });

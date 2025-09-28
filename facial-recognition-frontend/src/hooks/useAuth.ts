@@ -42,10 +42,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         try {
           const userData = await apiClient.getCurrentUser();
           setUser(userData);
+
+          // Dispatch auth state change event
+          window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: userData }));
         } catch (error) {
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
+
+          // Dispatch auth state change event for logout
+          window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: null }));
         }
+      } else {
+        // Dispatch auth state change event for no user
+        window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: null }));
       }
       setIsLoading(false);
     };
@@ -59,6 +68,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       const response = await apiClient.login(credentials);
       setUser(response.user);
+
+      // Dispatch auth state change event
+      window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: response.user }));
     } catch (error: any) {
       setIsLoading(false);
 
@@ -84,6 +96,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       const response = await apiClient.register(data);
       setUser(response.user);
+
+      // Dispatch auth state change event
+      window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: response.user }));
     } catch (error) {
       setIsLoading(false);
       throw error;
@@ -94,12 +109,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const logout = () => {
     apiClient.logout();
     setUser(null);
+
+    // Dispatch auth state change event
+    window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: null }));
   };
 
   const refreshUser = async () => {
     try {
       const userData = await apiClient.getCurrentUser();
       setUser(userData);
+
+      // Dispatch auth state change event
+      window.dispatchEvent(new CustomEvent('auth-state-changed', { detail: userData }));
     } catch (error) {
       logout();
     }

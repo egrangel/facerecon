@@ -34,6 +34,7 @@ authRoutes.post('/refresh', authController.refreshToken);
 authRoutes.post('/logout', authenticateToken, authController.logout);
 authRoutes.post('/change-password', authenticateToken, authController.changePassword);
 authRoutes.get('/me', authenticateToken, authController.me);
+authRoutes.put('/me', authenticateToken, authController.updateMe);
 
 // Organization Routes
 export const organizationRoutes = Router();

@@ -212,4 +212,25 @@ export class AuthService {
       password: newPassword,
     });
   }
+
+  async updateUser(userId: number, updateData: Partial<User>): Promise<User> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw createError('Usuário não encontrado', 404);
+    }
+
+    // Prevent updating certain sensitive fields
+    const { id, organizationId, refreshToken, ...allowedUpdateData } = updateData;
+
+    // Update user
+    await this.userRepository.update(userId, allowedUpdateData);
+
+    // Return updated user
+    const updatedUser = await this.userRepository.findById(userId);
+    if (!updatedUser) {
+      throw createError('Erro ao atualizar usuário', 500);
+    }
+
+    return updatedUser;
+  }
 }

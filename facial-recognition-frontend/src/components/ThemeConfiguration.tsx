@@ -148,7 +148,7 @@ const ThemeConfiguration: React.FC = () => {
       {/* Custom Theme Creator */}
       <Card>
         <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 mt-4">
             <h3 className="text-lg font-medium text-[var(--color-text-primary)]">
               Tema Personalizado
             </h3>

@@ -44,109 +44,136 @@ const LoginPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
+      <div className="min-h-screen flex items-center justify-center bg-[var(--color-background-primary)]">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[var(--color-primary-500)]"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <div className="mx-auto h-12 w-12 bg-primary-600 rounded-lg flex items-center justify-center">
-            <svg className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
+    <div className="min-h-screen flex items-center justify-center bg-[var(--color-background-primary)] py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full">
+        <div className="bg-[var(--color-background-secondary)] rounded-[20px] shadow-lg p-8" style={{ boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="mx-auto h-16 w-16 bg-[var(--color-primary-500)] rounded-2xl flex items-center justify-center mb-6">
+              <svg className="h-10 w-10 text-[var(--color-text-inverse)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <h1 className="text-[28px] font-bold text-[var(--color-text-primary)] leading-tight" style={{ fontFamily: 'Inter, sans-serif' }}>
+              PastorIA
+            </h1>
+            <p className="mt-3 text-[16px] text-[var(--color-text-secondary)]" style={{ fontFamily: 'Inter, sans-serif' }}>
+              Acesse sua conta para continuar
+            </p>
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">
-            Reconhecimento Facial
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Faça login para acessar o sistema
-          </p>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Entrar na sua conta</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              <div>
-                <Input
-                  label="Email"
-                  type="email"
-                  autoComplete="email"
-                  error={errors.email?.message}
-                  onFocus={handleFieldFocus}
-                  {...register('email', {
-                    required: 'Email é obrigatório',
-                    pattern: {
-                      value: /^\S+@\S+$/i,
-                      message: 'Email inválido',
-                    },
-                  })}
-                />
+          {/* Form */}
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            {/* Email Field with Floating Label */}
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
+                <svg className="w-5 h-5 text-[var(--color-text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                </svg>
               </div>
+              <input
+                type="email"
+                autoComplete="email"
+                className={`w-full h-14 pl-12 pr-4 pt-6 pb-2 border-2 rounded-xl bg-[var(--color-background-primary)] text-[var(--color-text-primary)] placeholder-transparent focus:outline-none focus:border-[var(--color-primary-500)] transition-all ${errors.email ? 'border-[var(--color-status-error-border)]' : 'border-[var(--color-border)]'}`}
+                placeholder="Email"
+                onFocus={handleFieldFocus}
+                {...register('email', {
+                  required: 'Email é obrigatório',
+                  pattern: {
+                    value: /^\S+@\S+$/i,
+                    message: 'Email inválido',
+                  },
+                })}
+              />
+              <label className="absolute left-12 top-2 text-xs text-[var(--color-text-tertiary)] transition-all duration-200 pointer-events-none">
+                Email
+              </label>
+              {errors.email && (
+                <p className="mt-1 text-sm text-[var(--color-status-error-text)]">{errors.email.message}</p>
+              )}
+            </div>
 
-              <div>
-                <Input
-                  label="Senha"
-                  type="password"
-                  autoComplete="current-password"
-                  error={errors.password?.message}
-                  onFocus={handleFieldFocus}
-                  {...register('password', {
-                    required: 'Senha é obrigatória',
-                    minLength: {
-                      value: 6,
-                      message: 'Senha deve ter pelo menos 6 caracteres',
-                    },
-                  })}
-                />
+            {/* Password Field with Floating Label */}
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10">
+                <svg className="w-5 h-5 text-[var(--color-text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
               </div>
+              <input
+                type="password"
+                autoComplete="current-password"
+                className={`w-full h-14 pl-12 pr-4 pt-6 pb-2 border-2 rounded-xl bg-[var(--color-background-primary)] text-[var(--color-text-primary)] placeholder-transparent focus:outline-none focus:border-[var(--color-primary-500)] transition-all ${errors.password ? 'border-[var(--color-status-error-border)]' : 'border-[var(--color-border)]'}`}
+                placeholder="Senha"
+                onFocus={handleFieldFocus}
+                {...register('password', {
+                  required: 'Senha é obrigatória',
+                  minLength: {
+                    value: 6,
+                    message: 'Senha deve ter pelo menos 6 caracteres',
+                  },
+                })}
+              />
+              <label className="absolute left-12 top-2 text-xs text-[var(--color-text-tertiary)] transition-all duration-200 pointer-events-none">
+                Senha
+              </label>
+              {errors.password && (
+                <p className="mt-1 text-sm text-[var(--color-status-error-text)]">{errors.password.message}</p>
+              )}
+            </div>
 
-              {/* Error message display */}
-              <div className="min-h-[20px]">
-                {authError && (
-                  <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-2">
-                    ⚠️ {authError}
-                  </div>
-                )}
+            {/* Error message display */}
+            {authError && (
+              <div className="text-sm text-[var(--color-status-error-text)] bg-[var(--color-status-error-bg)] border border-[var(--color-status-error-border)] rounded-xl p-3">
+                {authError}
               </div>
+            )}
 
-              <Button
-                type="submit"
-                size="lg"
-                className="w-full"
-                isLoading={isSubmitting}
-              >
-                Entrar
-              </Button>
-            </form>
-
-            <div className="mt-6">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300" />
+            {/* Login Button */}
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full h-14 bg-[var(--color-primary-500)] hover:bg-[var(--color-primary-600)] active:bg-[var(--color-primary-700)] text-[var(--color-text-inverse)] font-semibold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? (
+                <div className="flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  Entrando...
                 </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">Não tem uma conta?</span>
-                </div>
-              </div>
+              ) : (
+                'Entrar'
+              )}
+            </button>
+          </form>
 
-              <div className="mt-6">
-                <Link
-                  to="/register"
-                  className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
-                >
-                  Criar uma conta
-                </Link>
+          {/* Divider */}
+          <div className="mt-8">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-[var(--color-border)]" />
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-4 bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)]">Não tem uma conta?</span>
               </div>
             </div>
-          </CardContent>
-        </Card>
+
+            {/* Secondary Action - Create Account */}
+            <div className="mt-6">
+              <Link
+                to="/register"
+                className="w-full h-14 flex items-center justify-center border-2 border-[var(--color-primary-500)] rounded-xl text-[var(--color-primary-500)] font-semibold hover:bg-[var(--color-primary-500)] hover:text-[var(--color-text-inverse)] transition-all duration-200"
+              >
+                Criar uma conta
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

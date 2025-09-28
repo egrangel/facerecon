@@ -320,7 +320,8 @@ const EventosPage: React.FC = () => {
                         Editar
                       </Button>
                       <Button
-                        variant="danger"
+                        variant="outline"
+                        className="text-[var(--color-status-error-text)] hover:text-[var(--color-status-error-text)] border-[var(--color-status-error-border)] hover:border-[var(--color-status-error-border)]"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteEvent(event);

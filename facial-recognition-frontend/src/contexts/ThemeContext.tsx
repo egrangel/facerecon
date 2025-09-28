@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Theme, ThemeContextType } from '../types/theme';
 import { predefinedThemes } from '../config/themes';
+import { apiClient } from '../services/api';
+import { User } from '../types/api';
 
 const THEME_STORAGE_KEY = 'facerecon-theme';
 
@@ -14,30 +16,103 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const [theme, setCurrentTheme] = useState<Theme>(predefinedThemes[0]);
   const [themes, setThemes] = useState<Theme[]>(predefinedThemes);
   const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
 
-  // Load theme from localStorage on mount
-  useEffect(() => {
-    const loadTheme = async () => {
-      try {
-        const savedThemeId = localStorage.getItem(THEME_STORAGE_KEY);
-        if (savedThemeId) {
-          const savedTheme = predefinedThemes.find(t => t.id === savedThemeId);
-          if (savedTheme) {
-            setCurrentTheme(savedTheme);
-            applyThemeToDOM(savedTheme);
-          }
+  // Load theme on component mount and when user changes
+  const loadTheme = async (currentUser?: User | null) => {
+    try {
+      let themeId: string | null = null;
+
+      // Priority 1: Get theme from user preferences if logged in
+      if (currentUser?.preferences) {
+        try {
+          const preferences = JSON.parse(currentUser.preferences);
+          themeId = preferences.themeId;
+        } catch (error) {
+          console.warn('Error parsing user preferences:', error);
+        }
+      }
+
+      // Priority 2: Fallback to localStorage for guest users or if no user preference
+      if (!themeId) {
+        themeId = localStorage.getItem(THEME_STORAGE_KEY);
+      }
+
+      // Find and apply theme
+      if (themeId) {
+        const savedTheme = predefinedThemes.find(t => t.id === themeId);
+        if (savedTheme) {
+          setCurrentTheme(savedTheme);
+          applyThemeToDOM(savedTheme);
         } else {
-          // Apply default theme
+          // Theme not found, apply default
+          setCurrentTheme(predefinedThemes[0]);
           applyThemeToDOM(predefinedThemes[0]);
         }
-      } catch (error) {
-        console.error('Error loading theme:', error);
-      } finally {
-        setIsLoading(false);
+      } else {
+        // Apply default theme
+        setCurrentTheme(predefinedThemes[0]);
+        applyThemeToDOM(predefinedThemes[0]);
       }
+    } catch (error) {
+      console.error('Error loading theme:', error);
+      // Apply default theme on error
+      setCurrentTheme(predefinedThemes[0]);
+      applyThemeToDOM(predefinedThemes[0]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Listen for auth state changes
+  useEffect(() => {
+    const handleAuthChange = (event: CustomEvent) => {
+      const userData = event.detail;
+
+      // If user is null (logout), clear localStorage theme cache
+      if (!userData) {
+        localStorage.removeItem(THEME_STORAGE_KEY);
+      }
+
+      setUser(userData);
+      // Use setTimeout to ensure this runs after the current execution stack
+      setTimeout(() => loadTheme(userData), 0);
     };
 
-    loadTheme();
+    const handleUserUpdate = (event: CustomEvent) => {
+      const userData = event.detail;
+      setUser(userData);
+      // Use setTimeout to ensure this runs after the current execution stack
+      setTimeout(() => loadTheme(userData), 0);
+    };
+
+    // Listen for custom auth events
+    window.addEventListener('auth-state-changed', handleAuthChange as EventListener);
+    window.addEventListener('user-updated', handleUserUpdate as EventListener);
+
+    // Initial load - delay to allow auth provider to initialize
+    setTimeout(() => {
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        apiClient.getCurrentUser()
+          .then(userData => {
+            setUser(userData);
+            loadTheme(userData);
+          })
+          .catch(() => {
+            setUser(null);
+            loadTheme(null);
+          });
+      } else {
+        setUser(null);
+        loadTheme(null);
+      }
+    }, 100); // Small delay to let auth provider initialize
+
+    return () => {
+      window.removeEventListener('auth-state-changed', handleAuthChange as EventListener);
+      window.removeEventListener('user-updated', handleUserUpdate as EventListener);
+    };
   }, []);
 
   // Apply theme variables to CSS custom properties
@@ -106,12 +181,46 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     });
   };
 
-  const setTheme = (themeId: string) => {
+  const setTheme = async (themeId: string) => {
     const newTheme = themes.find(t => t.id === themeId);
     if (newTheme) {
       setCurrentTheme(newTheme);
       applyThemeToDOM(newTheme);
-      localStorage.setItem(THEME_STORAGE_KEY, themeId);
+
+      // Save theme preference
+      if (user) {
+        try {
+          // Update user preferences on server
+          let preferences = {};
+          if (user.preferences) {
+            try {
+              preferences = JSON.parse(user.preferences);
+            } catch (error) {
+              console.warn('Error parsing existing preferences:', error);
+            }
+          }
+
+          preferences = { ...preferences, themeId };
+          const updatedPreferences = JSON.stringify(preferences);
+
+          const updatedUser = await apiClient.updateCurrentUser({
+            preferences: updatedPreferences
+          });
+
+          // Update local user state
+          setUser(updatedUser);
+
+          // Dispatch custom event to notify other components
+          window.dispatchEvent(new CustomEvent('user-updated', { detail: updatedUser }));
+        } catch (error) {
+          console.error('Error saving theme preference to user:', error);
+          // Fallback to localStorage if server update fails
+          localStorage.setItem(THEME_STORAGE_KEY, themeId);
+        }
+      } else {
+        // Save to localStorage for guest users
+        localStorage.setItem(THEME_STORAGE_KEY, themeId);
+      }
     }
   };
 

@@ -80,23 +80,23 @@ const DashboardHome: React.FC = () => {
           <Card key={item.name}>
             <CardContent className="p-6">
               <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="p-3 bg-primary-100 rounded-lg text-primary-600">
+                <div className="flex-shrink-0 mt-4">
+                  <div className="p-3 bg-[var(--color-background-tertiary)] rounded-lg text-[var(--color-primary-500)]">
                     {item.icon}
                   </div>
                 </div>
-                <div className="ml-5 w-0 flex-1">
+                <div className="ml-5 w-0 flex-1 mt-4">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">
+                    <dt className="text-sm font-medium text-[var(--color-text-secondary)] truncate">
                       {item.name}
                     </dt>
                     <dd className="flex items-baseline">
-                      <div className="text-2xl font-semibold text-gray-900">
+                      <div className="text-2xl font-semibold text-[var(--color-text-primary)]">
                         {item.value}
                       </div>
                       <div className={`ml-2 flex items-baseline text-sm font-semibold ${
                         item.changeType === 'increase' ? 'text-green-600' :
-                        item.changeType === 'decrease' ? 'text-red-600' : 'text-gray-500'
+                        item.changeType === 'decrease' ? 'text-red-600' : 'text-[var(--color-text-secondary)]'
                       }`}>
                         {item.changeType === 'increase' && (
                           <svg className="self-center flex-shrink-0 h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
@@ -109,7 +109,7 @@ const DashboardHome: React.FC = () => {
                           </svg>
                         )}
                         {item.changeType === 'neutral' && (
-                          <svg className="self-center flex-shrink-0 h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                          <svg className="self-center flex-shrink-0 h-5 w-5 text-[var(--color-text-tertiary)]" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
                           </svg>
                         )}
@@ -139,22 +139,22 @@ const DashboardHome: React.FC = () => {
               <ul className="-mb-8">
                 {isLoadingStats ? (
                   <li className="text-center py-4">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600 mx-auto"></div>
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[var(--color-primary-500)] mx-auto"></div>
                   </li>
                 ) : (
                   (dashboardStats?.recentActivity || []).map((item, itemIdx) => (
                     <li key={item.id}>
                       <div className="relative pb-8">
                         {itemIdx !== (dashboardStats?.recentActivity.length || 1) - 1 && (
-                          <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
+                          <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-[var(--color-border)]" aria-hidden="true" />
                         )}
                         <div className="relative flex space-x-3">
                           <div>
-                            <span className={`h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-white ${
+                            <span className={`h-8 w-8 rounded-full flex items-center justify-center ring-8 ring-[var(--color-background-primary)] ${
                               item.type === 'person' ? 'bg-blue-500' :
                               item.type === 'detection' ? 'bg-green-500' :
                               item.type === 'event' ? 'bg-yellow-500' :
-                              'bg-primary-500'
+                              'bg-[var(--color-primary-500)]'
                             }`}>
                               {item.type === 'person' && (
                                 <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -180,9 +180,9 @@ const DashboardHome: React.FC = () => {
                           </div>
                           <div className="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
                             <div>
-                              <p className="text-sm text-gray-500">{item.content}</p>
+                              <p className="text-sm text-[var(--color-text-secondary)]">{item.content}</p>
                             </div>
-                            <div className="text-right text-sm whitespace-nowrap text-gray-500">
+                            <div className="text-right text-sm whitespace-nowrap text-[var(--color-text-secondary)]">
                               <time>{item.time}</time>
                             </div>
                           </div>
@@ -204,7 +204,7 @@ const DashboardHome: React.FC = () => {
             <div className="space-y-4">
               {isLoadingStatus ? (
                 <div className="text-center py-4">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600 mx-auto"></div>
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[var(--color-primary-500)] mx-auto"></div>
                 </div>
               ) : (
                 <>
@@ -214,7 +214,7 @@ const DashboardHome: React.FC = () => {
                         systemStatus?.api.status === 'online' ? 'bg-green-400' :
                         systemStatus?.api.status === 'offline' ? 'bg-red-400' : 'bg-yellow-400'
                       }`}></div>
-                      <span className="text-sm font-medium text-gray-900">API Backend</span>
+                      <span className="text-sm font-medium text-[var(--color-text-primary)]">API Backend</span>
                     </div>
                     <span className={`text-sm ${
                       systemStatus?.api.status === 'online' ? 'text-green-600' :
@@ -228,7 +228,7 @@ const DashboardHome: React.FC = () => {
                         systemStatus?.database.status === 'connected' ? 'bg-green-400' :
                         systemStatus?.database.status === 'disconnected' ? 'bg-red-400' : 'bg-yellow-400'
                       }`}></div>
-                      <span className="text-sm font-medium text-gray-900">Banco de Dados</span>
+                      <span className="text-sm font-medium text-[var(--color-text-primary)]">Banco de Dados</span>
                     </div>
                     <span className={`text-sm ${
                       systemStatus?.database.status === 'connected' ? 'text-green-600' :
@@ -242,7 +242,7 @@ const DashboardHome: React.FC = () => {
                         systemStatus?.ai.status === 'online' ? 'bg-green-400' :
                         systemStatus?.ai.status === 'offline' ? 'bg-red-400' : 'bg-yellow-400'
                       }`}></div>
-                      <span className="text-sm font-medium text-gray-900">Serviço de IA</span>
+                      <span className="text-sm font-medium text-[var(--color-text-primary)]">Serviço de IA</span>
                     </div>
                     <span className={`text-sm ${
                       systemStatus?.ai.status === 'online' ? 'text-green-600' :
@@ -256,7 +256,7 @@ const DashboardHome: React.FC = () => {
                         systemStatus?.storage.status === 'available' ? 'bg-green-400' :
                         systemStatus?.storage.status === 'full' ? 'bg-red-400' : 'bg-yellow-400'
                       }`}></div>
-                      <span className="text-sm font-medium text-gray-900">Storage</span>
+                      <span className="text-sm font-medium text-[var(--color-text-primary)]">Storage</span>
                     </div>
                     <span className={`text-sm ${
                       systemStatus?.storage.status === 'available' ? 'text-green-600' :

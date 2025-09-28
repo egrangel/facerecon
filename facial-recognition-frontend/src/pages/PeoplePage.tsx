@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
+import Select from '../components/ui/Select';
 import { apiClient } from '../services/api';
 import { Person, Detection } from '../types/api';
 
@@ -186,15 +187,16 @@ const PessoasPage: React.FC = () => {
                 />
               </div>
               <div className="min-w-[140px]">
-                <select
+                <Select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm"
-                >
-                  <option value="all">Todos os Status</option>
-                  <option value="active">Ativo</option>
-                  <option value="inactive">Inativo</option>
-                </select>
+                  options={[
+                    { value: 'all', label: 'Todos os Status' },
+                    { value: 'active', label: 'Ativo' },
+                    { value: 'inactive', label: 'Inativo' },
+                  ]}
+                  size="sm"
+                />
               </div>
             </div>
             <div className="text-sm text-[var(--color-text-secondary)]">
@@ -308,7 +310,7 @@ const PessoasPage: React.FC = () => {
                         <Button
                           variant="outline"
                           onClick={() => handleDelete(person.id)}
-                          className="text-red-600 hover:text-red-700"
+                          className="text-[var(--color-status-error-text)] hover:text-[var(--color-status-error-text)] border-[var(--color-status-error-border)] hover:border-[var(--color-status-error-border)]"
                         >
                           Excluir
                         </Button>
@@ -335,17 +337,19 @@ const PessoasPage: React.FC = () => {
 
               <div className="flex items-center space-x-2">
                 <div className="flex items-center space-x-1">
-                  <span className="text-sm text-gray-700">Itens por página:</span>
-                  <select
-                    value={pageSize}
+                  <span className="text-sm text-[var(--color-text-secondary)]">Itens por página:</span>
+                  <Select
+                    value={pageSize.toString()}
                     onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-                    className="px-2 py-1 border border-gray-300 rounded text-sm"
-                  >
-                    <option value={5}>5</option>
-                    <option value={10}>10</option>
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                  </select>
+                    options={[
+                      { value: '5', label: '5' },
+                      { value: '10', label: '10' },
+                      { value: '25', label: '25' },
+                      { value: '50', label: '50' },
+                    ]}
+                    size="sm"
+                    className="w-20"
+                  />
                 </div>
 
                 <div className="flex items-center space-x-1">

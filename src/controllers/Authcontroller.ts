@@ -276,4 +276,61 @@ export class AuthController {
       data: req.user,
     });
   });
+
+  /**
+   * @swagger
+   * /api/v1/auth/me:
+   *   put:
+   *     summary: Atualizar dados do usuário autenticado
+   *     tags: [Authentication]
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               name:
+   *                 type: string
+   *               email:
+   *                 type: string
+   *                 format: email
+   *               preferences:
+   *                 type: string
+   *                 description: JSON string containing user preferences
+   *     responses:
+   *       200:
+   *         description: Dados do usuário atualizados com sucesso
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 success:
+   *                   type: boolean
+   *                 data:
+   *                   $ref: '#/components/schemas/User'
+   *       400:
+   *         description: Dados inválidos
+   */
+  updateMe = asyncHandler(async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        message: 'Usuário não autenticado',
+      });
+      return;
+    }
+
+    const updateData = req.body;
+
+    const updatedUser = await this.authService.updateUser(req.user.id, updateData);
+
+    res.status(200).json({
+      success: true,
+      data: updatedUser,
+    });
+  });
 }

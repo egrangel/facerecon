@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { WebSocketStreamPlayer } from './WebSocketStreamPlayer';
 import { useCameraStream } from '../contexts/WebSocketStreamContext';
+import Button from './ui/Button';
 
 interface StreamPlayerProps {
   cameraId: number;
@@ -91,10 +92,10 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
                 <p className="text-sm">Connecting to stream...</p>
               </div>
             ) : (
-              <button
+              <Button
                 onClick={startStream}
                 disabled={webSocketState.isLoading}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                variant="primary"
               >
                 {webSocketState.isLoading ? (
                   <div className="flex items-center">
@@ -104,7 +105,7 @@ export const StreamPlayer: React.FC<StreamPlayerProps> = ({
                 ) : (
                   'Play'
                 )}
-              </button>
+              </Button>
             )}
           </div>
         </div>
