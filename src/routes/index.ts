@@ -5,6 +5,7 @@ import { AuthController } from '../controllers/AuthController';
 import {
   OrganizationController,
   PersonController,
+  PersonImageController,
   EventController,
   CameraController,
   DetectionController,
@@ -20,6 +21,7 @@ import { faceIndexService } from '../services/FaceIndexService';
 const authController = new AuthController();
 const organizationController = new OrganizationController();
 const personController = new PersonController();
+const personImageController = new PersonImageController();
 const eventController = new EventController();
 const cameraController = new CameraController();
 const detectionController = new DetectionController();
@@ -83,6 +85,34 @@ personRoutes.get('/:id/addresses', authorize(['admin', 'operator', 'viewer']), p
 personRoutes.post('/:id/addresses', authorize(['admin', 'operator']), personController.addAddress);
 personRoutes.put('/:id/addresses/:addressId', authorize(['admin', 'operator']), personController.updateAddress);
 personRoutes.delete('/:id/addresses/:addressId', authorize(['admin', 'operator']), personController.deleteAddress);
+
+// PersonImage Routes
+export const personImageRoutes = Router();
+
+// All person image routes require authentication and organization access
+personImageRoutes.use(authenticateToken);
+personImageRoutes.use(organizationAccess);
+
+// Organization-filtered routes
+personImageRoutes.get('/', personImageController.findAll);
+personImageRoutes.get('/count', personImageController.count);
+personImageRoutes.get('/pending', personImageController.findPendingForProcessing);
+personImageRoutes.get('/status/:status', personImageController.findByProcessingStatus);
+personImageRoutes.get('/person/:personId', personImageController.findByPersonId);
+personImageRoutes.get('/:id', personImageController.findById);
+personImageRoutes.post('/', authorize(['admin', 'operator']), personImageController.create);
+personImageRoutes.put('/:id', authorize(['admin', 'operator']), personImageController.update);
+personImageRoutes.delete('/:id', authorize(['admin']), personImageController.delete);
+
+// Processing control routes
+personImageRoutes.post('/:id/trigger-processing', authorize(['admin', 'operator']), personImageController.triggerProcessing);
+personImageRoutes.post('/:id/reset-processing', authorize(['admin', 'operator']), personImageController.resetProcessing);
+personImageRoutes.put('/:id/processing-status', authorize(['admin', 'operator']), personImageController.updateProcessingStatus);
+
+// Batch processing routes
+personImageRoutes.post('/process-pending', authorize(['admin', 'operator']), personImageController.processPendingImages);
+personImageRoutes.post('/reprocess-failed', authorize(['admin', 'operator']), personImageController.reprocessFailedImages);
+personImageRoutes.get('/processing-stats', authorize(['admin', 'operator']), personImageController.getProcessingStats);
 
 // Event Routes
 export const eventRoutes = Router();
@@ -183,6 +213,7 @@ export const apiRoutes = Router();
 apiRoutes.use('/auth', authRoutes);
 apiRoutes.use('/organizations', organizationRoutes);
 apiRoutes.use('/people', personRoutes);
+apiRoutes.use('/person-images', personImageRoutes);
 apiRoutes.use('/events', eventRoutes);
 apiRoutes.use('/cameras', cameraRoutes);
 apiRoutes.use('/detections', detectionRoutes);

@@ -13,7 +13,8 @@ export {
   PersonType,
   PersonFace,
   PersonContact,
-  PersonAddress
+  PersonAddress,
+  PersonImage
 } from './PersonEntities';
 
 // Event Entities

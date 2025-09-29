@@ -9,6 +9,7 @@ import {
   PersonFaceRepository,
   PersonContactRepository,
   PersonAddressRepository,
+  PersonImageRepository,
   EventRepository,
   CameraRepository,
   DetectionRepository,
@@ -22,6 +23,7 @@ import {
   PersonFace,
   PersonContact,
   PersonAddress,
+  PersonImage,
   User,
   Event,
   Camera,
@@ -587,8 +589,168 @@ export class EventCameraService extends BaseService<EventCamera> {
   }
 }
 
+export class PersonImageService extends BaseService<PersonImage> {
+  private personImageRepository: PersonImageRepository;
+  private personRepository: PersonRepository;
+
+  constructor() {
+    const repository = new PersonImageRepository();
+    super(repository);
+    this.personImageRepository = repository;
+    this.personRepository = new PersonRepository();
+  }
+
+  async findByPersonId(personId: number): Promise<PersonImage[]> {
+    return this.personImageRepository.findByPersonId(personId);
+  }
+
+  async findPendingForProcessing(): Promise<PersonImage[]> {
+    return this.personImageRepository.findPendingForProcessing();
+  }
+
+  async findByProcessingStatus(status: 'pending' | 'processing' | 'completed' | 'failed'): Promise<PersonImage[]> {
+    return this.personImageRepository.findByProcessingStatus(status);
+  }
+
+  async updateProcessingStatus(
+    id: number,
+    status: 'pending' | 'processing' | 'completed' | 'failed',
+    error?: string
+  ): Promise<boolean> {
+    return this.personImageRepository.updateProcessingStatus(id, status, error);
+  }
+
+  async create(data: DeepPartial<PersonImage>): Promise<PersonImage> {
+    this.validateRequiredField(data.personId, 'personId');
+    this.validateRequiredField(data.filename, 'filename');
+    this.validateRequiredField(data.filePath, 'filePath');
+    this.validateRequiredField(data.mimeType, 'mimeType');
+    this.validateRequiredField(data.fileSize, 'fileSize');
+
+    // Verify person exists
+    const person = await this.personRepository.findOne({
+      where: { id: data.personId },
+    });
+
+    if (!person) {
+      throw createError('Person not found', 404);
+    }
+
+    // Set default values
+    const personImageData = {
+      ...data,
+      processingStatus: data.processingStatus || 'pending',
+      shouldProcess: data.shouldProcess !== false, // Default to true
+      status: data.status || 'active',
+    } as DeepPartial<PersonImage>;
+
+    const personImage = await this.repository.create(personImageData);
+
+    // If shouldProcess is true, queue for processing
+    if (personImage.shouldProcess && personImage.processingStatus === 'pending') {
+      // Trigger face detection processing asynchronously
+      console.log(`PersonImage ${personImage.id} queued for processing`);
+
+      // Import and trigger processing asynchronously (don't await to avoid blocking)
+      setImmediate(async () => {
+        try {
+          const { personImageProcessingService } = await import('./PersonImageProcessingService');
+          await personImageProcessingService.processPersonImage(personImage.id);
+        } catch (error) {
+          console.error(`❌ Error processing PersonImage ${personImage.id}:`, error);
+        }
+      });
+    }
+
+    return personImage;
+  }
+
+  async update(id: number, data: DeepPartial<PersonImage>): Promise<PersonImage> {
+    const existingPersonImage = await this.findById(id);
+
+    // If personId is being changed, verify the new person exists
+    if (data.personId && data.personId !== existingPersonImage.personId) {
+      const person = await this.personRepository.findOne({
+        where: { id: data.personId },
+      });
+
+      if (!person) {
+        throw createError('Person not found', 404);
+      }
+    }
+
+    const updatedPersonImage = await this.repository.getRepository().save({
+      ...existingPersonImage,
+      ...data,
+    });
+
+    // If shouldProcess changed to true and status is pending, queue for processing
+    if (data.shouldProcess === true && updatedPersonImage.processingStatus === 'pending') {
+      console.log(`PersonImage ${updatedPersonImage.id} queued for processing`);
+
+      // Trigger face detection processing asynchronously
+      setImmediate(async () => {
+        try {
+          const { personImageProcessingService } = await import('./PersonImageProcessingService');
+          await personImageProcessingService.processPersonImage(updatedPersonImage.id);
+        } catch (error) {
+          console.error(`❌ Error processing PersonImage ${updatedPersonImage.id}:`, error);
+        }
+      });
+    }
+
+    return updatedPersonImage;
+  }
+
+  async searchWithPagination(searchTerm: string, options: any) {
+    return this.personImageRepository.searchWithPagination(searchTerm, options);
+  }
+
+  async triggerProcessing(id: number): Promise<PersonImage> {
+    const personImage = await this.findById(id);
+
+    if (personImage.processingStatus === 'processing') {
+      throw createError('PersonImage is already being processed', 400);
+    }
+
+    if (personImage.processingStatus === 'completed') {
+      throw createError('PersonImage has already been processed', 400);
+    }
+
+    console.log(`Triggering face detection processing for PersonImage ${id}`);
+
+    // Trigger face detection processing asynchronously
+    setImmediate(async () => {
+      try {
+        const { personImageProcessingService } = await import('./PersonImageProcessingService');
+        await personImageProcessingService.processPersonImage(id);
+      } catch (error) {
+        console.error(`❌ Error processing PersonImage ${id}:`, error);
+      }
+    });
+
+    const updatedPersonImage = await this.findById(id);
+    return updatedPersonImage;
+  }
+
+  async resetProcessing(id: number): Promise<PersonImage> {
+    const personImage = await this.findById(id);
+
+    if (personImage.processingStatus === 'processing') {
+      throw createError('Cannot reset PersonImage that is currently being processed', 400);
+    }
+
+    // Reset to pending status
+    await this.updateProcessingStatus(id, 'pending');
+
+    const updatedPersonImage = await this.findById(id);
+    return updatedPersonImage;
+  }
+}
+
 // Export face recognition services
 export { faceRecognitionService, FaceRecognitionService } from './FaceRecognitionService';
 export { frameExtractionService, FrameExtractionService } from './FrameExtractionService';
 export { eventSchedulerService, EventSchedulerService } from './EventSchedulerService';
+export { personImageProcessingService, PersonImageProcessingService } from './PersonImageProcessingService';
 

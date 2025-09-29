@@ -5,11 +5,13 @@ import { OrganizationRequest } from '@/middlewares/organizationAccess';
 import {
   OrganizationService,
   PersonService,
+  PersonImageService,
   EventService,
   CameraService,
   DetectionService,
   UserService,
   EventCameraService,
+  PersonImageProcessingService,
 } from '@/services';
 import { eventSchedulerService } from '@/services/EventSchedulerService';
 
@@ -1135,6 +1137,315 @@ export class UserController extends BaseController<any> {
     res.status(200).json({
       success: true,
       message: 'Users found successfully',
+      data,
+    });
+  });
+}
+
+export class PersonImageController extends BaseController<any> {
+  private personImageService: PersonImageService;
+  private processingService: PersonImageProcessingService;
+
+  constructor() {
+    const service = new PersonImageService();
+    super(service);
+    this.personImageService = service;
+    this.processingService = new PersonImageProcessingService();
+  }
+
+  // Override findAll to handle search functionality and organization filtering
+  findAll = asyncHandler(async (req: OrganizationRequest, res: Response): Promise<void> => {
+    const { page, limit, sortBy, sortOrder, search, ...filters } = req.query;
+
+    // Add organization filter to all queries
+    const organizationFilters = {
+      ...filters,
+      organizationId: req.organizationId,
+    };
+
+    let result;
+
+    if (page && limit) {
+      const paginationOptions = {
+        page: parseInt(page as string) || 1,
+        limit: parseInt(limit as string) || 10,
+        sortBy: sortBy as string || 'createdAt',
+        sortOrder: (sortOrder as 'ASC' | 'DESC') || 'DESC',
+        where: organizationFilters,
+      };
+
+      if (search || filters.status || filters.processingStatus) {
+        const searchTerm = search ? search as string : '';
+        result = await this.personImageService.searchWithPagination(searchTerm, paginationOptions);
+      } else {
+        result = await this.service.findWithPagination(paginationOptions);
+      }
+    } else {
+      const data = await this.service.findAllByOrganization(req.organizationId);
+      result = { data };
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Imagens de pessoas encontradas com sucesso',
+      ...result,
+    });
+  });
+
+  // Override create to automatically set organizationId via personId validation
+  create = asyncHandler(async (req: OrganizationRequest, res: Response): Promise<void> => {
+    const { personId, ...personImageData } = req.body;
+
+    if (!personId) {
+      res.status(400).json({
+        success: false,
+        message: 'Person ID is required',
+      });
+      return;
+    }
+
+    // The service will validate that the person exists and belongs to the organization
+    const data = await this.personImageService.create({
+      ...personImageData,
+      personId,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Imagem de pessoa criada com sucesso',
+      data,
+    });
+  });
+
+  /**
+   * Find all images for a specific person
+   */
+  findByPersonId = asyncHandler(async (req: OrganizationRequest, res: Response): Promise<void> => {
+    const { personId } = req.params;
+
+    const data = await this.personImageService.findByPersonId(parseInt(personId));
+
+    res.status(200).json({
+      success: true,
+      message: 'Imagens da pessoa encontradas com sucesso',
+      data,
+    });
+  });
+
+  /**
+   * Find images by processing status
+   */
+  findByProcessingStatus = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { status } = req.params;
+
+    if (!['pending', 'processing', 'completed', 'failed'].includes(status)) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid processing status. Must be: pending, processing, completed, or failed',
+      });
+      return;
+    }
+
+    const data = await this.personImageService.findByProcessingStatus(
+      status as 'pending' | 'processing' | 'completed' | 'failed'
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Imagens encontradas com sucesso',
+      data,
+    });
+  });
+
+  /**
+   * Find images pending for processing
+   */
+  findPendingForProcessing = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const data = await this.personImageService.findPendingForProcessing();
+
+    res.status(200).json({
+      success: true,
+      message: 'Imagens pendentes para processamento encontradas com sucesso',
+      data,
+    });
+  });
+
+  /**
+   * Update processing status of an image
+   */
+  updateProcessingStatus = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const { status, error } = req.body;
+
+    if (!['pending', 'processing', 'completed', 'failed'].includes(status)) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid processing status. Must be: pending, processing, completed, or failed',
+      });
+      return;
+    }
+
+    const success = await this.personImageService.updateProcessingStatus(
+      parseInt(id),
+      status,
+      error
+    );
+
+    if (!success) {
+      res.status(404).json({
+        success: false,
+        message: 'Imagem não encontrada',
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Status de processamento atualizado com sucesso',
+    });
+  });
+
+  /**
+   * Trigger face detection processing for a specific image
+   */
+  triggerProcessing = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+
+    try {
+      const data = await this.personImageService.triggerProcessing(parseInt(id));
+
+      res.status(200).json({
+        success: true,
+        message: 'Processamento de detecção facial iniciado',
+        data,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Erro ao iniciar processamento',
+      });
+    }
+  });
+
+  /**
+   * Reset processing status to pending
+   */
+  resetProcessing = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+
+    try {
+      const data = await this.personImageService.resetProcessing(parseInt(id));
+
+      res.status(200).json({
+        success: true,
+        message: 'Status de processamento resetado para pendente',
+        data,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Erro ao resetar processamento',
+      });
+    }
+  });
+
+  /**
+   * Process all pending images
+   */
+  processPendingImages = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    try {
+      const results = await this.processingService.processPendingImages();
+
+      const successCount = results.filter(r => r.success).length;
+      const totalFaces = results.reduce((sum, r) => sum + r.facesDetected, 0);
+
+      res.status(200).json({
+        success: true,
+        message: `Processamento em lote concluído: ${successCount}/${results.length} imagens processadas`,
+        data: {
+          totalProcessed: results.length,
+          successCount,
+          failedCount: results.length - successCount,
+          totalFacesDetected: totalFaces,
+          results: results.map(r => ({
+            personImageId: r.personImageId,
+            success: r.success,
+            facesDetected: r.facesDetected,
+            processingTimeMs: r.processingTimeMs,
+            error: r.error,
+          })),
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Erro no processamento em lote',
+      });
+    }
+  });
+
+  /**
+   * Get processing statistics
+   */
+  getProcessingStats = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const stats = await this.processingService.getProcessingStats();
+
+    res.status(200).json({
+      success: true,
+      message: 'Estatísticas de processamento obtidas com sucesso',
+      data: stats,
+    });
+  });
+
+  /**
+   * Reprocess failed images
+   */
+  reprocessFailedImages = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    try {
+      const results = await this.processingService.reprocessFailedImages();
+
+      const successCount = results.filter(r => r.success).length;
+
+      res.status(200).json({
+        success: true,
+        message: `Reprocessamento concluído: ${successCount}/${results.length} imagens processadas`,
+        data: {
+          totalReprocessed: results.length,
+          successCount,
+          failedCount: results.length - successCount,
+          results: results.map(r => ({
+            personImageId: r.personImageId,
+            success: r.success,
+            facesDetected: r.facesDetected,
+            processingTimeMs: r.processingTimeMs,
+            error: r.error,
+          })),
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Erro no reprocessamento',
+      });
+    }
+  });
+
+  // Override update to handle file path changes and processing triggers
+  update = asyncHandler(async (req: OrganizationRequest, res: Response): Promise<void> => {
+    const { id } = req.params;
+
+    // Filter out fields that shouldn't be directly updated
+    const {
+      processingStatus, // Should use updateProcessingStatus endpoint
+      processedAt,      // Managed automatically
+      ...filteredBody
+    } = req.body;
+
+    const data = await this.personImageService.update(parseInt(id), filteredBody);
+
+    res.status(200).json({
+      success: true,
+      message: 'Imagem de pessoa atualizada com sucesso',
       data,
     });
   });

@@ -121,6 +121,12 @@ export class Person extends BaseEntity {
     onDelete: 'CASCADE'
   })
   addresses!: PersonAddress[];
+
+  @OneToMany(() => PersonImage, (personImage) => personImage.person, {
+    cascade: true,
+    onDelete: 'CASCADE'
+  })
+  images!: PersonImage[];
 }
 
 // PersonType Entity
@@ -357,6 +363,118 @@ export class PersonAddress extends BaseEntity {
   personId!: number;
 
   @ManyToOne(() => Person, (person) => person.addresses, {
+    nullable: false,
+    onDelete: 'CASCADE'
+  })
+  @JoinColumn({ name: 'person_id' })
+  person!: Person;
+}
+
+// PersonImage Entity
+@Entity('person_images')
+export class PersonImage extends BaseEntity {
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: false
+  })
+  @IsString()
+  @Length(1, 255)
+  filename!: string;
+
+  @Column({
+    type: 'varchar',
+    length: 500,
+    nullable: false
+  })
+  @IsString()
+  @Length(1, 500)
+  filePath!: string;
+
+  @Column({
+    type: 'varchar',
+    length: 100,
+    nullable: false
+  })
+  @IsString()
+  mimeType!: string; // image/jpeg, image/png, etc.
+
+  @Column({
+    type: 'integer',
+    nullable: false
+  })
+  fileSize!: number; // File size in bytes
+
+  @Column({
+    type: 'integer',
+    nullable: true
+  })
+  width?: number; // Image width in pixels
+
+  @Column({
+    type: 'integer',
+    nullable: true
+  })
+  height?: number; // Image height in pixels
+
+  @Column({
+    type: 'varchar',
+    length: 50,
+    nullable: false,
+    default: 'pending'
+  })
+  @IsString()
+  processingStatus!: 'pending' | 'processing' | 'completed' | 'failed'; // Processing status
+
+  @Column({
+    type: 'text',
+    nullable: true
+  })
+  @IsOptional()
+  @IsString()
+  processingError?: string; // Error message if processing failed
+
+  @Column({
+    type: 'boolean',
+    nullable: false,
+    default: true
+  })
+  shouldProcess!: boolean; // Whether this image should trigger face detection
+
+  @Column({
+    type: 'datetime',
+    nullable: true
+  })
+  processedAt?: Date; // When the image was processed
+
+  @Column({
+    type: 'varchar',
+    length: 50,
+    nullable: false,
+    default: 'active'
+  })
+  @IsString()
+  status!: string;
+
+  @Column({
+    type: 'text',
+    nullable: true
+  })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @Column({
+    type: 'text',
+    nullable: true
+  })
+  @IsOptional()
+  metadata?: string; // JSON string for additional image metadata
+
+  @Column({ name: 'person_id', nullable: false })
+  personId!: number;
+
+  @ManyToOne(() => Person, (person) => person.images, {
     nullable: false,
     onDelete: 'CASCADE'
   })

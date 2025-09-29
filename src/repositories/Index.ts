@@ -7,6 +7,7 @@ import {
   PersonFace,
   PersonContact,
   PersonAddress,
+  PersonImage,
   Event,
   Camera,
   Detection,
@@ -345,5 +346,102 @@ export class EventCameraRepository extends BaseRepository<EventCamera> {
 
     eventCamera.isActive = !eventCamera.isActive;
     return this.repository.save(eventCamera);
+  }
+}
+
+export class PersonImageRepository extends BaseRepository<PersonImage> {
+  constructor() {
+    super(AppDataSource.getRepository(PersonImage));
+  }
+
+  async findByPersonId(personId: number): Promise<PersonImage[]> {
+    return this.repository.find({
+      where: { personId },
+      relations: ['person'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async findByProcessingStatus(status: 'pending' | 'processing' | 'completed' | 'failed'): Promise<PersonImage[]> {
+    return this.repository.find({
+      where: { processingStatus: status },
+      relations: ['person'],
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  async findPendingForProcessing(): Promise<PersonImage[]> {
+    return this.repository.find({
+      where: {
+        processingStatus: 'pending',
+        shouldProcess: true,
+        status: 'active'
+      },
+      relations: ['person'],
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  async updateProcessingStatus(
+    id: number,
+    status: 'pending' | 'processing' | 'completed' | 'failed',
+    error?: string
+  ): Promise<boolean> {
+    const updateData: any = {
+      processingStatus: status,
+      processedAt: status === 'completed' ? new Date() : null,
+    };
+
+    if (error) {
+      updateData.processingError = error;
+    }
+
+    const result = await this.repository.update(id, updateData);
+    return result.affected! > 0;
+  }
+
+  async searchWithPagination(searchTerm: string, options: any): Promise<PaginatedResult<PersonImage>> {
+    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'DESC', where } = options;
+    const skip = (page - 1) * limit;
+
+    const queryBuilder = this.repository.createQueryBuilder('personImage')
+      .leftJoinAndSelect('personImage.person', 'person')
+      .where('person.organizationId = :organizationId', { organizationId: where.organizationId });
+
+    // Add search filters
+    if (searchTerm) {
+      queryBuilder.andWhere(
+        '(LOWER(personImage.filename) LIKE LOWER(:search) OR LOWER(person.name) LIKE LOWER(:search))',
+        { search: `%${searchTerm}%` }
+      );
+    }
+
+    // Add status filter if provided
+    if (where.status) {
+      queryBuilder.andWhere('personImage.status = :status', { status: where.status });
+    }
+
+    // Add processing status filter if provided
+    if (where.processingStatus) {
+      queryBuilder.andWhere('personImage.processingStatus = :processingStatus', {
+        processingStatus: where.processingStatus
+      });
+    }
+
+    queryBuilder
+      .skip(skip)
+      .take(limit)
+      .orderBy(`personImage.${sortBy}`, sortOrder);
+
+    const [data, total] = await queryBuilder.getManyAndCount();
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages,
+    };
   }
 }
