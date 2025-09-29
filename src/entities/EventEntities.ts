@@ -1,8 +1,8 @@
 import { Entity, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
 import { IsString, IsOptional, Length, IsDateString, IsNumber } from 'class-validator';
 import { BaseEntity } from './BaseEntity';
-import { Organization } from './Organization';
-import { Person, PersonFace } from './index';
+import { Organization } from './OrganizationEntities';
+import { PersonFace } from './PersonEntities';
 
 // Event Entity
 @Entity('events')

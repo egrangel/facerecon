@@ -23,8 +23,11 @@ import {
   PersonContact,
   PersonAddress,
   User,
+  Event,
+  Camera,
+  Detection,
+  EventCamera,
 } from '../entities';
-import { Event, Camera, Detection, EventCamera } from '../entities/EventEntities';
 
 export class OrganizationService extends BaseService<Organization> {
   constructor() {

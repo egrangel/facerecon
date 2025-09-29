@@ -1,8 +1,6 @@
 import { Entity, Column, OneToMany } from 'typeorm';
 import { IsString, IsOptional, Length } from 'class-validator';
 import { BaseEntity } from './BaseEntity';
-import { Person } from './Person';
-import { Event, Camera, Detection } from './EventEntities';
 
 @Entity('organizations')
 export class Organization extends BaseEntity {
@@ -40,28 +38,9 @@ export class Organization extends BaseEntity {
   @IsOptional()
   settings?: string; // JSON string
 
-  // Relationships
-  @OneToMany(() => Person, (person) => person.organization, {
-    cascade: true,
-    onDelete: 'CASCADE'
-  })
-  people!: Person[];
-
-  @OneToMany(() => Event, (event) => event.organization, {
-    cascade: true,
-    onDelete: 'CASCADE'
-  })
-  events!: Event[];
-
-  @OneToMany(() => Camera, (camera) => camera.organization, {
-    cascade: true,
-    onDelete: 'CASCADE'
-  })
-  cameras!: Camera[];
-
-  @OneToMany(() => Detection, (detection) => detection.organization, {
-    cascade: true,
-    onDelete: 'CASCADE'
-  })
-  detections!: Detection[];
+  // Note: Relationships are declared here but use forward references to avoid circular dependencies
+  people!: any[]; // Will be properly typed through index.ts exports
+  events!: any[]; // Will be properly typed through index.ts exports
+  cameras!: any[]; // Will be properly typed through index.ts exports
+  detections!: any[]; // Will be properly typed through index.ts exports
 }

@@ -1,10 +1,18 @@
 import { AppDataSource } from '../config/database';
 import { BaseRepository, PaginatedResult } from './BaseRepository';
-import { Organization } from '../entities/Organization';
-import { Person } from '../entities/Person';
-import { PersonType, PersonFace, PersonContact, PersonAddress } from '../entities';
-import { Event, Camera, Detection, EventCamera } from '../entities/EventEntities';
-import { User } from '../entities/User';
+import {
+  Organization,
+  Person,
+  PersonType,
+  PersonFace,
+  PersonContact,
+  PersonAddress,
+  Event,
+  Camera,
+  Detection,
+  EventCamera,
+  User
+} from '../entities';
 
 export class OrganizationRepository extends BaseRepository<Organization> {
   constructor() {
