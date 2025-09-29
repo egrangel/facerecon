@@ -8,6 +8,9 @@ import {
   QueryParams,
   User,
   Person,
+  PersonAddress,
+  PersonContact,
+  PersonFace,
   Organization,
   Event,
   Camera,
@@ -175,7 +178,8 @@ class ApiClient {
   }
 
   async getPerson(id: number): Promise<Person> {
-    return this.get<Person>(`/people/${id}`);
+    const response: AxiosResponse<{ success: boolean; data: Person }> = await this.client.get(`/people/${id}`);
+    return response.data.data;
   }
 
   async createPerson(data: Omit<Person, keyof BaseEntity>): Promise<Person> {
@@ -188,6 +192,66 @@ class ApiClient {
 
   async deletePerson(id: number): Promise<void> {
     return this.delete(`/people/${id}`);
+  }
+
+  // Person Address methods
+  async getPersonAddresses(personId: number): Promise<PersonAddress[]> {
+    const response: AxiosResponse<{ success: boolean; data: PersonAddress[] }> = await this.client.get(`/people/${personId}/addresses`);
+    return response.data.data;
+  }
+
+  async createPersonAddress(personId: number, data: Omit<PersonAddress, keyof BaseEntity | 'personId'>): Promise<PersonAddress> {
+    const response: AxiosResponse<{ success: boolean; data: PersonAddress }> = await this.client.post(`/people/${personId}/addresses`, data);
+    return response.data.data;
+  }
+
+  async updatePersonAddress(personId: number, addressId: number, data: Partial<PersonAddress>): Promise<PersonAddress> {
+    const response: AxiosResponse<{ success: boolean; data: PersonAddress }> = await this.client.put(`/people/${personId}/addresses/${addressId}`, data);
+    return response.data.data;
+  }
+
+  async deletePersonAddress(personId: number, addressId: number): Promise<void> {
+    await this.client.delete(`/people/${personId}/addresses/${addressId}`);
+  }
+
+  // Person Contact methods
+  async getPersonContacts(personId: number): Promise<PersonContact[]> {
+    const response: AxiosResponse<{ success: boolean; data: PersonContact[] }> = await this.client.get(`/people/${personId}/contacts`);
+    return response.data.data;
+  }
+
+  async createPersonContact(personId: number, data: Omit<PersonContact, keyof BaseEntity | 'personId'>): Promise<PersonContact> {
+    const response: AxiosResponse<{ success: boolean; data: PersonContact }> = await this.client.post(`/people/${personId}/contacts`, data);
+    return response.data.data;
+  }
+
+  async updatePersonContact(personId: number, contactId: number, data: Partial<PersonContact>): Promise<PersonContact> {
+    const response: AxiosResponse<{ success: boolean; data: PersonContact }> = await this.client.put(`/people/${personId}/contacts/${contactId}`, data);
+    return response.data.data;
+  }
+
+  async deletePersonContact(personId: number, contactId: number): Promise<void> {
+    await this.client.delete(`/people/${personId}/contacts/${contactId}`);
+  }
+
+  // Person Face methods
+  async getPersonFaces(personId: number): Promise<PersonFace[]> {
+    const response: AxiosResponse<{ success: boolean; data: PersonFace[] }> = await this.client.get(`/people/${personId}/faces`);
+    return response.data.data;
+  }
+
+  async createPersonFace(personId: number, data: Omit<PersonFace, keyof BaseEntity | 'personId'>): Promise<PersonFace> {
+    const response: AxiosResponse<{ success: boolean; data: PersonFace }> = await this.client.post(`/people/${personId}/faces`, data);
+    return response.data.data;
+  }
+
+  async updatePersonFace(personId: number, faceId: number, data: Partial<PersonFace>): Promise<PersonFace> {
+    const response: AxiosResponse<{ success: boolean; data: PersonFace }> = await this.client.put(`/people/${personId}/faces/${faceId}`, data);
+    return response.data.data;
+  }
+
+  async deletePersonFace(personId: number, faceId: number): Promise<void> {
+    await this.client.delete(`/people/${personId}/faces/${faceId}`);
   }
 
   // Camera methods

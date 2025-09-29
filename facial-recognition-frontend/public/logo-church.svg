@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" fill="none">
+  <!-- Background circle -->
+  <circle cx="96" cy="96" r="96" fill="#2563eb"/>
+
+  <!-- Church building base -->
+  <path stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M36 152h120V80l-60-48-60 48v72z" />
+
+  <!-- Church bell tower -->
+  <path stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M76 32V16h40v16" />
+
+  <!-- Cross on top -->
+  <path stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M96 16V8M88 12h16" />
+
+  <!-- Church door -->
+  <path stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M76 152v-28a8 8 0 018-8h16a8 8 0 018 8v28" />
+
+  <!-- Eye in the center - outer ring -->
+  <circle cx="96" cy="96" r="20" stroke="#ffffff" stroke-width="4" fill="none" />
+
+  <!-- Eye in the center - pupil -->
+  <circle cx="96" cy="96" r="16" fill="#ffffff" />
+
+  <!-- Eye in the center - iris -->
+  <circle cx="96" cy="96" r="10" fill="#2563eb" />
+
+  <!-- Eye highlight -->
+  <circle cx="100" cy="92" r="3" fill="#ffffff" />
+</svg>

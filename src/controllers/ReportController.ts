@@ -56,11 +56,11 @@ export class ReportController {
           p.id as personId,
           COUNT(*) as count
         FROM detections d
-        INNER JOIN person_faces pf ON d.personface_id = pf.id
+        INNER JOIN detection_faces pf ON d.detectionFace_id = pf.id
         INNER JOIN people p ON pf.person_id = p.id
         WHERE p.organization_id = ?
           AND d.detectionStatus IN ('confirmed')
-          AND d.personface_id IS NOT NULL
+          AND d.detectionFace_id IS NOT NULL
           ${eventCondition}
         GROUP BY p.id, p.name
         ORDER BY count DESC
@@ -141,11 +141,11 @@ export class ReportController {
           COUNT(DISTINCT p.id) as count
         FROM events e
         LEFT JOIN detections d ON e.id = d.event_id
-        LEFT JOIN person_faces pf ON d.personface_id = pf.id
+        LEFT JOIN detection_faces pf ON d.detectionFace_id = pf.id
         LEFT JOIN people p ON pf.person_id = p.id
         WHERE e.organization_id = ?
           AND d.detectionStatus IN ('confirmed')
-          AND d.personface_id IS NOT NULL
+          AND d.detectionFace_id IS NOT NULL
           ${eventCondition}
         GROUP BY e.id, e.name
         HAVING count > 0

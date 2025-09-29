@@ -207,18 +207,6 @@ export class PersonController extends BaseController<any> {
     });
   });
 
-  addFace = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const { id } = req.params;
-
-    const data = await this.personService.addFace(parseInt(id), req.body);
-
-    res.status(201).json({
-      success: true,
-      message: 'Face added successfully',
-      data,
-    });
-  });
-
   addContact = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
 
@@ -231,6 +219,41 @@ export class PersonController extends BaseController<any> {
     });
   });
 
+  getContacts = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+
+    const data = await this.personService.getContacts(parseInt(id));
+
+    res.status(200).json({
+      success: true,
+      message: 'Contacts retrieved successfully',
+      data,
+    });
+  });
+
+  updateContact = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { id, contactId } = req.params;
+
+    const data = await this.personService.updateContact(parseInt(id), parseInt(contactId), req.body);
+
+    res.status(200).json({
+      success: true,
+      message: 'Contact updated successfully',
+      data,
+    });
+  });
+
+  deleteContact = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { id, contactId } = req.params;
+
+    await this.personService.deleteContact(parseInt(id), parseInt(contactId));
+
+    res.status(200).json({
+      success: true,
+      message: 'Contact deleted successfully',
+    });
+  });
+
   addAddress = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
 
@@ -240,6 +263,41 @@ export class PersonController extends BaseController<any> {
       success: true,
       message: 'Address added successfully',
       data,
+    });
+  });
+
+  getAddresses = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+
+    const data = await this.personService.getAddresses(parseInt(id));
+
+    res.status(200).json({
+      success: true,
+      message: 'Addresses retrieved successfully',
+      data,
+    });
+  });
+
+  updateAddress = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { id, addressId } = req.params;
+
+    const data = await this.personService.updateAddress(parseInt(id), parseInt(addressId), req.body);
+
+    res.status(200).json({
+      success: true,
+      message: 'Address updated successfully',
+      data,
+    });
+  });
+
+  deleteAddress = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { id, addressId } = req.params;
+
+    await this.personService.deleteAddress(parseInt(id), parseInt(addressId));
+
+    res.status(200).json({
+      success: true,
+      message: 'Address deleted successfully',
     });
   });
 

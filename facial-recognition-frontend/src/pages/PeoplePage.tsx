@@ -6,6 +6,7 @@ import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import { apiClient } from '../services/api';
 import { Person, Detection } from '../types/api';
+import { PersonDetailView } from '../components/person/PersonDetailView';
 
 interface PersonFormData {
   name: string;
@@ -26,6 +27,7 @@ interface PersonFormData {
 const PessoasPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
+  const [viewingPersonId, setViewingPersonId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -154,11 +156,29 @@ const PessoasPage: React.FC = () => {
     setIsModalOpen(true);
   };
 
+  const handleViewDetails = (person: Person) => {
+    setViewingPersonId(person.id);
+    setEditingPerson(person); // Reuse the editingPerson state to store the selected person
+  };
+
   const handleDelete = (id: number) => {
     if (window.confirm('Tem certeza que deseja excluir esta pessoa?')) {
       deletePersonMutation.mutate(id);
     }
   };
+
+  // If viewing person details, render the detailed view
+  if (viewingPersonId && editingPerson) {
+    return (
+      <PersonDetailView
+        person={editingPerson}
+        onBack={() => {
+          setViewingPersonId(null);
+          setEditingPerson(null);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6 min-h-screen bg-[var(--color-background-primary)]">
@@ -302,13 +322,15 @@ const PessoasPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                         <Button
-                          variant="outline"
-                          onClick={() => handleEdit(person)}
+                          variant="primary"
+                          size="sm"
+                          onClick={() => handleViewDetails(person)}
                         >
-                          Editar
+                          Ver Detalhes
                         </Button>
                         <Button
                           variant="outline"
+                          size="sm"
                           onClick={() => handleDelete(person.id)}
                           className="text-[var(--color-status-error-text)] hover:text-[var(--color-status-error-text)] border-[var(--color-status-error-border)] hover:border-[var(--color-status-error-border)]"
                         >

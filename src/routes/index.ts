@@ -71,9 +71,18 @@ personRoutes.delete('/:id', authorize(['admin']), personController.delete);
 
 // Nested resources
 personRoutes.post('/:id/types', authorize(['admin', 'operator']), personController.addType);
-personRoutes.post('/:id/faces', authorize(['admin', 'operator']), personController.addFace);
+
+// Contact CRUD routes
+personRoutes.get('/:id/contacts', authorize(['admin', 'operator', 'viewer']), personController.getContacts);
 personRoutes.post('/:id/contacts', authorize(['admin', 'operator']), personController.addContact);
+personRoutes.put('/:id/contacts/:contactId', authorize(['admin', 'operator']), personController.updateContact);
+personRoutes.delete('/:id/contacts/:contactId', authorize(['admin', 'operator']), personController.deleteContact);
+
+// Address CRUD routes
+personRoutes.get('/:id/addresses', authorize(['admin', 'operator', 'viewer']), personController.getAddresses);
 personRoutes.post('/:id/addresses', authorize(['admin', 'operator']), personController.addAddress);
+personRoutes.put('/:id/addresses/:addressId', authorize(['admin', 'operator']), personController.updateAddress);
+personRoutes.delete('/:id/addresses/:addressId', authorize(['admin', 'operator']), personController.deleteAddress);
 
 // Event Routes
 export const eventRoutes = Router();

@@ -71,8 +71,6 @@ export class FaceIndexService {
       this.index.initIndex(initialCapacity, 16, 200);
       // console.log(`📊 Initialized HNSW index with capacity: ${initialCapacity}`);
 
-      let validFaceCount = 0;
-
       // Add faces to index
       for (const face of personFaces) {
         try {
@@ -102,14 +100,10 @@ export class FaceIndexService {
           this.index.addPoint(Array.from(embedding), face.id);
           this.indexedFaces.set(face.id, indexedFace);
 
-          validFaceCount++;
         } catch (error) {
           console.error(`❌ Error processing PersonFace ${face.id}:`, error);
         }
       }
-
-      // console.log(`✅ Successfully indexed ${validFaceCount} faces in ANN index`);
-      // console.log(`🎯 Using similarity threshold: ${this.SIMILARITY_THRESHOLD}`);
 
       this.isInitialized = true;
     } catch (error) {
@@ -173,26 +167,6 @@ export class FaceIndexService {
 
     // Sort by similarity
     matches.sort((a, b) => b.similarity - a.similarity);
-
-    // if (matches.length > 0) {
-      const best = matches[0];
-      // const modelType = best.similarity >= 0.9 ? 'ArcFace-like' : 'FaceNet-like';
-      // console.log(`🔍 Found ${matches.length} candidates. Best: ${best.personName} ${(best.similarity * 100).toFixed(1)}% ${best.isMatch ? '✅' : '❌'} (${modelType})`);
-      // console.log(`🎯 Current threshold: ${(this.SIMILARITY_THRESHOLD * 100).toFixed(1)}%`);
-
-      // Debug info for all matches to see the similarity distribution
-      // matches.forEach((match, idx) => {
-        // const status = match.isMatch ? '✅' : '❌';
-        // console.log(`   ${idx + 1}. ${match.personName}: ${(match.similarity * 100).toFixed(1)}% ${status}`);
-      // });
-
-      // Show if we're close to threshold
-      // if (!best.isMatch && best.similarity >= 0.5) {
-        // console.log(`💡 Best match is ${(best.similarity * 100).toFixed(1)}% - consider lowering threshold if this should match`);
-      // }
-    // } else {
-      // console.log(`🔍 No candidates found in index`);
-    // }
 
     return matches;
   } catch (error: any) {

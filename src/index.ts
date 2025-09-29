@@ -4,7 +4,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
-import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import path from 'path';
 import { createServer } from 'http';
@@ -30,24 +29,6 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 if (IS_PRODUCTION && process.env.TRUST_PROXY === 'true') {
   app.set('trust proxy', 1);
 }
-
-// Rate limiting
-// const limiter = rateLimit({
-//   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
-//   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '10000'),
-//   message: {
-//     success: false,
-//     message: 'Too many requests. Please try again later.',
-//   },
-//   standardHeaders: true,
-//   legacyHeaders: false,
-//   skipSuccessfulRequests: process.env.RATE_LIMIT_SKIP_SUCCESSFUL_REQUESTS === 'true',
-//   skipFailedRequests: process.env.RATE_LIMIT_SKIP_FAILED_REQUESTS === 'true',
-//   keyGenerator: (req) => {
-//     // Use X-Forwarded-For in production behind proxy
-//     return req.ip || req.connection.remoteAddress || 'unknown';
-//   },
-// });
 
 // Security middlewares
 app.use(helmet({
@@ -104,9 +85,6 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('combined'));
 }
 
-// Rate limiting
-// app.use(limiter);
-
 // Static file serving for uploaded images
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
@@ -117,7 +95,7 @@ app.use(`/api/${API_VERSION}`, apiRoutes);
 app.get('/', (req, res) => {
   res.json({
     success: true,
-    message: 'Facial Recognition API',
+    message: 'PastorIA Reconhecimento de Pessoas API',
     version: API_VERSION,
     documentation: process.env.SWAGGER_ENABLED === 'true' ? '/api/docs' : 'Disabled',
     timestamp: new Date().toISOString(),

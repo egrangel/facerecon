@@ -129,12 +129,117 @@ export class PersonService extends BaseService<Person> {
     });
   }
 
+  async getContacts(personId: number): Promise<PersonContact[]> {
+    const person = await this.findById(personId);
+    return this.personContactRepository.findAll({
+      where: { personId: person.id },
+    });
+  }
+
+  async getContact(personId: number): Promise<PersonContact[]> {
+    return this.getContacts(personId);
+  }
+
+  async updateContact(personId: number, contactId: number, contactData: DeepPartial<PersonContact>): Promise<PersonContact> {
+    const person = await this.findById(personId);
+
+    // Find the contact and verify it belongs to this person
+    const contact = await this.personContactRepository.findOne({
+      where: { id: contactId, personId: person.id },
+    });
+
+    if (!contact) {
+      throw createError('Contact not found or does not belong to this person', 404);
+    }
+
+    // Validate email if updating email contact
+    if (contactData.type === 'email' && contactData.value) {
+      this.validateEmailField(contactData.value);
+    }
+
+    // Update the contact
+    await this.personContactRepository.update(contactId, contactData);
+
+    // Return the updated contact
+    const updatedContact = await this.personContactRepository.findById(contactId);
+    if (!updatedContact) {
+      throw createError('Contact not found after update', 404);
+    }
+
+    return updatedContact;
+  }
+
+  async deleteContact(personId: number, contactId: number): Promise<void> {
+    const person = await this.findById(personId);
+
+    // Find the contact and verify it belongs to this person
+    const contact = await this.personContactRepository.findOne({
+      where: { id: contactId, personId: person.id },
+    });
+
+    if (!contact) {
+      throw createError('Contact not found or does not belong to this person', 404);
+    }
+
+    await this.personContactRepository.delete(contactId);
+  }
+
   async addAddress(personId: number, addressData: DeepPartial<PersonAddress>): Promise<PersonAddress> {
     const person = await this.findById(personId);
     return this.personAddressRepository.create({
       ...addressData,
       personId: person.id,
     });
+  }
+
+  async getAddresses(personId: number): Promise<PersonAddress[]> {
+    const person = await this.findById(personId);
+    return this.personAddressRepository.findAll({
+      where: { personId: person.id },
+    });
+  }
+
+  async getAddress(personId: number): Promise<PersonAddress[]> {
+    return this.getAddresses(personId);
+  }
+
+  async updateAddress(personId: number, addressId: number, addressData: DeepPartial<PersonAddress>): Promise<PersonAddress> {
+    const person = await this.findById(personId);
+
+    // Find the address and verify it belongs to this person
+    const address = await this.personAddressRepository.findOne({
+      where: { id: addressId, personId: person.id },
+    });
+
+    if (!address) {
+      throw createError('Address not found or does not belong to this person', 404);
+    }
+
+    // Update the address
+    await this.personAddressRepository.update(addressId, addressData);
+
+    // Return the updated address
+    const updatedAddress = await this.personAddressRepository.findById(addressId);
+    if (!updatedAddress) {
+      throw createError('Address not found after update', 404);
+    }
+
+    return updatedAddress;
+  }
+
+  async deleteAddress(personId: number, addressId: number): Promise<void> {
+    const person = await this.findById(personId);
+
+    // Find the address and verify it belongs to this person
+    const address = await this.personAddressRepository.findOne({
+      where: { id: addressId, personId: person.id },
+    });
+
+    if (!address) {
+      throw createError('Address not found or does not belong to this person', 404);
+    }
+
+    await this.personAddressRepository.delete(addressId);
   }
 
   async searchWithPagination(searchTerm: string, options: any): Promise<any> {
